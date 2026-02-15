@@ -19,7 +19,7 @@ import {
 
 const navItems = [
   { icon: Home, label: "Home", path: "/" },
-  { icon: MessageSquare, label: "Conversas", path: "/chat" },
+  { icon: MessageSquare, label: "Escritório", path: "/chat" },
   { icon: Kanban, label: "Esteira", path: "/board" },
   { icon: FileText, label: "Documentos", path: "/docs" },
   { icon: Calendar, label: "Reuniões", path: "/meetings" },

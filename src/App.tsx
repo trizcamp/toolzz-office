@@ -19,7 +19,7 @@ const App = () => (
         <Routes>
           <Route element={<AppLayout />}>
             <Route path="/" element={<Home />} />
-            <Route path="/chat" element={<PlaceholderPage title="Conversas" />} />
+            <Route path="/chat" element={<PlaceholderPage title="Escritório" />} />
             <Route path="/board" element={<PlaceholderPage title="Esteira" />} />
             <Route path="/docs" element={<PlaceholderPage title="Documentos" />} />
             <Route path="/meetings" element={<PlaceholderPage title="Reuniões" />} />
