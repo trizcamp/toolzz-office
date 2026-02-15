@@ -3,7 +3,7 @@ import { NavLink } from "react-router-dom";
 import { motion, AnimatePresence } from "framer-motion";
 import {
   Home,
-  MessageSquare,
+  Building2,
   Kanban,
   FileText,
   Settings,
@@ -19,7 +19,7 @@ import {
 
 const navItems = [
   { icon: Home, label: "Home", path: "/" },
-  { icon: MessageSquare, label: "Escritório", path: "/chat" },
+  { icon: Building2, label: "Escritório", path: "/chat" },
   { icon: Kanban, label: "Esteira", path: "/board" },
   { icon: FileText, label: "Documentos", path: "/docs" },
   { icon: Calendar, label: "Reuniões", path: "/meetings" },
