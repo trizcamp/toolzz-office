@@ -12,6 +12,7 @@ import {
   Puzzle,
 } from "lucide-react";
 import VoiceConnectionBar from "./VoiceConnectionBar";
+import toolzzLogo from "@/assets/toolzz-logo.png";
 
 const navItems = [
   { icon: Home, label: "Home", path: "/" },
@@ -35,9 +36,7 @@ export default function AppSidebar() {
     >
       {/* Logo */}
       <div className="flex items-center gap-3 px-4 h-14 border-b border-border shrink-0">
-        <div className="w-8 h-8 rounded-lg bg-primary flex items-center justify-center shrink-0">
-          <span className="text-primary-foreground font-bold text-sm">T</span>
-        </div>
+        <img src={toolzzLogo} alt="Toolzz" className="w-8 h-8 rounded-lg shrink-0 object-contain" />
         <AnimatePresence>
           {!collapsed && (
             <motion.span
