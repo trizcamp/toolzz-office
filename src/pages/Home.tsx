@@ -66,7 +66,7 @@ export default function HomePage() {
           initial={{ opacity: 0, y: 10 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ delay: 0.1 }}
-          className="bg-card border border-border rounded-xl p-4 flex flex-col items-center justify-center gap-3 lg:row-span-2 min-h-[200px]"
+          className="bg-card border border-border rounded-xl p-4 flex flex-col items-center justify-center gap-3"
         >
           <div className="flex-1 flex items-center justify-center w-full">
             <iframe
