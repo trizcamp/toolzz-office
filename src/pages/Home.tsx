@@ -4,6 +4,7 @@ import { useState } from "react";
 import { cn } from "@/lib/utils";
 import { useTasks } from "@/hooks/useTasks";
 import { useAuth } from "@/hooks/useAuth";
+import { useBoards } from "@/hooks/useBoards";
 import ToolzzChatDialog from "@/components/ToolzzChatDialog";
 
 function getGreeting() {
@@ -34,6 +35,7 @@ export default function HomePage() {
   const [isListening, setIsListening] = useState(false);
   const [chatOpen, setChatOpen] = useState(false);
   const { user } = useAuth();
+  const { boards } = useBoards();
   const { tasks } = useTasks(null);
   
   const userName = user?.user_metadata?.name || user?.email?.split("@")[0] || "Boss";
@@ -141,7 +143,7 @@ export default function HomePage() {
           <p className="text-xs text-muted-foreground text-center py-4">A atividade será exibida aqui conforme o uso</p>
         </motion.div>
       </div>
-      <ToolzzChatDialog open={chatOpen} onOpenChange={setChatOpen} />
+      <ToolzzChatDialog open={chatOpen} onOpenChange={setChatOpen} boardId={boards?.[0]?.id || null} />
     </div>
   );
 }

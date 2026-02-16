@@ -5,6 +5,8 @@ import { Button } from "@/components/ui/button";
 import { Send, Loader2, Bot, User } from "lucide-react";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { cn } from "@/lib/utils";
+import { supabase } from "@/integrations/supabase/client";
+import { useQueryClient } from "@tanstack/react-query";
 
 interface Message {
   role: "user" | "assistant";
@@ -14,16 +16,24 @@ interface Message {
 interface ToolzzChatDialogProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
+  boardId?: string | null;
 }
 
 const BOT_API_URL = "https://kratos.api.toolzz.com.br/api/v1/chat/send-message/";
 const BOT_ID = "c9214171-8ceb-4f61-9dc1-8e3dffbb21c4";
 
-export default function ToolzzChatDialog({ open, onOpenChange }: ToolzzChatDialogProps) {
+const TASK_INDICATORS = ["User Story", "Critérios de Aceite", "Dados da Tarefa", "Prioridade"];
+
+function looksLikeTaskResponse(text: string): boolean {
+  return TASK_INDICATORS.filter((kw) => text.includes(kw)).length >= 2;
+}
+
+export default function ToolzzChatDialog({ open, onOpenChange, boardId }: ToolzzChatDialogProps) {
   const [messages, setMessages] = useState<Message[]>([]);
   const [input, setInput] = useState("");
   const [loading, setLoading] = useState(false);
   const scrollRef = useRef<HTMLDivElement>(null);
+  const queryClient = useQueryClient();
 
   useEffect(() => {
     if (scrollRef.current) {
@@ -41,6 +51,7 @@ export default function ToolzzChatDialog({ open, onOpenChange }: ToolzzChatDialo
     setLoading(true);
 
     try {
+      // 1. Send to Toolzz agent
       const res = await fetch(BOT_API_URL, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -48,10 +59,67 @@ export default function ToolzzChatDialog({ open, onOpenChange }: ToolzzChatDialo
       });
 
       const data = await res.json();
-      const reply = data?.message?.content || data?.response || (typeof data?.message === "string" ? data.message : "Sem resposta do agente.");
-      setMessages((prev) => [...prev, { role: "assistant", content: reply }]);
+      const toolzzReply =
+        data?.message?.content ||
+        data?.response ||
+        (typeof data?.message === "string" ? data.message : "Sem resposta do agente.");
+
+      // 2. Check if response looks like a task
+      if (looksLikeTaskResponse(toolzzReply) && boardId) {
+        // Show a temporary "processing" message
+        setMessages((prev) => [
+          ...prev,
+          { role: "assistant", content: "⏳ Criando tarefa a partir da resposta do agente..." },
+        ]);
+
+        // 3. Send to ai-chat edge function to create task
+        const { data: aiData, error: aiError } = await supabase.functions.invoke("ai-chat", {
+          body: {
+            messages: [
+              {
+                role: "user",
+                content: `Com base no conteúdo abaixo, crie a tarefa no board. Extraia título, descrição, prioridade e tipo:\n\n${toolzzReply}`,
+              },
+            ],
+            boardId,
+          },
+        });
+
+        // 4. Replace processing message with confirmation
+        if (aiError) {
+          setMessages((prev) => {
+            const updated = [...prev];
+            updated[updated.length - 1] = {
+              role: "assistant",
+              content: "❌ Erro ao criar a tarefa. Tente novamente.",
+            };
+            return updated;
+          });
+        } else {
+          const createdTasks = aiData?.createdTasks || [];
+          const confirmationMsg =
+            createdTasks.length > 0
+              ? `✅ Tarefa criada com sucesso!\n\n**${createdTasks[0].title}** — ${createdTasks[0].display_id}`
+              : aiData?.message || "✅ Tarefa processada com sucesso!";
+
+          setMessages((prev) => {
+            const updated = [...prev];
+            updated[updated.length - 1] = { role: "assistant", content: confirmationMsg };
+            return updated;
+          });
+
+          // Invalidate tasks query to refresh lists
+          queryClient.invalidateQueries({ queryKey: ["tasks"] });
+        }
+      } else {
+        // Not a task — show Toolzz reply normally
+        setMessages((prev) => [...prev, { role: "assistant", content: toolzzReply }]);
+      }
     } catch (e) {
-      setMessages((prev) => [...prev, { role: "assistant", content: "Erro ao se comunicar com o agente. Tente novamente." }]);
+      setMessages((prev) => [
+        ...prev,
+        { role: "assistant", content: "Erro ao se comunicar com o agente. Tente novamente." },
+      ]);
     } finally {
       setLoading(false);
     }
