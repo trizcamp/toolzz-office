@@ -66,14 +66,14 @@ export default function HomePage() {
           initial={{ opacity: 0, y: 10 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ delay: 0.1 }}
-          className="bg-card border border-border rounded-xl p-4 flex flex-col items-center justify-center gap-3"
+          className="bg-card border border-border rounded-xl p-3 flex flex-col items-center justify-center gap-2"
         >
           <div className="flex items-center justify-center w-full">
             <iframe
               ref={iframeRef}
               src="https://admin.toolzz.ai/emb-voice/c46f095b-4520-4319-b4a0-882abde69ddc"
               width="460"
-              height="126"
+              height="100"
               id="chatbotVoiceIframe"
               allow="microphone"
               style={{ border: 'none', background: 'transparent' }}
