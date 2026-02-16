@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { Dialog, DialogContent } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -12,6 +12,7 @@ import { cn } from "@/lib/utils";
 import { useMembers, useUserRoles } from "@/hooks/useMembers";
 import { useAuth } from "@/hooks/useAuth";
 import { toast } from "sonner";
+import { supabase } from "@/integrations/supabase/client";
 
 interface SettingsDialogProps {
   open: boolean;
@@ -32,6 +33,45 @@ export default function SettingsDialog({ open, onOpenChange }: SettingsDialogPro
 
   // Account fields
   const [firstName, setFirstName] = useState("");
+  const [uploading, setUploading] = useState(false);
+  const fileInputRef = useRef<HTMLInputElement>(null);
+
+  const handleAvatarUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file || !user) return;
+    setUploading(true);
+    try {
+      const ext = file.name.split(".").pop();
+      const path = `${user.id}/avatar.${ext}`;
+      // Remove old avatar if exists
+      await supabase.storage.from("avatars").remove([path]);
+      const { error: uploadError } = await supabase.storage.from("avatars").upload(path, file, { upsert: true });
+      if (uploadError) throw uploadError;
+      const { data: { publicUrl } } = supabase.storage.from("avatars").getPublicUrl(path);
+      const avatarUrl = `${publicUrl}?t=${Date.now()}`;
+      await updateProfile.mutateAsync({ avatar_url: avatarUrl });
+      toast.success("Imagem atualizada!");
+    } catch (err: any) {
+      toast.error(err.message || "Erro ao enviar imagem");
+    } finally {
+      setUploading(false);
+      if (fileInputRef.current) fileInputRef.current.value = "";
+    }
+  };
+
+  const handleRemoveAvatar = async () => {
+    if (!user) return;
+    try {
+      const { data: files } = await supabase.storage.from("avatars").list(user.id);
+      if (files && files.length > 0) {
+        await supabase.storage.from("avatars").remove(files.map(f => `${user.id}/${f.name}`));
+      }
+      await updateProfile.mutateAsync({ avatar_url: "" });
+      toast.success("Imagem removida!");
+    } catch (err: any) {
+      toast.error(err.message || "Erro ao remover imagem");
+    }
+  };
 
   useEffect(() => {
     if (currentMember) {
@@ -132,12 +172,29 @@ export default function SettingsDialog({ open, onOpenChange }: SettingsDialogPro
 
               {/* Avatar */}
               <div className="flex items-center gap-4">
-                <div className="w-16 h-16 rounded-full bg-primary/20 flex items-center justify-center text-xl font-semibold text-primary">
-                  {firstName?.charAt(0)?.toUpperCase() || "U"}
-                </div>
+                {currentMember?.avatar_url ? (
+                  <img src={currentMember.avatar_url} alt="Avatar" className="w-16 h-16 rounded-full object-cover" />
+                ) : (
+                  <div className="w-16 h-16 rounded-full bg-primary/20 flex items-center justify-center text-xl font-semibold text-primary">
+                    {firstName?.charAt(0)?.toUpperCase() || "U"}
+                  </div>
+                )}
+                <input
+                  ref={fileInputRef}
+                  type="file"
+                  accept="image/*"
+                  className="hidden"
+                  onChange={handleAvatarUpload}
+                />
                 <div className="flex gap-2">
-                  <Button size="sm" variant="outline" className="text-xs">Enviar imagem</Button>
-                  <Button size="sm" variant="ghost" className="text-xs text-muted-foreground">Remover imagem</Button>
+                  <Button size="sm" variant="outline" className="text-xs" onClick={() => fileInputRef.current?.click()} disabled={uploading}>
+                    {uploading ? "Enviando..." : "Enviar imagem"}
+                  </Button>
+                  {currentMember?.avatar_url && (
+                    <Button size="sm" variant="ghost" className="text-xs text-muted-foreground" onClick={handleRemoveAvatar}>
+                      Remover imagem
+                    </Button>
+                  )}
                 </div>
               </div>
 
