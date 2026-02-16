@@ -58,7 +58,7 @@ export default function DocumentsPage() {
   const createNewDocument = () => {
     createDocument.mutate(
       { title: "Sem título", icon: "📄", type: "doc" },
-      { onSuccess: (data) => { setSelectedDocId(data.id); setFullscreen(false); } }
+      { onSuccess: (data) => { setSelectedDocId(data.id); setFullscreen(true); } }
     );
   };
 
