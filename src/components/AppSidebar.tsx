@@ -6,12 +6,8 @@ import {
   Building2,
   Kanban,
   FileText,
-  Settings,
   ChevronLeft,
   ChevronRight,
-  Search,
-  Bell,
-  Plus,
   Users,
   BarChart3,
   Calendar,
@@ -25,12 +21,6 @@ const navItems = [
   { icon: Calendar, label: "Reuniões", path: "/meetings" },
   { icon: BarChart3, label: "Relatórios", path: "/reports" },
   { icon: Users, label: "Equipe", path: "/team" },
-];
-
-const workspaces = [
-  { name: "Produto", color: "hsl(220 70% 55%)" },
-  { name: "Marketing", color: "hsl(142 71% 45%)" },
-  { name: "Vendas", color: "hsl(38 92% 50%)" },
 ];
 
 export default function AppSidebar() {
@@ -60,62 +50,6 @@ export default function AppSidebar() {
             </motion.span>
           )}
         </AnimatePresence>
-      </div>
-
-      {/* Workspaces */}
-      <div className="px-3 py-3 border-b border-border shrink-0">
-        <AnimatePresence>
-          {!collapsed && (
-            <motion.p
-              initial={{ opacity: 0 }}
-              animate={{ opacity: 1 }}
-              exit={{ opacity: 0 }}
-              className="text-[10px] uppercase tracking-widest text-muted-foreground mb-2 px-1"
-            >
-              Workspaces
-            </motion.p>
-          )}
-        </AnimatePresence>
-        <div className="flex flex-col gap-1">
-          {workspaces.map((ws) => (
-            <button
-              key={ws.name}
-              className="flex items-center gap-2.5 px-2 py-1.5 rounded-md hover:bg-surface-hover transition-colors"
-            >
-              <div
-                className="w-5 h-5 rounded-md shrink-0"
-                style={{ backgroundColor: ws.color }}
-              />
-              <AnimatePresence>
-                {!collapsed && (
-                  <motion.span
-                    initial={{ opacity: 0 }}
-                    animate={{ opacity: 1 }}
-                    exit={{ opacity: 0 }}
-                    className="text-xs text-secondary-foreground whitespace-nowrap"
-                  >
-                    {ws.name}
-                  </motion.span>
-                )}
-              </AnimatePresence>
-            </button>
-          ))}
-          <button className="flex items-center gap-2.5 px-2 py-1.5 rounded-md hover:bg-surface-hover transition-colors text-muted-foreground">
-            <Plus className="w-5 h-5 shrink-0" />
-            <AnimatePresence>
-              {!collapsed && (
-                <motion.span
-                  initial={{ opacity: 0 }}
-                  animate={{ opacity: 1 }}
-                  exit={{ opacity: 0 }}
-                  className="text-xs whitespace-nowrap"
-                >
-                  Novo workspace
-                </motion.span>
-              )}
-            </AnimatePresence>
-          </button>
-        </div>
       </div>
 
       {/* Navigation */}

@@ -7,6 +7,8 @@ import { VoiceConnectionProvider } from "./contexts/VoiceConnectionContext";
 import AppLayout from "./components/AppLayout";
 import Home from "./pages/Home";
 import OfficePage from "./pages/OfficePage";
+import BoardPage from "./pages/BoardPage";
+import MeetingsPage from "./pages/MeetingsPage";
 import PlaceholderPage from "./pages/PlaceholderPage";
 import NotFound from "./pages/NotFound";
 
@@ -23,9 +25,9 @@ const App = () => (
             <Route element={<AppLayout />}>
               <Route path="/" element={<Home />} />
               <Route path="/chat" element={<OfficePage />} />
-              <Route path="/board" element={<PlaceholderPage title="Esteira" />} />
+              <Route path="/board" element={<BoardPage />} />
               <Route path="/docs" element={<PlaceholderPage title="Documentos" />} />
-              <Route path="/meetings" element={<PlaceholderPage title="Reuniões" />} />
+              <Route path="/meetings" element={<MeetingsPage />} />
               <Route path="/reports" element={<PlaceholderPage title="Relatórios" />} />
               <Route path="/team" element={<PlaceholderPage title="Equipe" />} />
             </Route>
