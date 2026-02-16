@@ -1,4 +1,4 @@
-import { useState, useCallback, useRef, useMemo } from "react";
+import { useState, useCallback, useRef, useMemo, useEffect } from "react";
 import { X, Maximize2, Minimize2, Plus, Trash2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -12,7 +12,8 @@ import BlockEditor from "@/components/documents/BlockEditor";
 import type { Block } from "@/data/mockDocuments";
 import { motion } from "framer-motion";
 import { cn } from "@/lib/utils";
-import { useDocumentBlocks } from "@/hooks/useDocuments";
+import { useDocumentBlocks, useDocuments } from "@/hooks/useDocuments";
+import { supabase } from "@/integrations/supabase/client";
 
 interface TaskDetailPanelProps {
   task: Task & { document_id?: string | null };
@@ -54,7 +55,36 @@ export default function TaskDetailPanel({
   typeColors = {},
   onAddType,
 }: TaskDetailPanelProps) {
-  const documentId = task.document_id || null;
+  const [localDocId, setLocalDocId] = useState<string | null>(task.document_id || null);
+  const { createDocument } = useDocuments();
+
+  // Sync localDocId when task changes
+  useEffect(() => {
+    setLocalDocId(task.document_id || null);
+  }, [task.document_id]);
+
+  // Auto-create document if task doesn't have one
+  useEffect(() => {
+    if (localDocId || !task.id) return;
+    // Create a document linked to this task
+    createDocument.mutate(
+      {
+        title: task.title,
+        icon: "📋",
+        type: "spec",
+        task_id: task.id,
+      },
+      {
+        onSuccess: (data) => {
+          setLocalDocId(data.id);
+          // Link document back to task
+          supabase.from("tasks").update({ document_id: data.id }).eq("id", task.id);
+        },
+      }
+    );
+  }, [task.id]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  const documentId = localDocId;
   const { blocks: dbBlocks, saveBlocks } = useDocumentBlocks(documentId);
 
   const editorBlocks: Block[] = useMemo(() => {
