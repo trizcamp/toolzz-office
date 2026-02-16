@@ -71,9 +71,9 @@ export default function HomePage() {
           <div className="flex-1 flex items-center justify-center w-full">
             <iframe
               ref={iframeRef}
-              src="https://admin.toolzz.ai/emb-voice/c9214171-8ceb-4f61-9dc1-8e3dffbb21c4"
-              width="100%"
-              height="220"
+              src="https://admin.toolzz.ai/emb-voice/c46f095b-4520-4319-b4a0-882abde69ddc"
+              width="460"
+              height="126"
               id="chatbotVoiceIframe"
               allow="microphone"
               style={{ border: 'none', background: 'transparent' }}
