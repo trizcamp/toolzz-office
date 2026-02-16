@@ -5,6 +5,7 @@ import { Button } from "@/components/ui/button";
 import { Send, Loader2, Bot, User } from "lucide-react";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { cn } from "@/lib/utils";
+import ReactMarkdown from "react-markdown";
 import { supabase } from "@/integrations/supabase/client";
 import { useQueryClient } from "@tanstack/react-query";
 
@@ -142,13 +143,17 @@ export default function ToolzzChatDialog({ open, onOpenChange, boardId }: Toolzz
                 {msg.role === "assistant" && <Bot className="w-5 h-5 text-primary shrink-0 mt-1" />}
                 <div
                   className={cn(
-                    "rounded-lg px-3 py-2 text-sm max-w-[80%] whitespace-pre-wrap",
+                    "rounded-lg px-3 py-2 text-sm max-w-[80%]",
                     msg.role === "user"
-                      ? "bg-primary text-primary-foreground"
-                      : "bg-muted text-foreground"
+                      ? "bg-primary text-primary-foreground whitespace-pre-wrap"
+                      : "bg-muted text-foreground prose prose-sm prose-invert max-w-none [&_h1]:text-base [&_h1]:font-bold [&_h1]:mt-2 [&_h1]:mb-1 [&_h2]:text-sm [&_h2]:font-semibold [&_h2]:mt-2 [&_h2]:mb-1 [&_h3]:text-sm [&_h3]:font-semibold [&_h3]:mt-1.5 [&_h3]:mb-1 [&_p]:my-1 [&_ul]:my-1 [&_ol]:my-1 [&_li]:my-0.5"
                   )}
                 >
-                  {msg.content}
+                  {msg.role === "assistant" ? (
+                    <ReactMarkdown>{msg.content}</ReactMarkdown>
+                  ) : (
+                    msg.content
+                  )}
                 </div>
                 {msg.role === "user" && <User className="w-5 h-5 text-muted-foreground shrink-0 mt-1" />}
               </div>
