@@ -68,16 +68,18 @@ export default function HomePage() {
           transition={{ delay: 0.1 }}
           className="bg-card border border-border rounded-xl p-6 flex flex-col items-center justify-center gap-4 lg:row-span-2"
         >
-          <iframe
-            ref={iframeRef}
-            src="https://admin.toolzz.ai/emb-voice/c9214171-8ceb-4f61-9dc1-8e3dffbb21c4"
-            width="100%"
-            height="126"
-            id="chatbotVoiceIframe"
-            allow="microphone"
-            style={{ border: 'none', background: 'transparent' }}
-            data-allowtransparency="true"
-          />
+          <div className="flex-1 flex items-center justify-center w-full">
+            <iframe
+              ref={iframeRef}
+              src="https://admin.toolzz.ai/emb-voice/c9214171-8ceb-4f61-9dc1-8e3dffbb21c4"
+              width="100%"
+              height="126"
+              id="chatbotVoiceIframe"
+              allow="microphone"
+              style={{ border: 'none', background: 'transparent' }}
+              data-allowtransparency="true"
+            />
+          </div>
           <div className="w-full">
             <button onClick={() => setChatOpen(true)} className="w-full btn-gradient rounded-lg py-2 text-xs font-medium">
               <MessageSquare className="w-3.5 h-3.5 inline mr-1.5" />Via texto
