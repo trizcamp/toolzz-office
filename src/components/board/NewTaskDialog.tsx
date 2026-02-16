@@ -145,12 +145,12 @@ export default function NewTaskDialog({ open, onOpenChange, onCreateTask, existi
           </div>
           <div className={`grid gap-3 ${connected ? "grid-cols-2" : "grid-cols-1"}`}>
             <div className="space-y-2">
-              <Label>Data de entrega</Label>
+              <Label className="flex items-center h-5">Data de entrega</Label>
               <Input type="date" value={formData.deliveryDate} onChange={(e) => setFormData({ ...formData, deliveryDate: e.target.value })} className="h-10" />
             </div>
             {connected && (
               <div className="space-y-2">
-                <Label className="flex items-center gap-1.5">
+                <Label className="flex items-center gap-1.5 h-5">
                   <Github className="w-3.5 h-3.5" /> Repositório
                 </Label>
                 {loadingRepos ? (
