@@ -20,7 +20,6 @@ export function useTaskVotes(boardId: string | null) {
   const query = useQuery({
     queryKey: ["task-votes", boardId],
     queryFn: async () => {
-      // Get all task ids for this board first
       const { data: tasks, error: tasksErr } = await supabase
         .from("tasks")
         .select("id")
@@ -29,28 +28,34 @@ export function useTaskVotes(boardId: string | null) {
       if (!tasks || tasks.length === 0) return [];
 
       const taskIds = tasks.map((t) => t.id);
-      const { data, error } = await supabase
+      const { data: votes, error: votesErr } = await supabase
         .from("task_votes")
-        .select("*, members!task_votes_user_id_fkey(name, surname, avatar_url)")
+        .select("*")
         .in("task_id", taskIds);
+      if (votesErr) throw votesErr;
+      if (!votes || votes.length === 0) return [];
 
-      if (error) {
-        // Fallback without join if FK doesn't exist
-        const { data: fallback, error: fbErr } = await supabase
-          .from("task_votes")
-          .select("*")
-          .in("task_id", taskIds);
-        if (fbErr) throw fbErr;
-        return (fallback || []) as TaskVote[];
-      }
+      // Fetch member info for all voters
+      const userIds = [...new Set(votes.map((v) => v.user_id))];
+      const { data: members } = await supabase
+        .from("members")
+        .select("id, name, surname, avatar_url")
+        .in("id", userIds);
 
-      return (data || []).map((v: any) => ({
-        ...v,
-        member_name: v.members
-          ? `${v.members.name}${v.members.surname ? ` ${v.members.surname.charAt(0)}.` : ""}`
-          : undefined,
-        member_avatar: v.members?.avatar_url || undefined,
-      })) as TaskVote[];
+      const memberMap = new Map(
+        (members || []).map((m) => [m.id, m])
+      );
+
+      return votes.map((v) => {
+        const member = memberMap.get(v.user_id);
+        return {
+          ...v,
+          member_name: member
+            ? `${member.name}${member.surname ? ` ${member.surname.charAt(0)}.` : ""}`
+            : undefined,
+          member_avatar: member?.avatar_url || undefined,
+        };
+      }) as TaskVote[];
     },
     enabled: !!user && !!boardId,
   });
