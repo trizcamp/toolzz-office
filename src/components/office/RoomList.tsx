@@ -10,9 +10,11 @@ interface RoomListProps {
   activeRoomId: string | null;
   onSelectRoom: (room: Room) => void;
   onRoomsChange: (rooms: Room[]) => void;
+  onSubmitRoom?: (data: { name: string; category: string; type: RoomType }, editingRoom: Room | null) => void;
+  onDeleteRoom?: (roomId: string) => void;
 }
 
-export default function RoomList({ rooms, activeRoomId, onSelectRoom, onRoomsChange }: RoomListProps) {
+export default function RoomList({ rooms, activeRoomId, onSelectRoom, onRoomsChange, onSubmitRoom, onDeleteRoom }: RoomListProps) {
   const [dialogOpen, setDialogOpen] = useState(false);
   const [editingRoom, setEditingRoom] = useState<Room | null>(null);
 
@@ -29,7 +31,9 @@ export default function RoomList({ rooms, activeRoomId, onSelectRoom, onRoomsCha
   const categories = useMemo(() => [...new Set(rooms.map((r) => r.category))], [rooms]);
 
   const handleSubmit = (data: { name: string; category: string; type: RoomType }) => {
-    if (editingRoom) {
+    if (onSubmitRoom) {
+      onSubmitRoom(data, editingRoom);
+    } else if (editingRoom) {
       onRoomsChange(rooms.map((r) => r.id === editingRoom.id ? { ...r, ...data } : r));
     } else {
       const newRoom: Room = { id: `r${Date.now()}`, name: data.name, category: data.category, type: data.type, connectedUsers: [] };
@@ -40,7 +44,13 @@ export default function RoomList({ rooms, activeRoomId, onSelectRoom, onRoomsCha
 
   const handleEdit = (room: Room) => { setEditingRoom(room); setDialogOpen(true); };
   const handleNew = () => { setEditingRoom(null); setDialogOpen(true); };
-  const handleDelete = (roomId: string) => { onRoomsChange(rooms.filter((r) => r.id !== roomId)); };
+  const handleDelete = (roomId: string) => {
+    if (onDeleteRoom) {
+      onDeleteRoom(roomId);
+    } else {
+      onRoomsChange(rooms.filter((r) => r.id !== roomId));
+    }
+  };
 
   return (
     <div className="w-[220px] shrink-0 border-r border-border bg-sidebar overflow-y-auto flex flex-col">

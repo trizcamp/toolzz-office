@@ -14,16 +14,609 @@ export type Database = {
   }
   public: {
     Tables: {
-      [_ in never]: never
+      boards: {
+        Row: {
+          created_at: string
+          created_by: string | null
+          description: string | null
+          icon: string | null
+          id: string
+          name: string
+          sector: string | null
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          created_by?: string | null
+          description?: string | null
+          icon?: string | null
+          id?: string
+          name: string
+          sector?: string | null
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          created_by?: string | null
+          description?: string | null
+          icon?: string | null
+          id?: string
+          name?: string
+          sector?: string | null
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      document_blocks: {
+        Row: {
+          checked: boolean | null
+          content: string | null
+          created_at: string
+          document_id: string
+          id: string
+          metadata: Json | null
+          position: number
+          type: Database["public"]["Enums"]["block_type"]
+          updated_at: string
+        }
+        Insert: {
+          checked?: boolean | null
+          content?: string | null
+          created_at?: string
+          document_id: string
+          id?: string
+          metadata?: Json | null
+          position?: number
+          type?: Database["public"]["Enums"]["block_type"]
+          updated_at?: string
+        }
+        Update: {
+          checked?: boolean | null
+          content?: string | null
+          created_at?: string
+          document_id?: string
+          id?: string
+          metadata?: Json | null
+          position?: number
+          type?: Database["public"]["Enums"]["block_type"]
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "document_blocks_document_id_fkey"
+            columns: ["document_id"]
+            isOneToOne: false
+            referencedRelation: "documents"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      document_comments: {
+        Row: {
+          created_at: string
+          document_id: string
+          id: string
+          text: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          document_id: string
+          id?: string
+          text: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          document_id?: string
+          id?: string
+          text?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "document_comments_document_id_fkey"
+            columns: ["document_id"]
+            isOneToOne: false
+            referencedRelation: "documents"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      documents: {
+        Row: {
+          created_at: string
+          created_by: string | null
+          icon: string | null
+          id: string
+          task_id: string | null
+          title: string
+          type: Database["public"]["Enums"]["doc_type"]
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          created_by?: string | null
+          icon?: string | null
+          id?: string
+          task_id?: string | null
+          title?: string
+          type?: Database["public"]["Enums"]["doc_type"]
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          created_by?: string | null
+          icon?: string | null
+          id?: string
+          task_id?: string | null
+          title?: string
+          type?: Database["public"]["Enums"]["doc_type"]
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "documents_task_id_fkey"
+            columns: ["task_id"]
+            isOneToOne: false
+            referencedRelation: "tasks"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      meeting_participants: {
+        Row: {
+          id: string
+          meeting_id: string
+          user_id: string
+        }
+        Insert: {
+          id?: string
+          meeting_id: string
+          user_id: string
+        }
+        Update: {
+          id?: string
+          meeting_id?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "meeting_participants_meeting_id_fkey"
+            columns: ["meeting_id"]
+            isOneToOne: false
+            referencedRelation: "meetings"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      meeting_tasks: {
+        Row: {
+          id: string
+          meeting_id: string
+          task_id: string
+        }
+        Insert: {
+          id?: string
+          meeting_id: string
+          task_id: string
+        }
+        Update: {
+          id?: string
+          meeting_id?: string
+          task_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "meeting_tasks_meeting_id_fkey"
+            columns: ["meeting_id"]
+            isOneToOne: false
+            referencedRelation: "meetings"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "meeting_tasks_task_id_fkey"
+            columns: ["task_id"]
+            isOneToOne: false
+            referencedRelation: "tasks"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      meeting_transcripts: {
+        Row: {
+          created_at: string
+          id: string
+          meeting_id: string
+          speaker_id: string | null
+          text: string
+          timestamp: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          meeting_id: string
+          speaker_id?: string | null
+          text: string
+          timestamp?: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          meeting_id?: string
+          speaker_id?: string | null
+          text?: string
+          timestamp?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "meeting_transcripts_meeting_id_fkey"
+            columns: ["meeting_id"]
+            isOneToOne: false
+            referencedRelation: "meetings"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      meetings: {
+        Row: {
+          created_at: string
+          created_by: string | null
+          date: string
+          end_time: string | null
+          id: string
+          room_id: string | null
+          start_time: string | null
+          summary: string | null
+          title: string
+        }
+        Insert: {
+          created_at?: string
+          created_by?: string | null
+          date?: string
+          end_time?: string | null
+          id?: string
+          room_id?: string | null
+          start_time?: string | null
+          summary?: string | null
+          title: string
+        }
+        Update: {
+          created_at?: string
+          created_by?: string | null
+          date?: string
+          end_time?: string | null
+          id?: string
+          room_id?: string | null
+          start_time?: string | null
+          summary?: string | null
+          title?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "meetings_room_id_fkey"
+            columns: ["room_id"]
+            isOneToOne: false
+            referencedRelation: "rooms"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      members: {
+        Row: {
+          avatar_url: string | null
+          created_at: string
+          email: string
+          id: string
+          language: string | null
+          name: string
+          phone: string | null
+          surname: string
+          updated_at: string
+        }
+        Insert: {
+          avatar_url?: string | null
+          created_at?: string
+          email?: string
+          id: string
+          language?: string | null
+          name?: string
+          phone?: string | null
+          surname?: string
+          updated_at?: string
+        }
+        Update: {
+          avatar_url?: string | null
+          created_at?: string
+          email?: string
+          id?: string
+          language?: string | null
+          name?: string
+          phone?: string | null
+          surname?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      messages: {
+        Row: {
+          created_at: string
+          id: string
+          room_id: string
+          text: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          room_id: string
+          text: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          room_id?: string
+          text?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "messages_room_id_fkey"
+            columns: ["room_id"]
+            isOneToOne: false
+            referencedRelation: "rooms"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      rooms: {
+        Row: {
+          category: string
+          created_at: string
+          created_by: string | null
+          id: string
+          name: string
+          type: Database["public"]["Enums"]["room_type"]
+        }
+        Insert: {
+          category?: string
+          created_at?: string
+          created_by?: string | null
+          id?: string
+          name: string
+          type?: Database["public"]["Enums"]["room_type"]
+        }
+        Update: {
+          category?: string
+          created_at?: string
+          created_by?: string | null
+          id?: string
+          name?: string
+          type?: Database["public"]["Enums"]["room_type"]
+        }
+        Relationships: []
+      }
+      task_assignees: {
+        Row: {
+          created_at: string
+          id: string
+          task_id: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          task_id: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          task_id?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "task_assignees_task_id_fkey"
+            columns: ["task_id"]
+            isOneToOne: false
+            referencedRelation: "tasks"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      task_votes: {
+        Row: {
+          created_at: string
+          id: string
+          points: number
+          task_id: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          points: number
+          task_id: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          points?: number
+          task_id?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "task_votes_task_id_fkey"
+            columns: ["task_id"]
+            isOneToOne: false
+            referencedRelation: "tasks"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      tasks: {
+        Row: {
+          board_id: string
+          created_at: string
+          created_by: string | null
+          delivery_date: string | null
+          description: string | null
+          display_id: string
+          document_id: string | null
+          id: string
+          parent_id: string | null
+          points: number | null
+          priority: Database["public"]["Enums"]["task_priority"]
+          status: Database["public"]["Enums"]["task_status"]
+          title: string
+          type: string | null
+          updated_at: string
+        }
+        Insert: {
+          board_id: string
+          created_at?: string
+          created_by?: string | null
+          delivery_date?: string | null
+          description?: string | null
+          display_id?: string
+          document_id?: string | null
+          id?: string
+          parent_id?: string | null
+          points?: number | null
+          priority?: Database["public"]["Enums"]["task_priority"]
+          status?: Database["public"]["Enums"]["task_status"]
+          title: string
+          type?: string | null
+          updated_at?: string
+        }
+        Update: {
+          board_id?: string
+          created_at?: string
+          created_by?: string | null
+          delivery_date?: string | null
+          description?: string | null
+          display_id?: string
+          document_id?: string | null
+          id?: string
+          parent_id?: string | null
+          points?: number | null
+          priority?: Database["public"]["Enums"]["task_priority"]
+          status?: Database["public"]["Enums"]["task_status"]
+          title?: string
+          type?: string | null
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "tasks_board_id_fkey"
+            columns: ["board_id"]
+            isOneToOne: false
+            referencedRelation: "boards"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "tasks_document_id_fkey"
+            columns: ["document_id"]
+            isOneToOne: false
+            referencedRelation: "documents"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "tasks_parent_id_fkey"
+            columns: ["parent_id"]
+            isOneToOne: false
+            referencedRelation: "tasks"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      type_definitions: {
+        Row: {
+          board_id: string
+          color_classes: string
+          created_at: string
+          id: string
+          name: string
+        }
+        Insert: {
+          board_id: string
+          color_classes?: string
+          created_at?: string
+          id?: string
+          name: string
+        }
+        Update: {
+          board_id?: string
+          color_classes?: string
+          created_at?: string
+          id?: string
+          name?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "type_definitions_board_id_fkey"
+            columns: ["board_id"]
+            isOneToOne: false
+            referencedRelation: "boards"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      user_roles: {
+        Row: {
+          id: string
+          role: Database["public"]["Enums"]["app_role"]
+          user_id: string
+        }
+        Insert: {
+          id?: string
+          role: Database["public"]["Enums"]["app_role"]
+          user_id: string
+        }
+        Update: {
+          id?: string
+          role?: Database["public"]["Enums"]["app_role"]
+          user_id?: string
+        }
+        Relationships: []
+      }
     }
     Views: {
       [_ in never]: never
     }
     Functions: {
-      [_ in never]: never
+      has_role: {
+        Args: {
+          _role: Database["public"]["Enums"]["app_role"]
+          _user_id: string
+        }
+        Returns: boolean
+      }
     }
     Enums: {
-      [_ in never]: never
+      app_role: "admin" | "member"
+      block_type:
+        | "paragraph"
+        | "heading1"
+        | "heading2"
+        | "heading3"
+        | "bulletList"
+        | "numberedList"
+        | "todoList"
+        | "code"
+        | "quote"
+        | "callout"
+        | "divider"
+        | "toggle"
+        | "image"
+      doc_type: "doc" | "spec" | "note"
+      room_type: "voice" | "text" | "hybrid"
+      task_priority: "critical" | "high" | "medium" | "low"
+      task_status: "backlog" | "todo" | "in_progress" | "review" | "done"
     }
     CompositeTypes: {
       [_ in never]: never
@@ -150,6 +743,27 @@ export type CompositeTypes<
 
 export const Constants = {
   public: {
-    Enums: {},
+    Enums: {
+      app_role: ["admin", "member"],
+      block_type: [
+        "paragraph",
+        "heading1",
+        "heading2",
+        "heading3",
+        "bulletList",
+        "numberedList",
+        "todoList",
+        "code",
+        "quote",
+        "callout",
+        "divider",
+        "toggle",
+        "image",
+      ],
+      doc_type: ["doc", "spec", "note"],
+      room_type: ["voice", "text", "hybrid"],
+      task_priority: ["critical", "high", "medium", "low"],
+      task_status: ["backlog", "todo", "in_progress", "review", "done"],
+    },
   },
 } as const
