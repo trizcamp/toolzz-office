@@ -41,7 +41,7 @@ export function useDocuments() {
     queryFn: async () => {
       const { data, error } = await supabase
         .from("documents")
-        .select("*, tasks(display_id, title)")
+        .select("*, tasks!documents_task_id_fkey(display_id, title)")
         .order("updated_at", { ascending: false });
       if (error) throw error;
       return data;
