@@ -1,14 +1,16 @@
 import { useState } from "react";
 import { useAuth } from "@/hooks/useAuth";
+import { useMembers } from "@/hooks/useMembers";
 import { Search, Bell, Settings, LogOut } from "lucide-react";
 import SettingsDialog from "@/components/settings/SettingsDialog";
 
 export default function TopBar() {
   const { user, signOut } = useAuth();
+  const { currentMember } = useMembers();
   const [settingsOpen, setSettingsOpen] = useState(false);
 
-  const initials = user?.user_metadata?.name
-    ? user.user_metadata.name.split(" ").map((n: string) => n.charAt(0)).join("").slice(0, 2).toUpperCase()
+  const initials = currentMember?.name
+    ? `${currentMember.name.charAt(0)}${currentMember.surname?.charAt(0) || ""}`.toUpperCase()
     : user?.email?.charAt(0).toUpperCase() || "?";
 
   return (
@@ -32,9 +34,13 @@ export default function TopBar() {
           <button className="p-2 rounded-lg hover:bg-surface-hover transition-colors text-muted-foreground hover:text-foreground" onClick={signOut} title="Sair">
             <LogOut className="w-[18px] h-[18px]" />
           </button>
-          <div className="w-8 h-8 rounded-full bg-primary/20 flex items-center justify-center ml-2">
-            <span className="text-xs font-medium text-primary">{initials}</span>
-          </div>
+          {currentMember?.avatar_url ? (
+            <img src={currentMember.avatar_url} alt="Avatar" className="w-8 h-8 rounded-full object-cover ml-2" />
+          ) : (
+            <div className="w-8 h-8 rounded-full bg-primary/20 flex items-center justify-center ml-2">
+              <span className="text-xs font-medium text-primary">{initials}</span>
+            </div>
+          )}
         </div>
       </header>
       <SettingsDialog open={settingsOpen} onOpenChange={setSettingsOpen} />
