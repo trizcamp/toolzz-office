@@ -62,7 +62,34 @@ export function useGithubIntegration() {
         body: { action: "get-oauth-url" },
       });
       if (error || data?.error) throw new Error(data?.error || "Erro ao gerar URL");
-      window.location.href = data.authUrl;
+      
+      // Open in new tab to avoid iframe restrictions
+      const popup = window.open(data.authUrl, "_blank");
+      if (!popup) {
+        // Fallback: try top-level navigation
+        if (window.top) {
+          window.top.location.href = data.authUrl;
+        } else {
+          window.location.href = data.authUrl;
+        }
+      }
+      
+      // Poll for connection status while popup is open
+      const pollInterval = setInterval(async () => {
+        const { data: intData } = await supabase
+          .from("github_integrations")
+          .select("github_username")
+          .eq("user_id", user!.id)
+          .maybeSingle();
+        if (intData?.github_username) {
+          setConnected(true);
+          setUsername(intData.github_username);
+          clearInterval(pollInterval);
+        }
+      }, 2000);
+      
+      // Stop polling after 5 minutes
+      setTimeout(() => clearInterval(pollInterval), 300000);
     } catch (e) {
       console.error("Failed to start GitHub OAuth:", e);
     }
