@@ -34,9 +34,9 @@ const priorityColors: Record<string, string> = {
 };
 
 const sectorTemplates = [
-  { sector: "Produto", icon: "🚀", description: "Kanban para equipes de produto com foco em features e bugs." },
-  { sector: "Marketing", icon: "📢", description: "Gestão de campanhas, conteúdo e ações de marketing." },
-  { sector: "Comercial", icon: "💼", description: "Pipeline de vendas, leads e acompanhamento comercial." },
+  { sector: "Produto", icon: "◼", description: "Kanban para equipes de produto com foco em features e bugs." },
+  { sector: "Departamento", icon: "◻", description: "Gestão de tarefas e demandas por departamento." },
+  { sector: "Serviço", icon: "▣", description: "Acompanhamento de entregas e prestação de serviços." },
 ];
 
 export default function BoardPage() {
