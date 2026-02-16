@@ -22,6 +22,8 @@ import NewTaskDialog from "@/components/board/NewTaskDialog";
 import TaskDetailPanel from "@/components/board/TaskDetailPanel";
 import { AnimatePresence } from "framer-motion";
 import { useMembers, useUserRoles } from "@/hooks/useMembers";
+import { useTaskVotes } from "@/hooks/useTaskVotes";
+import { useAuth } from "@/hooks/useAuth";
 import { Skeleton } from "@/components/ui/skeleton";
 
 const allStatuses: TaskStatus[] = ["backlog", "todo", "in_progress", "review", "done"];
@@ -51,6 +53,9 @@ export default function BoardPage() {
   const { tasks, isLoading: tasksLoading, createTask, updateTask, deleteTask: deleteTaskMut } = useTasks(selectedBoard);
   const { members } = useMembers();
   const { isAdmin } = useUserRoles();
+  const { votes, castVote } = useTaskVotes(selectedBoard);
+  const { user } = useAuth();
+  const [activeTab, setActiveTab] = useState("kanban");
 
   const [newTaskOpen, setNewTaskOpen] = useState(false);
   const [assigneeFilter, setAssigneeFilter] = useState("all");
@@ -361,7 +366,7 @@ export default function BoardPage() {
           )}
         </div>
 
-        <Tabs defaultValue="kanban" className="flex-1 flex flex-col min-h-0">
+        <Tabs defaultValue="kanban" className="flex-1 flex flex-col min-h-0" onValueChange={setActiveTab} value={activeTab}>
           <div className="px-6 pt-3 shrink-0">
             <TabsList>
               <TabsTrigger value="kanban">Kanban</TabsTrigger>
@@ -427,13 +432,22 @@ export default function BoardPage() {
           </TabsContent>
 
           <TabsContent value="report" className="flex-1 overflow-y-auto px-6 py-4">
-            <BoardReport tasks={mappedTasks} />
+            <BoardReport tasks={mappedTasks} boardId={selectedBoard!} />
           </TabsContent>
 
           <TabsContent value="priority" className="flex-1 overflow-y-auto px-6 py-4">
             <div className="grid md:grid-cols-2 gap-4">
               {mappedTasks.map((task) => (
-                <PriorityPokerCard key={task.id} task={task} onDelete={() => handleDeleteTask(task.id)} onUpdate={handleUpdateTask} onSelect={() => setSelectedTask(task)} />
+                <PriorityPokerCard
+                  key={task.id}
+                  task={task}
+                  onDelete={() => handleDeleteTask(task.id)}
+                  onUpdate={handleUpdateTask}
+                  onSelect={() => setSelectedTask(task)}
+                  votes={votes.filter((v) => v.task_id === (task as any)._dbId)}
+                  currentUserId={user?.id}
+                  onVote={(taskId, points) => castVote.mutate({ taskId, points })}
+                />
               ))}
             </div>
           </TabsContent>
@@ -452,6 +466,7 @@ export default function BoardPage() {
             typeLabels={typeLabelsState}
             typeColors={typeColorsState}
             onAddType={handleAddType}
+            readOnly={activeTab === "priority"}
           />
         )}
       </AnimatePresence>

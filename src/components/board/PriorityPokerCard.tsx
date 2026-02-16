@@ -6,26 +6,38 @@ import { Input } from "@/components/ui/input";
 import { cn } from "@/lib/utils";
 import type { Task } from "@/data/mockTasks";
 import { fibonacciPoints } from "@/data/mockTasks";
+import type { TaskVote } from "@/hooks/useTaskVotes";
 
 interface PriorityPokerCardProps {
   task: Task;
   onDelete: () => void;
   onUpdate: (task: Task) => void;
   onSelect: () => void;
+  votes?: TaskVote[];
+  currentUserId?: string;
+  onVote?: (taskId: string, points: number) => void;
 }
 
-export default function PriorityPokerCard({ task, onDelete, onUpdate, onSelect }: PriorityPokerCardProps) {
+export default function PriorityPokerCard({ task, onDelete, onUpdate, onSelect, votes = [], currentUserId, onVote }: PriorityPokerCardProps) {
   const [editing, setEditing] = useState(false);
   const [editTitle, setEditTitle] = useState(task.title);
   const [editDesc, setEditDesc] = useState(task.description);
 
-  const avgPoints = task.votes.length > 0
-    ? Math.round(task.votes.reduce((s, v) => s + v.points, 0) / task.votes.length)
+  const avgPoints = votes.length > 0
+    ? Math.round(votes.reduce((s, v) => s + v.points, 0) / votes.length)
     : null;
+
+  const myVote = votes.find((v) => v.user_id === currentUserId);
 
   const handleSave = () => {
     onUpdate({ ...task, title: editTitle, description: editDesc });
     setEditing(false);
+  };
+
+  const handleVote = (points: number) => {
+    if (onVote && (task as any)._dbId) {
+      onVote((task as any)._dbId, points);
+    }
   };
 
   return (
@@ -58,16 +70,16 @@ export default function PriorityPokerCard({ task, onDelete, onUpdate, onSelect }
         </>
       )}
 
-      {task.votes.length > 0 ? (
+      {votes.length > 0 ? (
         <div className="space-y-2">
           <p className="text-[10px] uppercase tracking-widest text-muted-foreground">Votos</p>
           <div className="flex gap-2 flex-wrap">
-            {task.votes.map((vote) => (
-              <div key={vote.userId} className="flex items-center gap-1.5 bg-muted rounded-md px-2 py-1">
+            {votes.map((vote) => (
+              <div key={vote.user_id} className="flex items-center gap-1.5 bg-muted rounded-md px-2 py-1">
                 <div className="w-4 h-4 rounded-full bg-surface-hover flex items-center justify-center text-[8px] text-muted-foreground">
-                  {vote.userName.charAt(0)}
+                  {(vote.member_name || "?").charAt(0)}
                 </div>
-                <span className="text-[10px] text-secondary-foreground">{vote.userName}</span>
+                <span className="text-[10px] text-secondary-foreground">{vote.member_name || vote.user_id.slice(0, 6)}</span>
                 <Badge variant="secondary" className="text-[9px] px-1 py-0 ml-1">{vote.points}</Badge>
               </div>
             ))}
@@ -81,9 +93,10 @@ export default function PriorityPokerCard({ task, onDelete, onUpdate, onSelect }
         {fibonacciPoints.map((p) => (
           <button
             key={p}
+            onClick={() => handleVote(p)}
             className={cn(
               "w-8 h-10 rounded-md border text-xs font-medium transition-colors",
-              task.points === p
+              myVote?.points === p
                 ? "border-primary bg-primary/10 text-primary"
                 : "border-border text-muted-foreground hover:border-muted-foreground"
             )}
