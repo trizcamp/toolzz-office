@@ -1,63 +1,54 @@
 
-# Plano: Integrar Chatbot Toolzz com Criacao de Tarefas
+# Plano: Substituir botao de voz pelo embed do agente Toolzz
 
 ## Resumo
 
-Quando o usuario pedir para criar uma tarefa no chat "Via texto", o sistema vai:
-1. Enviar a mensagem para o agente Toolzz (API externa) e receber a resposta estruturada (User Story, Criterios de Aceite, Dados da Tarefa)
-2. Internamente, enviar essa resposta para a edge function `ai-chat` que usa a IA do Lovable para extrair os dados estruturados (titulo, descricao, prioridade, tipo) e criar a tarefa no banco
-3. A edge function `task-created` ja existente gera automaticamente o documento de backlog
-4. Na tela, exibir apenas uma mensagem confirmando a criacao da tarefa (sem mostrar o conteudo bruto do agente Toolzz)
+Substituir o botao "Via voz" e o botao central de microfone pelo iframe embed do agente de voz Toolzz, mantendo o botao "Via texto" para o chat existente. O embed de voz fica embutido diretamente no card de IA da Home, com redimensionamento automatico via postMessage.
 
-## Fluxo
+## Alteracoes
+
+### 1. `src/pages/Home.tsx`
+
+- Remover o estado `isListening` e toda a logica do botao de microfone central
+- Remover o botao "Via voz"
+- Substituir a area central (botao de microfone + animacao) pelo iframe embed do agente Toolzz:
+  ```
+  src="https://admin.toolzz.ai/emb-voice/c9214171-8ceb-4f61-9dc1-8e3dffbb21c4"
+  ```
+- Adicionar um `useEffect` para escutar mensagens `window.postMessage` do tipo `VOICE_EMBED_SIZE` e ajustar dinamicamente as dimensoes do iframe
+- Manter o botao "Via texto" funcionando normalmente abrindo o `ToolzzChatDialog`
+- O iframe tera `allow="microphone"` e fundo transparente
+- Manter a prop `boardId` sendo passada ao `ToolzzChatDialog`
+
+### 2. Layout do card
+
+O card de IA ficara com esta estrutura:
 
 ```text
-Usuario digita mensagem
-        |
-        v
-API Toolzz (kratos) retorna resposta estruturada
-        |
-        v
-[Internamente] Detecta se a resposta contem dados de tarefa
-        |
-        v
-Chama edge function "ai-chat" passando o conteudo do Toolzz
-como contexto para extrair dados e criar a tarefa + documento
-        |
-        v
-Exibe na tela: "Tarefa criada com sucesso! [titulo] - [display_id]"
++---------------------------+
+|                           |
+|   [iframe embed voice]    |
+|   (redimensionavel)       |
+|                           |
++---------------------------+
+|  [Via texto]              |
++---------------------------+
 ```
 
-## Detalhes Tecnicos
+- O iframe ocupa a area central do card onde antes ficava o botao de microfone
+- Apenas o botao "Via texto" permanece abaixo
+- O card mantem `lg:row-span-2` para manter a altura
 
-### 1. Atualizar `ToolzzChatDialog.tsx`
+## Detalhes tecnicos
 
-- Apos receber a resposta da API Toolzz, verificar se o conteudo contem indicadores de criacao de tarefa (palavras-chave como "User Story", "Criterios de Aceite", "Dados da Tarefa", "Prioridade")
-- Se detectado, chamar a edge function `ai-chat` passando o conteudo como mensagem de usuario com instrucao para criar a tarefa
-- O componente precisa receber o `boardId` como prop (usar o primeiro board disponivel do usuario)
-- Mostrar na tela apenas a confirmacao: "Tarefa [display_id] criada com sucesso!"
-- Se nao for uma tarefa, exibir a resposta normalmente
+- O iframe usa `id="chatbotVoiceIframe"` para o listener de redimensionamento
+- O `useEffect` com `window.addEventListener('message', ...)` escuta eventos `VOICE_EMBED_SIZE` e atualiza width/height via ref do iframe
+- Cleanup do listener no return do useEffect
+- Nenhuma alteracao em edge functions ou banco de dados
+- O comportamento de criacao de tarefas pelo chat de texto permanece inalterado
 
-### 2. Atualizar `Home.tsx`
-
-- Passar o `boardId` do primeiro board do usuario para o `ToolzzChatDialog`
-- Importar `useBoards` para obter os boards
-
-### 3. Edge function `ai-chat` (sem alteracao)
-
-- Ja possui toda a logica de tool calling para criar tarefas
-- Ja chama `task-created` para gerar o documento automaticamente
-- Apenas sera chamada pelo frontend com o conteudo do Toolzz como contexto
-
-### 4. Edge function `task-created` (sem alteracao)
-
-- Ja cria o documento de backlog com blocos estruturados (titulo, descricao, criterios de aceite, notas tecnicas)
-
-## Alteracoes necessarias
+## Arquivos alterados
 
 | Arquivo | Acao |
 |---|---|
-| `src/components/ToolzzChatDialog.tsx` | Adicionar logica de deteccao de tarefa + chamada a `ai-chat` + prop `boardId` |
-| `src/pages/Home.tsx` | Passar `boardId` para o dialog |
-
-Nenhuma migracao SQL ou nova edge function necessaria - toda a infraestrutura ja existe.
+| `src/pages/Home.tsx` | Remover logica de microfone, adicionar iframe embed + listener de resize, manter apenas botao "Via texto" |
