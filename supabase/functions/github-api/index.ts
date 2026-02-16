@@ -31,6 +31,18 @@ serve(async (req) => {
       .eq("user_id", user.id)
       .maybeSingle();
 
+    if (action === "get-oauth-url") {
+      const clientId = Deno.env.get("GITHUB_CLIENT_ID");
+      if (!clientId) throw new Error("GITHUB_CLIENT_ID not configured");
+      const callbackUrl = `${supabaseUrl}/functions/v1/github-callback`;
+      const scope = "repo";
+      const state = user.id;
+      const authUrl = `https://github.com/login/oauth/authorize?client_id=${clientId}&redirect_uri=${encodeURIComponent(callbackUrl)}&scope=${scope}&state=${state}`;
+      return new Response(JSON.stringify({ authUrl }), {
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
+
     if (action === "check-connection") {
       return new Response(JSON.stringify({ connected: !!integration }), {
         headers: { ...corsHeaders, "Content-Type": "application/json" },

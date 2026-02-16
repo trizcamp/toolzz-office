@@ -1,9 +1,7 @@
 import { useState } from "react";
-import { ArrowLeft, Github, Loader2, Check, X } from "lucide-react";
+import { ArrowLeft, Github, Check, X, ExternalLink } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
 import { useToast } from "@/hooks/use-toast";
 import { useGithubIntegration } from "@/hooks/useGithubIntegration";
 import makeIcon from "@/assets/make-icon.png";
@@ -72,24 +70,8 @@ function IntegrationIcon({ type, size = 24 }: { type: string; size?: number }) {
 
 export default function IntegrationsPage() {
   const [selectedIntegration, setSelectedIntegration] = useState<string | null>(null);
-  const [token, setToken] = useState("");
-  const [connecting, setConnecting] = useState(false);
-  const { connected, username, loading, connect, disconnect } = useGithubIntegration();
+  const { connected, username, loading, startOAuth, disconnect } = useGithubIntegration();
   const { toast } = useToast();
-
-  const handleConnect = async () => {
-    if (!token.trim()) return;
-    setConnecting(true);
-    try {
-      await connect(token.trim());
-      toast({ title: "GitHub conectado!", description: "Sua conta foi vinculada com sucesso." });
-      setToken("");
-    } catch (e: any) {
-      toast({ title: "Erro", description: e.message || "Falha ao conectar", variant: "destructive" });
-    } finally {
-      setConnecting(false);
-    }
-  };
 
   const handleDisconnect = async () => {
     try {
@@ -132,6 +114,18 @@ export default function IntegrationsPage() {
                 <p className="text-sm text-secondary-foreground">
                   Sua conta GitHub está conectada. Tarefas do tipo <strong>Bug</strong> ou <strong>Melhoria</strong> criarão automaticamente issues no repositório selecionado.
                 </p>
+                <div className="flex items-center gap-2 bg-muted rounded-lg px-3 py-2">
+                  <Github className="w-4 h-4 text-foreground" />
+                  <span className="text-sm text-foreground font-medium">@{username}</span>
+                  <a
+                    href={`https://github.com/${username}`}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="ml-auto text-muted-foreground hover:text-foreground"
+                  >
+                    <ExternalLink className="w-3.5 h-3.5" />
+                  </a>
+                </div>
                 <Button variant="outline" className="w-full text-destructive hover:text-destructive" onClick={handleDisconnect}>
                   <X className="w-4 h-4 mr-2" /> Desconectar GitHub
                 </Button>
@@ -141,25 +135,12 @@ export default function IntegrationsPage() {
                 <p className="text-sm text-secondary-foreground">
                   Ao conectar o GitHub, você poderá vincular repositórios às tarefas. Tarefas do tipo Bug ou Melhoria criarão automaticamente issues no GitHub.
                 </p>
-                <div className="space-y-2">
-                  <Label>Personal Access Token</Label>
-                  <Input
-                    type="password"
-                    placeholder="ghp_xxxxxxxxxxxx"
-                    value={token}
-                    onChange={(e) => setToken(e.target.value)}
-                  />
-                  <p className="text-[10px] text-muted-foreground">
-                    Crie em GitHub → Settings → Developer settings → Personal access tokens → Tokens (classic). Permissões necessárias: <code className="text-primary">repo</code>
-                  </p>
-                </div>
                 <Button
                   className="btn-gradient w-full"
-                  onClick={handleConnect}
-                  disabled={connecting || !token.trim()}
+                  onClick={startOAuth}
                 >
-                  {connecting ? <Loader2 className="w-4 h-4 animate-spin mr-2" /> : null}
-                  {connecting ? "Conectando..." : "Conectar com GitHub"}
+                  <Github className="w-4 h-4 mr-2" />
+                  Entrar com GitHub
                 </Button>
               </div>
             )}
