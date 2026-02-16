@@ -1,10 +1,11 @@
 import { useState, useMemo } from "react";
-import { Plus, LayoutGrid, ArrowLeft, Mic, MessageSquare, Sparkles } from "lucide-react";
+import { Plus, LayoutGrid, ArrowLeft, Mic, MessageSquare, Sparkles, Pencil, Trash2 } from "lucide-react";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { Button } from "@/components/ui/button";
 import { Table, TableHeader, TableRow, TableHead, TableBody, TableCell } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { cn } from "@/lib/utils";
@@ -59,6 +60,9 @@ export default function BoardPage() {
   const [typeLabelsState, setTypeLabelsState] = useState<Record<string, string>>({ ...defaultTypeLabels });
   const [typeColorsState, setTypeColorsState] = useState<Record<string, string>>({ ...defaultTypeColors });
   const [fullscreenDoc, setFullscreenDoc] = useState(false);
+  const [editingBoard, setEditingBoard] = useState<string | null>(null);
+  const [editBoardName, setEditBoardName] = useState("");
+  const [deleteBoardId, setDeleteBoardId] = useState<string | null>(null);
 
   const assignees = useMemo(() => {
     const names = new Set<string>();
@@ -139,6 +143,18 @@ export default function BoardPage() {
     setTypeColorsState((prev) => ({ ...prev, [key]: color }));
   };
 
+  const handleRenameBoard = (boardId: string) => {
+    if (!editBoardName.trim()) return;
+    setBoards((prev) => prev.map((b) => b.id === boardId ? { ...b, name: editBoardName.trim() } : b));
+    setEditingBoard(null);
+    setEditBoardName("");
+  };
+
+  const handleDeleteBoard = (boardId: string) => {
+    setBoards((prev) => prev.filter((b) => b.id !== boardId));
+    setDeleteBoardId(null);
+  };
+
   // Board overview
   if (!selectedBoard) {
     const currentBoard = boards.find((b) => b.id === "board-produto");
@@ -159,28 +175,59 @@ export default function BoardPage() {
               const progress = boardTasks.length > 0 ? Math.round((done / boardTasks.length) * 100) : 0;
 
               return (
-                <button
+                <div
                   key={board.id}
-                  onClick={() => setSelectedBoard(board.id)}
-                  className="bg-card border border-border rounded-xl p-5 space-y-3 text-left hover:border-muted-foreground/30 transition-all"
+                  className="bg-card border border-border rounded-xl p-5 space-y-3 text-left hover:border-muted-foreground/30 transition-all relative group/card"
                 >
-                  <div className="flex items-center gap-3">
-                    <span className="text-2xl">{board.icon}</span>
-                    <div>
-                      <h3 className="text-sm font-semibold text-foreground">{board.name}</h3>
-                      <p className="text-[10px] text-muted-foreground">{board.sector}</p>
-                    </div>
+                  <div className="absolute top-2 right-2 flex gap-1 opacity-0 group-hover/card:opacity-100 transition-opacity">
+                    <button
+                      onClick={(e) => { e.stopPropagation(); setEditingBoard(board.id); setEditBoardName(board.name); }}
+                      className="w-6 h-6 flex items-center justify-center rounded hover:bg-surface-hover text-muted-foreground hover:text-foreground"
+                    >
+                      <Pencil className="w-3 h-3" />
+                    </button>
+                    <button
+                      onClick={(e) => { e.stopPropagation(); setDeleteBoardId(board.id); }}
+                      className="w-6 h-6 flex items-center justify-center rounded hover:bg-destructive/10 text-muted-foreground hover:text-destructive"
+                    >
+                      <Trash2 className="w-3 h-3" />
+                    </button>
                   </div>
-                  <div className="space-y-1.5">
-                    <div className="flex justify-between text-[10px] text-muted-foreground">
-                      <span>{boardTasks.length} tarefas</span>
-                      <span>{progress}% concluído</span>
+                  <button
+                    onClick={() => setSelectedBoard(board.id)}
+                    className="w-full text-left space-y-3"
+                  >
+                    <div className="flex items-center gap-3">
+                      <span className="text-2xl">{board.icon}</span>
+                      <div>
+                        {editingBoard === board.id ? (
+                          <div className="flex items-center gap-1" onClick={(e) => e.stopPropagation()}>
+                            <Input
+                              value={editBoardName}
+                              onChange={(e) => setEditBoardName(e.target.value)}
+                              className="h-6 text-sm px-1 w-32"
+                              autoFocus
+                              onKeyDown={(e) => { if (e.key === "Enter") handleRenameBoard(board.id); if (e.key === "Escape") setEditingBoard(null); }}
+                            />
+                            <Button size="sm" variant="ghost" className="h-6 px-1 text-xs" onClick={() => handleRenameBoard(board.id)}>OK</Button>
+                          </div>
+                        ) : (
+                          <h3 className="text-sm font-semibold text-foreground">{board.name}</h3>
+                        )}
+                        <p className="text-[10px] text-muted-foreground">{board.sector}</p>
+                      </div>
                     </div>
-                    <div className="h-1.5 bg-muted rounded-full overflow-hidden">
-                      <div className="h-full bg-primary rounded-full transition-all" style={{ width: `${progress}%` }} />
+                    <div className="space-y-1.5">
+                      <div className="flex justify-between text-[10px] text-muted-foreground">
+                        <span>{boardTasks.length} tarefas</span>
+                        <span>{progress}% concluído</span>
+                      </div>
+                      <div className="h-1.5 bg-muted rounded-full overflow-hidden">
+                        <div className="h-full bg-primary rounded-full transition-all" style={{ width: `${progress}%` }} />
+                      </div>
                     </div>
-                  </div>
-                </button>
+                  </button>
+                </div>
               );
             })}
           </div>
@@ -230,6 +277,29 @@ export default function BoardPage() {
             </div>
           </DialogContent>
         </Dialog>
+
+        {/* Delete Board Confirmation */}
+        <AlertDialog open={!!deleteBoardId} onOpenChange={(open) => !open && setDeleteBoardId(null)}>
+          <AlertDialogContent>
+            <AlertDialogHeader>
+              <AlertDialogTitle>Apagar Central de Tarefas</AlertDialogTitle>
+              <AlertDialogDescription>
+                <span className="text-destructive font-semibold">Atenção: esta ação não pode ser desfeita!</span>
+                <br />
+                Todas as tarefas vinculadas a esta central serão perdidas permanentemente. Tem certeza que deseja continuar?
+              </AlertDialogDescription>
+            </AlertDialogHeader>
+            <AlertDialogFooter>
+              <AlertDialogCancel>Cancelar</AlertDialogCancel>
+              <AlertDialogAction
+                className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+                onClick={() => deleteBoardId && handleDeleteBoard(deleteBoardId)}
+              >
+                Apagar permanentemente
+              </AlertDialogAction>
+            </AlertDialogFooter>
+          </AlertDialogContent>
+        </AlertDialog>
       </div>
     );
   }
