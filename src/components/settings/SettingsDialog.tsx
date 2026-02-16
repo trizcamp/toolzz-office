@@ -7,7 +7,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Table, TableHeader, TableRow, TableHead, TableBody, TableCell } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
-import { User, Users, MoreHorizontal, Search } from "lucide-react";
+import { User, Users, MoreHorizontal, Search, Lock } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useMembers, useUserRoles } from "@/hooks/useMembers";
 import { useAuth } from "@/hooks/useAuth";
@@ -110,6 +110,19 @@ export default function SettingsDialog({ open, onOpenChange }: SettingsDialogPro
     }
   };
 
+  const handleChangePassword = async () => {
+    if (!currentMember?.email) return;
+    try {
+      const { error } = await supabase.auth.resetPasswordForEmail(currentMember.email, {
+        redirectTo: `${window.location.origin}/reset-password`,
+      });
+      if (error) throw error;
+      toast.success("E-mail de redefinição de senha enviado! Verifique sua caixa de entrada.");
+    } catch (err: any) {
+      toast.error(err.message || "Erro ao enviar e-mail de redefinição");
+    }
+  };
+
   const handleToggleRole = async (userId: string) => {
     const currentRole = getRoleForUser(userId);
     const newRole = currentRole === "admin" ? "member" : "admin";
@@ -206,6 +219,20 @@ export default function SettingsDialog({ open, onOpenChange }: SettingsDialogPro
               <div className="space-y-2">
                 <Label className="text-xs">E-mail</Label>
                 <Input value={currentMember?.email || ""} readOnly className="opacity-60" />
+              </div>
+
+              {/* Change Password */}
+              <div className="border-t border-border pt-6">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <h3 className="text-sm font-semibold text-foreground">Alterar senha</h3>
+                    <p className="text-xs text-muted-foreground">Certifique-se de escolher uma senha longa e aleatória para permanecer seguro.</p>
+                  </div>
+                  <Button size="sm" variant="outline" className="gap-2" onClick={handleChangePassword}>
+                    <Lock className="w-3.5 h-3.5" />
+                    Alterar senha
+                  </Button>
+                </div>
               </div>
 
               <div className="flex justify-end gap-2 pt-2">
