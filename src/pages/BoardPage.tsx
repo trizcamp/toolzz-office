@@ -10,7 +10,10 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { cn } from "@/lib/utils";
-import { mockTasks, statusLabels, priorityLabels, defaultTypeLabels, defaultTypeColors, type Task, type TaskStatus } from "@/data/mockTasks";
+import { statusLabels, priorityLabels, defaultTypeLabels, defaultTypeColors } from "@/data/mockTasks";
+import type { TaskStatus } from "@/hooks/useTasks";
+import { useBoards } from "@/hooks/useBoards";
+import { useTasks } from "@/hooks/useTasks";
 import KanbanColumn from "@/components/board/KanbanColumn";
 import TaskFilters from "@/components/board/TaskFilters";
 import PriorityPokerCard from "@/components/board/PriorityPokerCard";
@@ -18,6 +21,8 @@ import BoardReport from "@/components/board/BoardReport";
 import NewTaskDialog from "@/components/board/NewTaskDialog";
 import TaskDetailPanel from "@/components/board/TaskDetailPanel";
 import { AnimatePresence } from "framer-motion";
+import { useMembers } from "@/hooks/useMembers";
+import { Skeleton } from "@/components/ui/skeleton";
 
 const allStatuses: TaskStatus[] = ["backlog", "todo", "in_progress", "review", "done"];
 
@@ -28,20 +33,6 @@ const priorityColors: Record<string, string> = {
   low: "bg-muted text-muted-foreground",
 };
 
-interface BoardDef {
-  id: string;
-  name: string;
-  description: string;
-  sector: string;
-  icon: string;
-}
-
-const defaultBoards: BoardDef[] = [
-  { id: "board-produto", name: "Produto", description: "", sector: "Produto", icon: "🚀" },
-  { id: "board-marketing", name: "Marketing", description: "", sector: "Marketing", icon: "📢" },
-  { id: "board-comercial", name: "Comercial", description: "", sector: "Comercial", icon: "💼" },
-];
-
 const sectorTemplates = [
   { sector: "Produto", icon: "🚀", description: "Kanban para equipes de produto com foco em features e bugs." },
   { sector: "Marketing", icon: "📢", description: "Gestão de campanhas, conteúdo e ações de marketing." },
@@ -49,16 +40,18 @@ const sectorTemplates = [
 ];
 
 export default function BoardPage() {
-  const [tasks, setTasks] = useState<Task[]>(mockTasks);
+  const { boards, isLoading: boardsLoading, createBoard, updateBoard, deleteBoard } = useBoards();
+  const [selectedBoard, setSelectedBoard] = useState<string | null>(null);
+  const { tasks, isLoading: tasksLoading, createTask, updateTask, deleteTask: deleteTaskMut } = useTasks(selectedBoard);
+  const { members } = useMembers();
+
   const [newTaskOpen, setNewTaskOpen] = useState(false);
   const [assigneeFilter, setAssigneeFilter] = useState("all");
   const [typeFilter, setTypeFilter] = useState("all");
   const [priorityFilter, setPriorityFilter] = useState("all");
   const [statusFilter, setStatusFilter] = useState("all");
   const [dateFilter, setDateFilter] = useState("");
-  const [selectedTask, setSelectedTask] = useState<Task | null>(null);
-  const [selectedBoard, setSelectedBoard] = useState<string | null>(null);
-  const [boards, setBoards] = useState<BoardDef[]>(defaultBoards);
+  const [selectedTask, setSelectedTask] = useState<any | null>(null);
   const [newBoardOpen, setNewBoardOpen] = useState(false);
   const [newBoardName, setNewBoardName] = useState("");
   const [newBoardSector, setNewBoardSector] = useState("");
@@ -71,82 +64,93 @@ export default function BoardPage() {
   const [editBoardDesc, setEditBoardDesc] = useState("");
   const [deleteBoardId, setDeleteBoardId] = useState<string | null>(null);
 
-  const assignees = useMemo(() => {
-    const names = new Set<string>();
-    tasks.forEach((t) => t.assignees.forEach((a) => names.add(a.name)));
-    return [...names];
+  // Convert db tasks to the format components expect
+  const mappedTasks = useMemo(() => {
+    return tasks.map((t) => ({
+      id: t.display_id || t.id,
+      _dbId: t.id,
+      title: t.title,
+      description: t.description || "",
+      status: t.status,
+      priority: t.priority,
+      assignees: [] as { id: string; name: string }[],
+      type: t.type || "task",
+      points: t.points || 0,
+      votes: [],
+      createdAt: t.created_at?.split("T")[0] || "",
+      deliveryDate: t.delivery_date || undefined,
+    }));
   }, [tasks]);
 
+  const assignees = useMemo(() => {
+    return members.map((m) => m.name + (m.surname ? ` ${m.surname.charAt(0)}.` : ""));
+  }, [members]);
+
   const filteredTasks = useMemo(() => {
-    return tasks.filter((t) => {
-      if (assigneeFilter !== "all" && !t.assignees.some((a) => a.name === assigneeFilter)) return false;
+    return mappedTasks.filter((t) => {
       if (typeFilter !== "all" && t.type !== typeFilter) return false;
       if (priorityFilter !== "all" && t.priority !== priorityFilter) return false;
       if (statusFilter !== "all" && t.status !== statusFilter) return false;
-      if (dateFilter) {
-        const taskDate = t.deliveryDate || t.createdAt;
-        if (taskDate !== dateFilter) return false;
-      }
       return true;
     });
-  }, [tasks, assigneeFilter, typeFilter, priorityFilter, statusFilter, dateFilter]);
+  }, [mappedTasks, typeFilter, priorityFilter, statusFilter]);
 
   const moveTask = (taskId: string, newStatus: TaskStatus) => {
-    setTasks((prev) => prev.map((t) => (t.id === taskId ? { ...t, status: newStatus } : t)));
+    const task = tasks.find((t) => t.display_id === taskId || t.id === taskId);
+    if (task) updateTask.mutate({ id: task.id, status: newStatus });
   };
 
   const moveTaskDirection = (taskId: string, direction: "left" | "right") => {
-    setTasks((prev) =>
-      prev.map((t) => {
-        if (t.id !== taskId) return t;
-        const idx = allStatuses.indexOf(t.status);
-        const newIdx = direction === "left" ? idx - 1 : idx + 1;
-        if (newIdx < 0 || newIdx >= allStatuses.length) return t;
-        return { ...t, status: allStatuses[newIdx] };
-      })
-    );
+    const task = tasks.find((t) => t.display_id === taskId || t.id === taskId);
+    if (!task) return;
+    const idx = allStatuses.indexOf(task.status);
+    const newIdx = direction === "left" ? idx - 1 : idx + 1;
+    if (newIdx < 0 || newIdx >= allStatuses.length) return;
+    updateTask.mutate({ id: task.id, status: allStatuses[newIdx] });
   };
 
-  const handleCreateTask = (partial: Partial<Task>) => {
-    const newTask: Task = {
-      id: `TOZ-${111 + tasks.length}`,
+  const handleCreateTask = (partial: any) => {
+    if (!selectedBoard) return;
+    createTask.mutate({
       title: partial.title || "Nova tarefa",
       description: partial.description || "",
       status: partial.status || "todo",
-      priority: "medium",
-      assignees: partial.assignees || [{ id: "1", name: "Beatriz F." }],
+      board_id: selectedBoard,
       type: "task",
-      points: 0,
-      votes: [],
-      createdAt: new Date().toISOString().split("T")[0],
-    };
-    setTasks([newTask, ...tasks]);
+    });
   };
 
-  const handleUpdateTask = (updated: Task) => {
-    setTasks((prev) => prev.map((t) => (t.id === updated.id ? updated : t)));
+  const handleUpdateTask = (updated: any) => {
+    const task = tasks.find((t) => t.display_id === updated.id || t.id === updated._dbId);
+    if (!task) return;
+    updateTask.mutate({
+      id: task.id,
+      title: updated.title,
+      description: updated.description,
+      status: updated.status,
+      priority: updated.priority,
+      type: updated.type,
+    });
     setSelectedTask(updated);
   };
 
   const handleDeleteTask = (taskId: string) => {
-    setTasks((prev) => prev.filter((t) => t.id !== taskId));
+    const task = tasks.find((t) => t.display_id === taskId || t.id === taskId);
+    if (task) deleteTaskMut.mutate(task.id);
   };
 
   const handleCreateBoard = () => {
     if (!newBoardName.trim() || !newBoardSector) return;
     const template = sectorTemplates.find((s) => s.sector === newBoardSector);
-    const newBoard: BoardDef = {
-      id: `board-${Date.now()}`,
+    createBoard.mutate({
       name: newBoardName,
       description: "",
       sector: newBoardSector,
       icon: template?.icon || "📋",
-    };
-    setBoards([...boards, newBoard]);
+    });
     setNewBoardOpen(false);
     setNewBoardName("");
     setNewBoardSector("");
-    setSelectedBoard(newBoard.id);
   };
 
   const handleAddType = (name: string, color: string) => {
@@ -155,21 +159,21 @@ export default function BoardPage() {
     setTypeColorsState((prev) => ({ ...prev, [key]: color }));
   };
 
-  const openEditBoard = (board: BoardDef) => {
+  const openEditBoard = (board: any) => {
     setEditBoardId(board.id);
     setEditBoardName(board.name);
-    setEditBoardDesc(board.description);
+    setEditBoardDesc(board.description || "");
     setEditBoardOpen(true);
   };
 
   const handleSaveBoard = () => {
     if (!editBoardId || !editBoardName.trim()) return;
-    setBoards((prev) => prev.map((b) => b.id === editBoardId ? { ...b, name: editBoardName.trim(), description: editBoardDesc } : b));
+    updateBoard.mutate({ id: editBoardId, name: editBoardName.trim(), description: editBoardDesc });
     setEditBoardOpen(false);
   };
 
   const handleDeleteBoard = (boardId: string) => {
-    setBoards((prev) => prev.filter((b) => b.id !== boardId));
+    deleteBoard.mutate(boardId);
     setDeleteBoardId(null);
   };
 
@@ -192,28 +196,29 @@ export default function BoardPage() {
         </div>
 
         <div className="flex-1 overflow-y-auto p-6">
-          <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-4">
-            {boards.map((board) => {
-              const boardTasks = tasks;
-              const done = boardTasks.filter((t) => t.status === "done").length;
-              const progress = boardTasks.length > 0 ? Math.round((done / boardTasks.length) * 100) : 0;
-
-              return (
+          {boardsLoading ? (
+            <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-4">
+              {[1, 2, 3].map((i) => <Skeleton key={i} className="h-40 rounded-xl" />)}
+            </div>
+          ) : boards.length === 0 ? (
+            <div className="text-center py-12 space-y-3">
+              <p className="text-sm text-muted-foreground">Nenhuma central de tarefas criada</p>
+              <Button size="sm" className="btn-gradient" onClick={() => setNewBoardOpen(true)}>
+                <Plus className="w-4 h-4 mr-1.5" /> Criar primeira central
+              </Button>
+            </div>
+          ) : (
+            <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-4">
+              {boards.map((board) => (
                 <div
                   key={board.id}
                   className="bg-card border border-border rounded-xl p-5 space-y-3 text-left hover:border-muted-foreground/30 transition-all relative group/card"
                 >
                   <div className="absolute top-2 right-2 flex gap-1 opacity-0 group-hover/card:opacity-100 transition-opacity">
-                    <button
-                      onClick={(e) => { e.stopPropagation(); openEditBoard(board); }}
-                      className="w-6 h-6 flex items-center justify-center rounded hover:bg-surface-hover text-muted-foreground hover:text-foreground"
-                    >
+                    <button onClick={(e) => { e.stopPropagation(); openEditBoard(board); }} className="w-6 h-6 flex items-center justify-center rounded hover:bg-surface-hover text-muted-foreground hover:text-foreground">
                       <Pencil className="w-3 h-3" />
                     </button>
-                    <button
-                      onClick={(e) => { e.stopPropagation(); setDeleteBoardId(board.id); }}
-                      className="w-6 h-6 flex items-center justify-center rounded hover:bg-destructive/10 text-muted-foreground hover:text-destructive"
-                    >
+                    <button onClick={(e) => { e.stopPropagation(); setDeleteBoardId(board.id); }} className="w-6 h-6 flex items-center justify-center rounded hover:bg-destructive/10 text-muted-foreground hover:text-destructive">
                       <Trash2 className="w-3 h-3" />
                     </button>
                   </div>
@@ -225,23 +230,12 @@ export default function BoardPage() {
                         <p className="text-[10px] text-muted-foreground">{board.sector}</p>
                       </div>
                     </div>
-                    {board.description && (
-                      <p className="text-xs text-muted-foreground">{board.description}</p>
-                    )}
-                    <div className="space-y-1.5">
-                      <div className="flex justify-between text-[10px] text-muted-foreground">
-                        <span>{boardTasks.length} tarefas</span>
-                        <span>{progress}% concluído</span>
-                      </div>
-                      <div className="h-1.5 bg-muted rounded-full overflow-hidden">
-                        <div className="h-full bg-primary rounded-full transition-all" style={{ width: `${progress}%` }} />
-                      </div>
-                    </div>
+                    {board.description && <p className="text-xs text-muted-foreground">{board.description}</p>}
                   </button>
                 </div>
-              );
-            })}
-          </div>
+              ))}
+            </div>
+          )}
         </div>
 
         {/* New Board Dialog */}
@@ -308,7 +302,7 @@ export default function BoardPage() {
               <AlertDialogDescription>
                 <span className="text-destructive font-semibold">Atenção: esta ação não pode ser desfeita!</span>
                 <br />
-                Todas as tarefas vinculadas a esta central serão perdidas permanentemente. Tem certeza que deseja continuar?
+                Todas as tarefas vinculadas a esta central serão perdidas permanentemente.
               </AlertDialogDescription>
             </AlertDialogHeader>
             <AlertDialogFooter>
@@ -323,6 +317,8 @@ export default function BoardPage() {
     );
   }
 
+  const currentBoard = boards.find((b) => b.id === selectedBoard);
+
   return (
     <div className="h-full flex">
       <div className="flex-1 flex flex-col min-w-0">
@@ -332,7 +328,7 @@ export default function BoardPage() {
               <ArrowLeft className="w-4 h-4" />
             </button>
             <h1 className="text-lg font-semibold text-foreground">
-              {boards.find((b) => b.id === selectedBoard)?.name || "Central de Tarefas"}
+              {currentBoard?.name || "Central de Tarefas"}
             </h1>
           </div>
           <Button size="sm" className="gap-1.5 btn-gradient" onClick={() => setNewTaskOpen(true)}>
@@ -379,7 +375,6 @@ export default function BoardPage() {
                     <TableHead className="text-xs">Título</TableHead>
                     <TableHead className="text-xs">Status</TableHead>
                     <TableHead className="text-xs">Prioridade</TableHead>
-                    <TableHead className="text-xs">Responsáveis</TableHead>
                     <TableHead className="text-xs">Tipo</TableHead>
                     <TableHead className="text-xs">Data</TableHead>
                   </TableRow>
@@ -391,7 +386,6 @@ export default function BoardPage() {
                       <TableCell className="text-sm">{task.title}</TableCell>
                       <TableCell><Badge variant="outline" className="text-[10px]">{statusLabels[task.status]}</Badge></TableCell>
                       <TableCell><Badge variant="outline" className={cn("text-[10px] border-0", priorityColors[task.priority])}>{priorityLabels[task.priority]}</Badge></TableCell>
-                      <TableCell className="text-sm">{task.assignees.map((a) => a.name).join(", ")}</TableCell>
                       <TableCell>
                         <Badge variant="outline" className={cn("text-[10px] border-0", typeColorsState[task.type] || "")}>
                           {typeLabelsState[task.type] || task.type}
@@ -406,12 +400,12 @@ export default function BoardPage() {
           </TabsContent>
 
           <TabsContent value="report" className="flex-1 overflow-y-auto px-6 py-4">
-            <BoardReport tasks={tasks} />
+            <BoardReport tasks={mappedTasks} />
           </TabsContent>
 
           <TabsContent value="priority" className="flex-1 overflow-y-auto px-6 py-4">
             <div className="grid md:grid-cols-2 gap-4">
-              {tasks.map((task) => (
+              {mappedTasks.map((task) => (
                 <PriorityPokerCard key={task.id} task={task} onDelete={() => handleDeleteTask(task.id)} onUpdate={handleUpdateTask} onSelect={() => setSelectedTask(task)} />
               ))}
             </div>
@@ -435,7 +429,7 @@ export default function BoardPage() {
         )}
       </AnimatePresence>
 
-      <NewTaskDialog open={newTaskOpen} onOpenChange={setNewTaskOpen} onCreateTask={handleCreateTask} existingTasks={tasks} />
+      <NewTaskDialog open={newTaskOpen} onOpenChange={setNewTaskOpen} onCreateTask={handleCreateTask} existingTasks={mappedTasks} boardId={selectedBoard} />
     </div>
   );
 }

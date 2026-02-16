@@ -1,0 +1,48 @@
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import { supabase } from "@/integrations/supabase/client";
+import { useAuth } from "./useAuth";
+
+export interface DbMeeting {
+  id: string;
+  title: string;
+  room_id: string | null;
+  date: string;
+  start_time: string | null;
+  end_time: string | null;
+  summary: string;
+  created_by: string | null;
+  created_at: string;
+}
+
+export function useMeetings() {
+  const { user } = useAuth();
+  const queryClient = useQueryClient();
+
+  const query = useQuery({
+    queryKey: ["meetings"],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("meetings")
+        .select("*, rooms(name), meeting_participants(user_id, members(name, surname)), meeting_tasks(task_id, tasks(display_id, title))")
+        .order("date", { ascending: false });
+      if (error) throw error;
+      return data;
+    },
+    enabled: !!user,
+  });
+
+  const createMeeting = useMutation({
+    mutationFn: async (meeting: { title: string; room_id?: string; date: string; start_time?: string; end_time?: string }) => {
+      const { data, error } = await supabase
+        .from("meetings")
+        .insert({ ...meeting, created_by: user!.id })
+        .select()
+        .single();
+      if (error) throw error;
+      return data;
+    },
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ["meetings"] }),
+  });
+
+  return { meetings: query.data || [], isLoading: query.isLoading, createMeeting };
+}
