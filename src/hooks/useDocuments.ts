@@ -1,4 +1,5 @@
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import { useEffect } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "./useAuth";
 
@@ -47,6 +48,18 @@ export function useDocuments() {
     },
     enabled: !!user,
   });
+
+  // Realtime: auto-refresh when documents are inserted/updated/deleted
+  useEffect(() => {
+    if (!user) return;
+    const channel = supabase
+      .channel("documents-realtime")
+      .on("postgres_changes", { event: "*", schema: "public", table: "documents" }, () => {
+        queryClient.invalidateQueries({ queryKey: ["documents"] });
+      })
+      .subscribe();
+    return () => { supabase.removeChannel(channel); };
+  }, [user, queryClient]);
 
   const createDocument = useMutation({
     mutationFn: async (doc: { title: string; icon?: string; type?: "doc" | "spec" | "note"; task_id?: string }) => {
