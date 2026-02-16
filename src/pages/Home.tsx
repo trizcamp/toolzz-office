@@ -1,6 +1,6 @@
 import { motion } from "framer-motion";
-import { Mic, Calendar, CheckCircle2, MessageSquare, Activity } from "lucide-react";
-import { useState } from "react";
+import { CheckCircle2, MessageSquare, Activity } from "lucide-react";
+import { useState, useEffect, useRef } from "react";
 import { cn } from "@/lib/utils";
 import { useTasks } from "@/hooks/useTasks";
 import { useAuth } from "@/hooks/useAuth";
@@ -32,14 +32,25 @@ const statusLabels: Record<string, string> = {
 };
 
 export default function HomePage() {
-  const [isListening, setIsListening] = useState(false);
   const [chatOpen, setChatOpen] = useState(false);
+  const iframeRef = useRef<HTMLIFrameElement>(null);
   const { user } = useAuth();
   const { boards } = useBoards();
   const { tasks } = useTasks(null);
   
   const userName = user?.user_metadata?.name || user?.email?.split("@")[0] || "Boss";
   const todayTasks = tasks.filter((t) => t.status === "todo" || t.status === "in_progress").slice(0, 5);
+
+  useEffect(() => {
+    const handleMessage = (event: MessageEvent) => {
+      if (event.data?.type === 'VOICE_EMBED_SIZE' && iframeRef.current) {
+        iframeRef.current.style.width = `${event.data.width}px`;
+        iframeRef.current.style.height = `${event.data.height}px`;
+      }
+    };
+    window.addEventListener('message', handleMessage);
+    return () => window.removeEventListener('message', handleMessage);
+  }, []);
 
   return (
     <div className="h-full overflow-y-auto p-6 space-y-6">
@@ -57,45 +68,19 @@ export default function HomePage() {
           transition={{ delay: 0.1 }}
           className="bg-card border border-border rounded-xl p-6 flex flex-col items-center justify-center gap-4 lg:row-span-2"
         >
-          <div className="relative">
-            <motion.button
-              whileTap={{ scale: 0.95 }}
-              onClick={() => setIsListening(!isListening)}
-              className={cn(
-                "w-28 h-28 rounded-full flex items-center justify-center transition-all",
-                isListening
-                  ? "bg-primary text-primary-foreground shadow-[0_0_40px_hsl(var(--primary)/0.3)]"
-                  : "bg-muted text-muted-foreground hover:text-foreground"
-              )}
-            >
-              {isListening && (
-                <motion.div
-                  className="absolute inset-0 rounded-full border-2 border-primary/30"
-                  animate={{ scale: [1, 1.4], opacity: [0.6, 0] }}
-                  transition={{ repeat: Infinity, duration: 1.5 }}
-                />
-              )}
-              <Mic className="w-8 h-8" />
-            </motion.button>
-          </div>
-          <div className="text-center">
-            <p className="text-sm font-medium text-foreground">Conversar com IA</p>
-            <p className="text-xs text-muted-foreground mt-1">
-              {isListening ? "Ouvindo..." : "Clique para falar ou digite"}
-            </p>
-          </div>
-          <div className="flex gap-2 w-full">
-            <button onClick={() => setChatOpen(true)} className="flex-1 btn-gradient rounded-lg py-2 text-xs font-medium">
+          <iframe
+            ref={iframeRef}
+            src="https://admin.toolzz.ai/emb-voice/c9214171-8ceb-4f61-9dc1-8e3dffbb21c4"
+            width="100%"
+            height="126"
+            id="chatbotVoiceIframe"
+            allow="microphone"
+            style={{ border: 'none', background: 'transparent' }}
+            data-allowtransparency="true"
+          />
+          <div className="w-full">
+            <button onClick={() => setChatOpen(true)} className="w-full btn-gradient rounded-lg py-2 text-xs font-medium">
               <MessageSquare className="w-3.5 h-3.5 inline mr-1.5" />Via texto
-            </button>
-            <button
-              onClick={() => setIsListening(!isListening)}
-              className={cn(
-                "flex-1 rounded-lg py-2 text-xs font-medium",
-                isListening ? "bg-primary text-primary-foreground" : "btn-gradient"
-              )}
-            >
-              <Mic className="w-3.5 h-3.5 inline mr-1.5" />Via voz
             </button>
           </div>
         </motion.div>
