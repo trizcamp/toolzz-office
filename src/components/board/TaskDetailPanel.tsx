@@ -24,6 +24,7 @@ interface TaskDetailPanelProps {
   typeLabels?: Record<string, string>;
   typeColors?: Record<string, string>;
   onAddType?: (name: string, color: string) => void;
+  readOnly?: boolean;
 }
 
 const defaultBlocks: Block[] = [
@@ -54,6 +55,7 @@ export default function TaskDetailPanel({
   typeLabels = {},
   typeColors = {},
   onAddType,
+  readOnly = false,
 }: TaskDetailPanelProps) {
   const [localDocId, setLocalDocId] = useState<string | null>(task.document_id || null);
   const { createDocument } = useDocuments();
@@ -163,7 +165,7 @@ export default function TaskDetailPanel({
           </div>
         </div>
         <div className="flex-1 overflow-y-auto p-6 max-w-4xl mx-auto w-full">
-          <BlockEditor blocks={editorBlocks} onChange={handleBlocksChange} />
+          <BlockEditor blocks={editorBlocks} onChange={handleBlocksChange} readOnly={readOnly} />
         </div>
       </div>
     );
@@ -216,13 +218,14 @@ export default function TaskDetailPanel({
           className="text-lg font-semibold border-none bg-transparent px-0 h-auto text-foreground"
           value={task.title}
           onChange={(e) => onUpdate({ ...task, title: e.target.value })}
+          disabled={readOnly}
         />
 
         {/* Metadata grid */}
         <div className="grid grid-cols-2 gap-3">
           <div className="space-y-1">
             <p className="text-[10px] uppercase tracking-widest text-muted-foreground">Status</p>
-            <Select value={task.status} onValueChange={(v) => onUpdate({ ...task, status: v as TaskStatus })}>
+            <Select value={task.status} onValueChange={(v) => onUpdate({ ...task, status: v as TaskStatus })} disabled={readOnly}>
               <SelectTrigger className="h-8 text-xs"><SelectValue /></SelectTrigger>
               <SelectContent>
                 {Object.entries(statusLabels).map(([k, v]) => (
@@ -233,7 +236,7 @@ export default function TaskDetailPanel({
           </div>
           <div className="space-y-1">
             <p className="text-[10px] uppercase tracking-widest text-muted-foreground">Prioridade</p>
-            <Select value={task.priority} onValueChange={(v) => onUpdate({ ...task, priority: v as TaskPriority })}>
+            <Select value={task.priority} onValueChange={(v) => onUpdate({ ...task, priority: v as TaskPriority })} disabled={readOnly}>
               <SelectTrigger className="h-8 text-xs"><SelectValue /></SelectTrigger>
               <SelectContent>
                 {Object.entries(priorityLabels).map(([k, v]) => (
@@ -318,7 +321,7 @@ export default function TaskDetailPanel({
             </div>
           </div>
           {docExpanded && (
-            <BlockEditor blocks={editorBlocks} onChange={handleBlocksChange} />
+            <BlockEditor blocks={editorBlocks} onChange={handleBlocksChange} readOnly={readOnly} />
           )}
         </div>
       </div>
