@@ -3,7 +3,7 @@ import { Calendar } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { cn } from "@/lib/utils";
 import type { Task } from "@/data/mockTasks";
-import { priorityLabels } from "@/data/mockTasks";
+import { priorityLabels, defaultTypeLabels, defaultTypeColors } from "@/data/mockTasks";
 
 const priorityIcons: Record<string, { color: string; icon: string }> = {
   critical: { color: "text-destructive", icon: "🔴" },
@@ -12,31 +12,25 @@ const priorityIcons: Record<string, { color: string; icon: string }> = {
   low: { color: "text-muted-foreground", icon: "⚪" },
 };
 
-const typeColors: Record<string, string> = {
-  feature: "bg-primary/15 text-primary",
-  bug: "bg-destructive/15 text-destructive",
-  improvement: "bg-[hsl(var(--success))]/15 text-[hsl(var(--success))]",
-  task: "bg-muted text-muted-foreground",
-};
-
 interface TaskCardProps {
   task: Task;
   onMoveLeft?: () => void;
   onMoveRight?: () => void;
   onClick?: () => void;
   showMoveButtons?: boolean;
+  typeLabels?: Record<string, string>;
+  typeColors?: Record<string, string>;
 }
 
-export default function TaskCard({ task, onMoveLeft, onMoveRight, onClick, showMoveButtons = true }: TaskCardProps) {
+export default function TaskCard({ task, onMoveLeft, onMoveRight, onClick, showMoveButtons = true, typeLabels = defaultTypeLabels, typeColors = defaultTypeColors }: TaskCardProps) {
   const [isDragging, setIsDragging] = useState(false);
+  const typeLabel = typeLabels[task.type] || task.type;
+  const typeColor = typeColors[task.type] || "bg-muted text-muted-foreground";
 
   return (
     <div
       draggable
-      onDragStart={(e) => {
-        e.dataTransfer.setData("taskId", task.id);
-        setIsDragging(true);
-      }}
+      onDragStart={(e) => { e.dataTransfer.setData("taskId", task.id); setIsDragging(true); }}
       onDragEnd={() => setIsDragging(false)}
       onClick={onClick}
       className={cn(
@@ -47,9 +41,10 @@ export default function TaskCard({ task, onMoveLeft, onMoveRight, onClick, showM
       {/* Header: ID + Type badge */}
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-1.5">
-          <Badge variant="outline" className={cn("text-[10px] px-1.5 py-0 border-0", typeColors[task.type])}>
-            {task.type === "feature" ? "🚀" : task.type === "bug" ? "🐛" : task.type === "improvement" ? "⚡" : "📋"} {task.id}
+          <Badge variant="outline" className={cn("text-[10px] px-1.5 py-0 border-0", typeColor)}>
+            {task.type === "feature" ? "🚀" : task.type === "bug" ? "🐛" : task.type === "improvement" ? "⚡" : "📋"} {typeLabel}
           </Badge>
+          <span className="text-[9px] font-mono text-muted-foreground">{task.id}</span>
         </div>
       </div>
 

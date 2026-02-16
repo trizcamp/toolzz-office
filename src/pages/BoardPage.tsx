@@ -8,6 +8,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/u
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { Textarea } from "@/components/ui/textarea";
 import { cn } from "@/lib/utils";
 import { mockTasks, statusLabels, priorityLabels, defaultTypeLabels, defaultTypeColors, type Task, type TaskStatus } from "@/data/mockTasks";
 import KanbanColumn from "@/components/board/KanbanColumn";
@@ -30,14 +31,15 @@ const priorityColors: Record<string, string> = {
 interface BoardDef {
   id: string;
   name: string;
+  description: string;
   sector: string;
   icon: string;
 }
 
 const defaultBoards: BoardDef[] = [
-  { id: "board-produto", name: "Produto", sector: "Produto", icon: "🚀" },
-  { id: "board-marketing", name: "Marketing", sector: "Marketing", icon: "📢" },
-  { id: "board-comercial", name: "Comercial", sector: "Comercial", icon: "💼" },
+  { id: "board-produto", name: "Produto", description: "", sector: "Produto", icon: "🚀" },
+  { id: "board-marketing", name: "Marketing", description: "", sector: "Marketing", icon: "📢" },
+  { id: "board-comercial", name: "Comercial", description: "", sector: "Comercial", icon: "💼" },
 ];
 
 const sectorTemplates = [
@@ -51,6 +53,9 @@ export default function BoardPage() {
   const [newTaskOpen, setNewTaskOpen] = useState(false);
   const [assigneeFilter, setAssigneeFilter] = useState("all");
   const [typeFilter, setTypeFilter] = useState("all");
+  const [priorityFilter, setPriorityFilter] = useState("all");
+  const [statusFilter, setStatusFilter] = useState("all");
+  const [dateFilter, setDateFilter] = useState("");
   const [selectedTask, setSelectedTask] = useState<Task | null>(null);
   const [selectedBoard, setSelectedBoard] = useState<string | null>(null);
   const [boards, setBoards] = useState<BoardDef[]>(defaultBoards);
@@ -60,8 +65,10 @@ export default function BoardPage() {
   const [typeLabelsState, setTypeLabelsState] = useState<Record<string, string>>({ ...defaultTypeLabels });
   const [typeColorsState, setTypeColorsState] = useState<Record<string, string>>({ ...defaultTypeColors });
   const [fullscreenDoc, setFullscreenDoc] = useState(false);
-  const [editingBoard, setEditingBoard] = useState<string | null>(null);
+  const [editBoardOpen, setEditBoardOpen] = useState(false);
+  const [editBoardId, setEditBoardId] = useState<string | null>(null);
   const [editBoardName, setEditBoardName] = useState("");
+  const [editBoardDesc, setEditBoardDesc] = useState("");
   const [deleteBoardId, setDeleteBoardId] = useState<string | null>(null);
 
   const assignees = useMemo(() => {
@@ -74,14 +81,18 @@ export default function BoardPage() {
     return tasks.filter((t) => {
       if (assigneeFilter !== "all" && !t.assignees.some((a) => a.name === assigneeFilter)) return false;
       if (typeFilter !== "all" && t.type !== typeFilter) return false;
+      if (priorityFilter !== "all" && t.priority !== priorityFilter) return false;
+      if (statusFilter !== "all" && t.status !== statusFilter) return false;
+      if (dateFilter) {
+        const taskDate = t.deliveryDate || t.createdAt;
+        if (taskDate !== dateFilter) return false;
+      }
       return true;
     });
-  }, [tasks, assigneeFilter, typeFilter]);
+  }, [tasks, assigneeFilter, typeFilter, priorityFilter, statusFilter, dateFilter]);
 
   const moveTask = (taskId: string, newStatus: TaskStatus) => {
-    setTasks((prev) =>
-      prev.map((t) => (t.id === taskId ? { ...t, status: newStatus } : t))
-    );
+    setTasks((prev) => prev.map((t) => (t.id === taskId ? { ...t, status: newStatus } : t)));
   };
 
   const moveTaskDirection = (taskId: string, direction: "left" | "right") => {
@@ -127,6 +138,7 @@ export default function BoardPage() {
     const newBoard: BoardDef = {
       id: `board-${Date.now()}`,
       name: newBoardName,
+      description: "",
       sector: newBoardSector,
       icon: template?.icon || "📋",
     };
@@ -143,11 +155,17 @@ export default function BoardPage() {
     setTypeColorsState((prev) => ({ ...prev, [key]: color }));
   };
 
-  const handleRenameBoard = (boardId: string) => {
-    if (!editBoardName.trim()) return;
-    setBoards((prev) => prev.map((b) => b.id === boardId ? { ...b, name: editBoardName.trim() } : b));
-    setEditingBoard(null);
-    setEditBoardName("");
+  const openEditBoard = (board: BoardDef) => {
+    setEditBoardId(board.id);
+    setEditBoardName(board.name);
+    setEditBoardDesc(board.description);
+    setEditBoardOpen(true);
+  };
+
+  const handleSaveBoard = () => {
+    if (!editBoardId || !editBoardName.trim()) return;
+    setBoards((prev) => prev.map((b) => b.id === editBoardId ? { ...b, name: editBoardName.trim(), description: editBoardDesc } : b));
+    setEditBoardOpen(false);
   };
 
   const handleDeleteBoard = (boardId: string) => {
@@ -155,9 +173,15 @@ export default function BoardPage() {
     setDeleteBoardId(null);
   };
 
+  const filterProps = {
+    assigneeFilter, typeFilter, priorityFilter, statusFilter, dateFilter,
+    onAssigneeChange: setAssigneeFilter, onTypeChange: setTypeFilter,
+    onPriorityChange: setPriorityFilter, onStatusChange: setStatusFilter,
+    onDateChange: setDateFilter, assignees,
+  };
+
   // Board overview
   if (!selectedBoard) {
-    const currentBoard = boards.find((b) => b.id === "board-produto");
     return (
       <div className="h-full flex flex-col">
         <div className="px-6 py-4 border-b border-border flex items-center justify-between shrink-0">
@@ -181,7 +205,7 @@ export default function BoardPage() {
                 >
                   <div className="absolute top-2 right-2 flex gap-1 opacity-0 group-hover/card:opacity-100 transition-opacity">
                     <button
-                      onClick={(e) => { e.stopPropagation(); setEditingBoard(board.id); setEditBoardName(board.name); }}
+                      onClick={(e) => { e.stopPropagation(); openEditBoard(board); }}
                       className="w-6 h-6 flex items-center justify-center rounded hover:bg-surface-hover text-muted-foreground hover:text-foreground"
                     >
                       <Pencil className="w-3 h-3" />
@@ -193,30 +217,17 @@ export default function BoardPage() {
                       <Trash2 className="w-3 h-3" />
                     </button>
                   </div>
-                  <button
-                    onClick={() => setSelectedBoard(board.id)}
-                    className="w-full text-left space-y-3"
-                  >
+                  <button onClick={() => setSelectedBoard(board.id)} className="w-full text-left space-y-3">
                     <div className="flex items-center gap-3">
                       <span className="text-2xl">{board.icon}</span>
                       <div>
-                        {editingBoard === board.id ? (
-                          <div className="flex items-center gap-1" onClick={(e) => e.stopPropagation()}>
-                            <Input
-                              value={editBoardName}
-                              onChange={(e) => setEditBoardName(e.target.value)}
-                              className="h-6 text-sm px-1 w-32"
-                              autoFocus
-                              onKeyDown={(e) => { if (e.key === "Enter") handleRenameBoard(board.id); if (e.key === "Escape") setEditingBoard(null); }}
-                            />
-                            <Button size="sm" variant="ghost" className="h-6 px-1 text-xs" onClick={() => handleRenameBoard(board.id)}>OK</Button>
-                          </div>
-                        ) : (
-                          <h3 className="text-sm font-semibold text-foreground">{board.name}</h3>
-                        )}
+                        <h3 className="text-sm font-semibold text-foreground">{board.name}</h3>
                         <p className="text-[10px] text-muted-foreground">{board.sector}</p>
                       </div>
                     </div>
+                    {board.description && (
+                      <p className="text-xs text-muted-foreground">{board.description}</p>
+                    )}
                     <div className="space-y-1.5">
                       <div className="flex justify-between text-[10px] text-muted-foreground">
                         <span>{boardTasks.length} tarefas</span>
@@ -236,17 +247,11 @@ export default function BoardPage() {
         {/* New Board Dialog */}
         <Dialog open={newBoardOpen} onOpenChange={setNewBoardOpen}>
           <DialogContent className="sm:max-w-[480px]">
-            <DialogHeader>
-              <DialogTitle>Nova Central de Tarefas</DialogTitle>
-            </DialogHeader>
+            <DialogHeader><DialogTitle>Nova Central de Tarefas</DialogTitle></DialogHeader>
             <div className="space-y-4 py-2">
               <div className="space-y-2">
                 <Label>Nome da Central</Label>
-                <Input
-                  placeholder="Ex: Sprint Q1 2025"
-                  value={newBoardName}
-                  onChange={(e) => setNewBoardName(e.target.value)}
-                />
+                <Input placeholder="Ex: Sprint Q1 2025" value={newBoardName} onChange={(e) => setNewBoardName(e.target.value)} />
               </div>
               <div className="space-y-2">
                 <Label>Modelo por Setor</Label>
@@ -257,9 +262,7 @@ export default function BoardPage() {
                       onClick={() => setNewBoardSector(t.sector)}
                       className={cn(
                         "flex items-center gap-3 p-3 rounded-lg border transition-colors text-left",
-                        newBoardSector === t.sector
-                          ? "border-primary bg-primary/5"
-                          : "border-border hover:bg-surface-hover"
+                        newBoardSector === t.sector ? "border-primary bg-primary/5" : "border-border hover:bg-surface-hover"
                       )}
                     >
                       <span className="text-xl">{t.icon}</span>
@@ -271,9 +274,28 @@ export default function BoardPage() {
                   ))}
                 </div>
               </div>
-              <Button className="w-full btn-gradient" onClick={handleCreateBoard} disabled={!newBoardName.trim() || !newBoardSector}>
-                Criar Central
-              </Button>
+              <Button className="w-full btn-gradient" onClick={handleCreateBoard} disabled={!newBoardName.trim() || !newBoardSector}>Criar Central</Button>
+            </div>
+          </DialogContent>
+        </Dialog>
+
+        {/* Edit Board Dialog */}
+        <Dialog open={editBoardOpen} onOpenChange={setEditBoardOpen}>
+          <DialogContent className="sm:max-w-[420px]">
+            <DialogHeader><DialogTitle>Editar Central de Tarefas</DialogTitle></DialogHeader>
+            <div className="space-y-4 py-2">
+              <div className="space-y-2">
+                <Label>Nome da Central</Label>
+                <Input value={editBoardName} onChange={(e) => setEditBoardName(e.target.value)} />
+              </div>
+              <div className="space-y-2">
+                <Label>Descrição (opcional)</Label>
+                <Textarea value={editBoardDesc} onChange={(e) => setEditBoardDesc(e.target.value)} placeholder="Descreva o propósito desta central..." rows={3} />
+              </div>
+              <div className="flex justify-end gap-2">
+                <Button variant="ghost" onClick={() => setEditBoardOpen(false)}>Cancelar</Button>
+                <Button className="btn-gradient" onClick={handleSaveBoard}>Salvar</Button>
+              </div>
             </div>
           </DialogContent>
         </Dialog>
@@ -291,10 +313,7 @@ export default function BoardPage() {
             </AlertDialogHeader>
             <AlertDialogFooter>
               <AlertDialogCancel>Cancelar</AlertDialogCancel>
-              <AlertDialogAction
-                className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
-                onClick={() => deleteBoardId && handleDeleteBoard(deleteBoardId)}
-              >
+              <AlertDialogAction className="bg-destructive text-destructive-foreground hover:bg-destructive/90" onClick={() => deleteBoardId && handleDeleteBoard(deleteBoardId)}>
                 Apagar permanentemente
               </AlertDialogAction>
             </AlertDialogFooter>
@@ -309,10 +328,7 @@ export default function BoardPage() {
       <div className="flex-1 flex flex-col min-w-0">
         <div className="px-6 py-4 border-b border-border flex items-center justify-between shrink-0">
           <div className="flex items-center gap-3">
-            <button
-              onClick={() => setSelectedBoard(null)}
-              className="text-muted-foreground hover:text-foreground transition-colors"
-            >
+            <button onClick={() => setSelectedBoard(null)} className="text-muted-foreground hover:text-foreground transition-colors">
               <ArrowLeft className="w-4 h-4" />
             </button>
             <h1 className="text-lg font-semibold text-foreground">
@@ -334,30 +350,27 @@ export default function BoardPage() {
             </TabsList>
           </div>
 
-          <TabsContent value="kanban" className="flex-1 overflow-x-auto px-6 py-4">
+          <TabsContent value="kanban" className="flex-1 overflow-x-auto px-6 py-4 space-y-3">
+            <TaskFilters {...filterProps} />
             <div className="flex gap-4 min-w-max">
               {allStatuses.map((status) => (
                 <KanbanColumn
                   key={status}
                   status={status}
-                  tasks={tasks.filter((t) => t.status === status)}
+                  tasks={filteredTasks.filter((t) => t.status === status)}
                   onMoveTask={moveTaskDirection}
                   onDropTask={moveTask}
                   onSelectTask={setSelectedTask}
                   allStatuses={allStatuses}
+                  typeLabels={typeLabelsState}
+                  typeColors={typeColorsState}
                 />
               ))}
             </div>
           </TabsContent>
 
           <TabsContent value="list" className="flex-1 overflow-y-auto px-6 py-4 space-y-4">
-            <TaskFilters
-              assigneeFilter={assigneeFilter}
-              typeFilter={typeFilter}
-              onAssigneeChange={setAssigneeFilter}
-              onTypeChange={setTypeFilter}
-              assignees={assignees}
-            />
+            <TaskFilters {...filterProps} />
             <div className="border border-border rounded-lg overflow-hidden">
               <Table>
                 <TableHeader>
@@ -373,17 +386,17 @@ export default function BoardPage() {
                 </TableHeader>
                 <TableBody>
                   {filteredTasks.map((task) => (
-                    <TableRow
-                      key={task.id}
-                      className="cursor-pointer hover:bg-surface-hover"
-                      onClick={() => setSelectedTask(task)}
-                    >
+                    <TableRow key={task.id} className="cursor-pointer hover:bg-surface-hover" onClick={() => setSelectedTask(task)}>
                       <TableCell className="text-xs font-mono text-muted-foreground">{task.id}</TableCell>
                       <TableCell className="text-sm">{task.title}</TableCell>
                       <TableCell><Badge variant="outline" className="text-[10px]">{statusLabels[task.status]}</Badge></TableCell>
                       <TableCell><Badge variant="outline" className={cn("text-[10px] border-0", priorityColors[task.priority])}>{priorityLabels[task.priority]}</Badge></TableCell>
                       <TableCell className="text-sm">{task.assignees.map((a) => a.name).join(", ")}</TableCell>
-                      <TableCell><Badge variant="outline" className="text-[10px]">{typeLabelsState[task.type] || task.type}</Badge></TableCell>
+                      <TableCell>
+                        <Badge variant="outline" className={cn("text-[10px] border-0", typeColorsState[task.type] || "")}>
+                          {typeLabelsState[task.type] || task.type}
+                        </Badge>
+                      </TableCell>
                       <TableCell className="text-xs text-muted-foreground">{task.createdAt}</TableCell>
                     </TableRow>
                   ))}
@@ -399,13 +412,7 @@ export default function BoardPage() {
           <TabsContent value="priority" className="flex-1 overflow-y-auto px-6 py-4">
             <div className="grid md:grid-cols-2 gap-4">
               {tasks.map((task) => (
-                <PriorityPokerCard
-                  key={task.id}
-                  task={task}
-                  onDelete={() => handleDeleteTask(task.id)}
-                  onUpdate={handleUpdateTask}
-                  onSelect={() => setSelectedTask(task)}
-                />
+                <PriorityPokerCard key={task.id} task={task} onDelete={() => handleDeleteTask(task.id)} onUpdate={handleUpdateTask} onSelect={() => setSelectedTask(task)} />
               ))}
             </div>
           </TabsContent>
@@ -428,12 +435,7 @@ export default function BoardPage() {
         )}
       </AnimatePresence>
 
-      <NewTaskDialog
-        open={newTaskOpen}
-        onOpenChange={setNewTaskOpen}
-        onCreateTask={handleCreateTask}
-        existingTasks={tasks}
-      />
+      <NewTaskDialog open={newTaskOpen} onOpenChange={setNewTaskOpen} onCreateTask={handleCreateTask} existingTasks={tasks} />
     </div>
   );
 }

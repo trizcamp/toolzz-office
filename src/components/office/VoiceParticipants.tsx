@@ -1,9 +1,12 @@
 import { useState } from "react";
-import { Bot, Sparkles, MicOff, Mic, Volume2, VolumeX, PhoneOff } from "lucide-react";
+import { Bot, Sparkles, MicOff, Mic, Volume2, VolumeX, PhoneOff, Settings } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Tooltip, TooltipTrigger, TooltipContent } from "@/components/ui/tooltip";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Label } from "@/components/ui/label";
 import { useVoiceConnection, type MockUser, type Room } from "@/contexts/VoiceConnectionContext";
 import { useToast } from "@/hooks/use-toast";
 
@@ -15,6 +18,8 @@ export default function VoiceParticipants({ room }: VoiceParticipantsProps) {
   const { connectedRoom, currentUser, isMuted, isDeafened, toggleMute, toggleDeafen, disconnect } = useVoiceConnection();
   const { toast } = useToast();
   const [aiEnabled, setAiEnabled] = useState(false);
+  const [inputDevice, setInputDevice] = useState("default");
+  const [outputDevice, setOutputDevice] = useState("default");
   const isConnectedHere = connectedRoom?.id === room.id;
 
   const members: MockUser[] = isConnectedHere
@@ -24,16 +29,10 @@ export default function VoiceParticipants({ room }: VoiceParticipantsProps) {
   const handleToggleAI = () => {
     if (aiEnabled) {
       setAiEnabled(false);
-      toast({
-        title: "IA desabilitada",
-        description: "Reunião salva em 'Reuniões'",
-      });
+      toast({ title: "IA desabilitada", description: "Reunião salva em 'Reuniões'" });
     } else {
       setAiEnabled(true);
-      toast({
-        title: "IA habilitada",
-        description: "A IA está transcrevendo esta reunião em tempo real.",
-      });
+      toast({ title: "IA habilitada", description: "A IA está transcrevendo esta reunião em tempo real." });
     }
   };
 
@@ -45,21 +44,14 @@ export default function VoiceParticipants({ room }: VoiceParticipantsProps) {
       <div className="absolute top-4 right-4">
         <Tooltip>
           <TooltipTrigger asChild>
-            <Button
-              size="sm"
-              variant={aiEnabled ? "default" : "outline"}
-              className="h-8 gap-1.5 text-xs"
-              onClick={handleToggleAI}
-            >
+            <Button size="sm" variant={aiEnabled ? "default" : "outline"} className="h-8 gap-1.5 text-xs" onClick={handleToggleAI}>
               {aiEnabled ? <Sparkles className="w-3.5 h-3.5" /> : <Bot className="w-3.5 h-3.5" />}
               {aiEnabled ? "Parar IA" : "Habilitar IA"}
               {aiEnabled && <Badge variant="secondary" className="ml-1 text-[9px] px-1 py-0">Transcrevendo</Badge>}
             </Button>
           </TooltipTrigger>
           <TooltipContent>
-            {aiEnabled
-              ? "Clique para parar a transcrição e salvar a reunião"
-              : "Habilite a IA para transcrever automaticamente esta reunião"}
+            {aiEnabled ? "Clique para parar a transcrição e salvar a reunião" : "Habilite a IA para transcrever automaticamente esta reunião"}
           </TooltipContent>
         </Tooltip>
       </div>
@@ -68,12 +60,10 @@ export default function VoiceParticipants({ room }: VoiceParticipantsProps) {
       <div className="flex flex-wrap items-center justify-center gap-8 px-8">
         {members.map((user) => (
           <div key={user.id} className="flex flex-col items-center gap-2">
-            <div
-              className={cn(
-                "w-24 h-24 rounded-full bg-muted flex items-center justify-center text-2xl font-semibold text-muted-foreground transition-all",
-                user.isSpeaking && "ring-4 ring-[hsl(var(--success))]/50 shadow-[0_0_20px_hsl(var(--success)/0.3)]"
-              )}
-            >
+            <div className={cn(
+              "w-24 h-24 rounded-full bg-muted flex items-center justify-center text-2xl font-semibold text-muted-foreground transition-all",
+              user.isSpeaking && "ring-4 ring-[hsl(var(--success))]/50 shadow-[0_0_20px_hsl(var(--success)/0.3)]"
+            )}>
               {user.name.charAt(0)}
             </div>
             <span className="text-xs text-secondary-foreground">{user.name}</span>
@@ -88,33 +78,54 @@ export default function VoiceParticipants({ room }: VoiceParticipantsProps) {
         ))}
       </div>
 
-      {/* Inline voice controls below participants */}
+      {/* Inline voice controls */}
       {isConnectedHere && (
         <div className="mt-6 flex items-center gap-2">
-          <Button
-            variant="ghost"
-            size="icon"
-            className="h-9 w-9 rounded-full bg-muted"
-            onClick={toggleMute}
-          >
+          <Button variant="ghost" size="icon" className="h-9 w-9 rounded-full bg-muted" onClick={toggleMute}>
             {isMuted ? <MicOff className="w-4 h-4 text-destructive" /> : <Mic className="w-4 h-4" />}
           </Button>
-          <Button
-            variant="ghost"
-            size="icon"
-            className="h-9 w-9 rounded-full bg-muted"
-            onClick={toggleDeafen}
-          >
+          <Button variant="ghost" size="icon" className="h-9 w-9 rounded-full bg-muted" onClick={toggleDeafen}>
             {isDeafened ? <VolumeX className="w-4 h-4 text-destructive" /> : <Volume2 className="w-4 h-4" />}
           </Button>
-          <Button
-            variant="ghost"
-            size="icon"
-            className="h-9 w-9 rounded-full bg-destructive/10 text-destructive hover:bg-destructive/20"
-            onClick={disconnect}
-          >
+          <Button variant="ghost" size="icon" className="h-9 w-9 rounded-full bg-destructive/10 text-destructive hover:bg-destructive/20" onClick={disconnect}>
             <PhoneOff className="w-4 h-4" />
           </Button>
+
+          {/* Audio Settings */}
+          <Popover>
+            <PopoverTrigger asChild>
+              <Button variant="ghost" size="icon" className="h-9 w-9 rounded-full bg-muted">
+                <Settings className="w-4 h-4" />
+              </Button>
+            </PopoverTrigger>
+            <PopoverContent className="w-72 space-y-4">
+              <p className="text-sm font-semibold text-foreground">Configurações de Áudio</p>
+              <div className="space-y-2">
+                <Label className="text-xs">Dispositivo de Entrada (Microfone)</Label>
+                <Select value={inputDevice} onValueChange={setInputDevice}>
+                  <SelectTrigger className="h-8 text-xs"><SelectValue /></SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="default">Microfone Padrão</SelectItem>
+                    <SelectItem value="headset">Headset USB</SelectItem>
+                    <SelectItem value="webcam">Microfone da Webcam</SelectItem>
+                    <SelectItem value="bluetooth">Bluetooth</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+              <div className="space-y-2">
+                <Label className="text-xs">Dispositivo de Saída (Áudio)</Label>
+                <Select value={outputDevice} onValueChange={setOutputDevice}>
+                  <SelectTrigger className="h-8 text-xs"><SelectValue /></SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="default">Alto-falantes</SelectItem>
+                    <SelectItem value="headphones">Fones de ouvido</SelectItem>
+                    <SelectItem value="headset">Headset USB</SelectItem>
+                    <SelectItem value="bluetooth">Bluetooth</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+            </PopoverContent>
+          </Popover>
         </div>
       )}
     </div>
