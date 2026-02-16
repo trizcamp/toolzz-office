@@ -1,77 +1,109 @@
 
-## Corrigir criacao e sincronizacao de documentos entre Tarefas e Documentos
+# Relatório Funcional em Tempo Real e Poker de Votação
 
-### Problemas Identificados
+## Visao Geral
 
-1. **Documentos duplicados massivos**: O `useEffect` no `TaskDetailPanel` que auto-cria documentos esta disparando repetidamente, gerando 28 documentos orfaos "Sem titulo" no banco de dados.
-2. **Race condition**: A logica de auto-criacao nao possui protecao contra execucoes multiplas (sem flag `isCreating`, sem verificacao de `createDocument.isPending`).
-3. **Documentos duplicados por tarefa**: A tarefa TOZ-7 tem 3 documentos vinculados ao mesmo `task_id`.
+Tres grandes blocos de trabalho:
 
-### Solucao
+1. **Relatorio funcional** com dados reais do banco (remover custo da feature, calcular metricas de performance real)
+2. **Poker funcional** com votacao persistida no banco, exibicao de votos por membro, e documentacao apenas visualizavel
+3. Hook de votos (`useTaskVotes`) para CRUD na tabela `task_votes`
 
-#### 1. Limpeza do banco de dados
-- Deletar todos os 28 documentos orfaos ("Sem titulo" sem `task_id`).
-- Remover documentos duplicados por tarefa, mantendo apenas o que esta referenciado no campo `document_id` da tarefa.
+---
 
-#### 2. Corrigir `TaskDetailPanel.tsx` - Prevenir duplicatas
-- Adicionar guard `createDocument.isPending` no `useEffect` para evitar chamadas multiplas.
-- Adicionar um `useRef` como flag de "ja tentou criar" para prevenir re-execucao.
-- Verificar no banco se ja existe documento com `task_id` antes de criar um novo.
+## 1. Relatorio (`BoardReport.tsx`)
 
-#### 3. Garantir que `DocumentsPage.tsx` funciona corretamente
-- O fluxo de criacao via modal "Novo Documento" ja esta implementado e funcional.
-- Ao criar um documento vinculado a uma tarefa, o sistema ja abre em fullscreen e salva no banco.
-- A sidebar ja lista todos os documentos (tarefas e independentes) com badges do `display_id`.
+### Remover
+- Secao inteira "Custo da Feature" (linhas 62-67 e 118-130)
+- Mock data `performanceData` (linhas 19-25)
+- Mock `weeklyData` (linhas 48-53)
+- Lead Time Medio hardcoded "4.2d"
 
-### Detalhes Tecnicos
+### Novas props
+O componente recebera `boardId` para buscar assignees e membros do board.
 
-**`TaskDetailPanel.tsx`** - Corrigir auto-criacao:
+### Metricas reais (cards superiores)
+- **Total**: `tasks.length`
+- **Concluidas**: tarefas com `status === "done"`
+- **Em Progresso**: tarefas com `status === "in_progress"`
+- **Lead Time Medio**: calculado a partir de tarefas "done" usando `(updated_at - created_at)` em dias, media arredondada
+
+### Grafico "Concluidas por Semana"
+- Agrupar tarefas com `status === "done"` pela semana do `updated_at` (momento em que foi marcada como done)
+- Mostrar as ultimas 4 semanas
+
+### Performance da Equipe (dados reais)
+- Buscar `task_assignees` com join em `members` e `tasks` para o board atual
+- Para cada membro vinculado ao board:
+  - **Entregues**: count de tarefas "done" atribuidas ao membro
+  - **No Prazo**: tarefas "done" onde `updated_at <= delivery_date` (ou sem delivery_date conta como no prazo)
+  - **Atrasos**: tarefas "done" onde `updated_at > delivery_date`
+  - **Desgaste**: calculado por ratio de atrasos (0 = Baixo, ate 30% = Medio, acima = Alto)
+
+---
+
+## 2. Poker Funcional (`PriorityPokerCard.tsx`)
+
+### Hook `useTaskVotes`
+Novo hook em `src/hooks/useTaskVotes.ts`:
+- `useTaskVotes(boardId)` - busca todos os votos das tarefas do board
+- `castVote(taskId, points)` - insere/atualiza voto do usuario logado via upsert
+- Realtime via subscription na tabela `task_votes`
+
+### Alteracoes no `PriorityPokerCard`
+- Receber `votes` (do hook) e `onVote(taskId, points)` como props
+- Ao clicar em um numero fibonacci, chamar `onVote` que persiste no banco
+- Destacar o botao do ponto que o usuario atual votou
+- Exibir lista de votos com avatar/inicial e pontos de cada membro
+- Calcular media dos pontos automaticamente
+- Documentacao aberta ao clicar na tarefa sera **read-only** (sem `onChange` no `BlockEditor`)
+
+### Alteracoes no `BoardPage.tsx`
+- Importar e usar `useTaskVotes` na tab Poker
+- Passar `mappedTasks` com votos reais mesclados
+- Ao selecionar tarefa no Poker, abrir `TaskDetailPanel` em modo read-only para documentacao
+
+---
+
+## 3. Documentacao Read-Only no Poker
+
+Quando a tarefa for aberta a partir da tab Poker:
+- O `TaskDetailPanel` recebera uma prop `readOnly?: boolean`
+- Quando `readOnly=true`: inputs de titulo/status/prioridade ficam desabilitados, `BlockEditor` nao recebe `onChange`
+- O usuario pode visualizar toda a documentacao mas nao editar
+
+---
+
+## Detalhes Tecnicos
+
+### Novo arquivo: `src/hooks/useTaskVotes.ts`
 ```typescript
-const creatingRef = useRef(false);
-
-useEffect(() => {
-  if (localDocId || !task.id || creatingRef.current || createDocument.isPending) return;
-  creatingRef.current = true;
-  
-  // Check if document already exists for this task
-  supabase.from("documents").select("id").eq("task_id", task.id).limit(1).single()
-    .then(({ data }) => {
-      if (data) {
-        setLocalDocId(data.id);
-        supabase.from("tasks").update({ document_id: data.id }).eq("id", task.id);
-      } else {
-        createDocument.mutate({ title: task.title, icon: "📋", type: "spec", task_id: task.id }, {
-          onSuccess: (doc) => {
-            setLocalDocId(doc.id);
-            supabase.from("tasks").update({ document_id: doc.id }).eq("id", task.id);
-          },
-          onError: () => { creatingRef.current = false; }
-        });
-      }
-    });
-}, [task.id]);
+// Busca votos de todas as tarefas de um board
+// castVote faz upsert (user_id + task_id unique)
+// Realtime subscription em task_votes
 ```
 
-**Limpeza SQL** (via migration ou insert tool):
-```sql
--- Deletar documentos orfaos sem task_id
-DELETE FROM document_blocks WHERE document_id IN (
-  SELECT id FROM documents WHERE task_id IS NULL
-);
-DELETE FROM documents WHERE task_id IS NULL;
+### `BoardReport.tsx` - Mudancas
+- Props: `tasks` + `boardId`
+- Queries internas: buscar `task_assignees` com join `members` e `tasks` para calcular performance
+- Calcular lead time real: `differenceInDays(updated_at, created_at)` para tarefas done
+- Agrupar tarefas done por semana usando `date-fns`
+- Remover toda secao de custo
 
--- Deletar documentos duplicados por task_id (manter o referenciado pela tarefa)
-DELETE FROM document_blocks WHERE document_id IN (
-  SELECT d.id FROM documents d
-  JOIN tasks t ON d.task_id = t.id
-  WHERE d.id != t.document_id
-);
-DELETE FROM documents d
-USING tasks t
-WHERE d.task_id = t.id AND d.id != t.document_id;
-```
+### `PriorityPokerCard.tsx` - Mudancas
+- Props adicionais: `votes`, `currentUserId`, `onVote`
+- Fibonacci buttons executam `onVote(task._dbId, points)`
+- Exibir votos reais com nome/avatar de cada membro
 
-### Resultado Esperado
-- Ao abrir uma tarefa, o documento e criado apenas uma vez e fica disponivel tanto na tarefa quanto no modulo Documentos.
-- Ao criar um documento pelo modulo Documentos vinculado a uma tarefa, ele abre em fullscreen e aparece na sidebar.
-- Nenhum documento duplicado sera criado.
+### `TaskDetailPanel.tsx` - Mudancas
+- Nova prop `readOnly?: boolean`
+- Quando true: desabilitar inputs, nao passar `onChange` ao BlockEditor
+
+### `BoardPage.tsx` - Mudancas
+- Instanciar `useTaskVotes(selectedBoard)`
+- Mesclar votos nos `mappedTasks` para a tab Poker
+- Passar `readOnly={true}` ao `TaskDetailPanel` quando aberto via Poker
+- Passar `boardId` ao `BoardReport`
+
+### Tabela `task_votes`
+Ja existe no banco com colunas: `id`, `task_id`, `user_id`, `points`, `created_at`. Nao precisa de migration. Precisa apenas garantir constraint unique em `(task_id, user_id)` para upsert funcionar - isso sera feito via migration se necessario.
