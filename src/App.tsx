@@ -7,9 +7,8 @@ import { VoiceConnectionProvider } from "./contexts/VoiceConnectionContext";
 import { useAuth } from "./hooks/useAuth";
 import AppLayout from "./components/AppLayout";
 import Home from "./pages/Home";
-import OfficePage from "./pages/OfficePage";
+import ComingSoonPage from "./pages/ComingSoonPage";
 import BoardPage from "./pages/BoardPage";
-import MeetingsPage from "./pages/MeetingsPage";
 import CalendarPage from "./pages/CalendarPage";
 import IntegrationsPage from "./pages/IntegrationsPage";
 import DocumentsPage from "./pages/DocumentsPage";
@@ -39,10 +38,11 @@ const AppRoutes = () => (
     <Route path="/reset-password" element={<ResetPasswordPage />} />
     <Route element={<ProtectedRoute><AppLayout /></ProtectedRoute>}>
       <Route path="/" element={<Home />} />
-      <Route path="/chat" element={<OfficePage />} />
+      <Route path="/chat" element={<ComingSoonPage title="Escritório em breve" description="Em breve sua equipe poderá se reunir em salas de voz e chat e realizar reuniões com agentes de IA." />} />
       <Route path="/board" element={<BoardPage />} />
       <Route path="/docs" element={<DocumentsPage />} />
-      <Route path="/meetings" element={<MeetingsPage />} />
+      <Route path="/meetings" element={<ComingSoonPage title="Reuniões em breve" description="Em breve você poderá acessar o histórico e a transcrição completa das reuniões realizadas no escritório." />} />
+      <Route path="/automations" element={<ComingSoonPage title="Automações em breve" description="Configure como suas tarefas serão movidas de forma automatizada." />} />
       <Route path="/calendar" element={<CalendarPage />} />
       <Route path="/integrations" element={<IntegrationsPage />} />
     </Route>
