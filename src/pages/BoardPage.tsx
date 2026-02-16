@@ -86,6 +86,7 @@ export default function BoardPage() {
       votes: [],
       createdAt: t.created_at?.split("T")[0] || "",
       deliveryDate: t.delivery_date || undefined,
+      document_id: t.document_id || null,
     }));
   }, [tasks]);
 

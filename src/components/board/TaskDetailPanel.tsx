@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useCallback, useRef, useMemo } from "react";
 import { X, Maximize2, Minimize2, Plus, Trash2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -12,9 +12,10 @@ import BlockEditor from "@/components/documents/BlockEditor";
 import type { Block } from "@/data/mockDocuments";
 import { motion } from "framer-motion";
 import { cn } from "@/lib/utils";
+import { useDocumentBlocks } from "@/hooks/useDocuments";
 
 interface TaskDetailPanelProps {
-  task: Task;
+  task: Task & { document_id?: string | null };
   onClose: () => void;
   onUpdate: (task: Task) => void;
   fullscreenDoc?: boolean;
@@ -53,16 +54,50 @@ export default function TaskDetailPanel({
   typeColors = {},
   onAddType,
 }: TaskDetailPanelProps) {
-  const [blocks, setBlocks] = useState<Block[]>(() => {
-    if (task.description) {
-      return [
-        { id: "td1", type: "heading2", content: "Descrição" },
-        { id: "td2", type: "paragraph", content: task.description },
-        ...defaultBlocks.slice(2),
-      ];
+  const documentId = task.document_id || null;
+  const { blocks: dbBlocks, saveBlocks } = useDocumentBlocks(documentId);
+
+  const editorBlocks: Block[] = useMemo(() => {
+    if (!documentId || dbBlocks.length === 0) {
+      if (task.description) {
+        return [
+          { id: "td1", type: "heading2", content: "Descrição" },
+          { id: "td2", type: "paragraph", content: task.description },
+          ...defaultBlocks.slice(2),
+        ];
+      }
+      return defaultBlocks;
     }
-    return defaultBlocks;
-  });
+    return dbBlocks.map((b) => ({
+      id: b.id,
+      type: b.type as Block["type"],
+      content: b.content || "",
+      checked: b.checked || undefined,
+      metadata: b.metadata || undefined,
+    }));
+  }, [dbBlocks, documentId, task.description]);
+
+  const saveTimeoutRef = useRef<ReturnType<typeof setTimeout>>();
+
+  const handleBlocksChange = useCallback((blocks: Block[]) => {
+    if (!documentId) return;
+    if (saveTimeoutRef.current) clearTimeout(saveTimeoutRef.current);
+    saveTimeoutRef.current = setTimeout(() => {
+      saveBlocks.mutate({
+        documentId,
+        blocks: blocks.map((b, i) => ({
+          id: b.id,
+          document_id: documentId,
+          type: b.type,
+          content: b.content,
+          position: i,
+          checked: b.checked || false,
+          metadata: b.metadata || {},
+        })),
+      });
+    }, 1000);
+  }, [documentId, saveBlocks]);
+
   const [docExpanded, setDocExpanded] = useState(true);
   const [addTypeOpen, setAddTypeOpen] = useState(false);
   const [newTypeName, setNewTypeName] = useState("");
@@ -91,7 +126,7 @@ export default function TaskDetailPanel({
           </div>
         </div>
         <div className="flex-1 overflow-y-auto p-6 max-w-4xl mx-auto w-full">
-          <BlockEditor blocks={blocks} onChange={setBlocks} />
+          <BlockEditor blocks={editorBlocks} onChange={handleBlocksChange} />
         </div>
       </div>
     );
@@ -246,7 +281,7 @@ export default function TaskDetailPanel({
             </div>
           </div>
           {docExpanded && (
-            <BlockEditor blocks={blocks} onChange={setBlocks} />
+            <BlockEditor blocks={editorBlocks} onChange={handleBlocksChange} />
           )}
         </div>
       </div>
