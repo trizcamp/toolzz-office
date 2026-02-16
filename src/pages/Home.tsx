@@ -68,7 +68,7 @@ export default function HomePage() {
           transition={{ delay: 0.1 }}
           className="bg-card border border-border rounded-xl p-4 flex flex-col items-center justify-center gap-3"
         >
-          <div className="flex-1 flex items-center justify-center w-full">
+          <div className="flex items-center justify-center w-full">
             <iframe
               ref={iframeRef}
               src="https://admin.toolzz.ai/emb-voice/c46f095b-4520-4319-b4a0-882abde69ddc"
