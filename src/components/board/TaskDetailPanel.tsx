@@ -57,31 +57,38 @@ export default function TaskDetailPanel({
 }: TaskDetailPanelProps) {
   const [localDocId, setLocalDocId] = useState<string | null>(task.document_id || null);
   const { createDocument } = useDocuments();
+  const creatingRef = useRef(false);
 
   // Sync localDocId when task changes
   useEffect(() => {
     setLocalDocId(task.document_id || null);
+    creatingRef.current = false;
   }, [task.document_id]);
 
-  // Auto-create document if task doesn't have one
+  // Auto-create document if task doesn't have one (with duplicate prevention)
   useEffect(() => {
-    if (localDocId || !task.id) return;
-    // Create a document linked to this task
-    createDocument.mutate(
-      {
-        title: task.title,
-        icon: "📋",
-        type: "spec",
-        task_id: task.id,
-      },
-      {
-        onSuccess: (data) => {
+    if (localDocId || !task.id || creatingRef.current || createDocument.isPending) return;
+    creatingRef.current = true;
+
+    supabase.from("documents").select("id").eq("task_id", task.id).maybeSingle()
+      .then(({ data, error }) => {
+        if (error) { creatingRef.current = false; return; }
+        if (data) {
           setLocalDocId(data.id);
-          // Link document back to task
           supabase.from("tasks").update({ document_id: data.id }).eq("id", task.id);
-        },
-      }
-    );
+        } else {
+          createDocument.mutate(
+            { title: task.title, icon: "📋", type: "spec", task_id: task.id },
+            {
+              onSuccess: (doc) => {
+                setLocalDocId(doc.id);
+                supabase.from("tasks").update({ document_id: doc.id }).eq("id", task.id);
+              },
+              onError: () => { creatingRef.current = false; },
+            }
+          );
+        }
+      });
   }, [task.id]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const documentId = localDocId;
