@@ -48,7 +48,7 @@ export default function ToolzzChatDialog({ open, onOpenChange }: ToolzzChatDialo
       });
 
       const data = await res.json();
-      const reply = data?.response || data?.message || data?.answer || JSON.stringify(data);
+      const reply = data?.message?.content || data?.response || (typeof data?.message === "string" ? data.message : "Sem resposta do agente.");
       setMessages((prev) => [...prev, { role: "assistant", content: reply }]);
     } catch (e) {
       setMessages((prev) => [...prev, { role: "assistant", content: "Erro ao se comunicar com o agente. Tente novamente." }]);
