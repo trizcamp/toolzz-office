@@ -46,6 +46,7 @@ export function useMembers() {
 
 export function useUserRoles() {
   const { user } = useAuth();
+  const queryClient = useQueryClient();
 
   const query = useQuery({
     queryKey: ["user-roles", user?.id],
@@ -60,6 +61,65 @@ export function useUserRoles() {
     enabled: !!user,
   });
 
+  const allRolesQuery = useQuery({
+    queryKey: ["all-user-roles"],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("user_roles")
+        .select("*");
+      if (error) throw error;
+      return data;
+    },
+    enabled: !!user,
+  });
+
+  const updateRole = useMutation({
+    mutationFn: async ({ userId, role }: { userId: string; role: "admin" | "member" }) => {
+      // Delete existing roles then insert new one
+      await supabase.from("user_roles").delete().eq("user_id", userId);
+      const { error } = await supabase.from("user_roles").insert({ user_id: userId, role });
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["all-user-roles"] });
+      queryClient.invalidateQueries({ queryKey: ["user-roles"] });
+    },
+  });
+
+  const deleteMember = useMutation({
+    mutationFn: async (userId: string) => {
+      // Delete role first, then member
+      await supabase.from("user_roles").delete().eq("user_id", userId);
+      const { error } = await supabase.from("members").delete().eq("id", userId);
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["members"] });
+      queryClient.invalidateQueries({ queryKey: ["all-user-roles"] });
+    },
+  });
+
+  const inviteMember = useMutation({
+    mutationFn: async ({ email, name, role }: { email: string; name: string; role: "admin" | "member" }) => {
+      const { data, error } = await supabase.functions.invoke("invite-member", {
+        body: { email, name, role },
+      });
+      if (error) throw error;
+      return data;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["members"] });
+      queryClient.invalidateQueries({ queryKey: ["all-user-roles"] });
+    },
+  });
+
   const isAdmin = query.data?.some((r) => r.role === "admin") || false;
-  return { roles: query.data || [], isAdmin };
+  const allRoles = allRolesQuery.data || [];
+
+  const getRoleForUser = (userId: string): "admin" | "member" => {
+    const userRole = allRoles.find((r) => r.user_id === userId);
+    return (userRole?.role as "admin" | "member") || "member";
+  };
+
+  return { roles: query.data || [], isAdmin, allRoles, getRoleForUser, updateRole, deleteMember, inviteMember };
 }
