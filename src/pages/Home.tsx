@@ -68,6 +68,7 @@ export default function HomePage() {
           transition={{ delay: 0.1 }}
           className="bg-card border border-border rounded-xl p-3 flex flex-col items-center justify-center gap-2 lg:col-span-1 self-start"
         >
+          <h3 className="text-sm font-semibold text-foreground w-full text-center">Scrum Agent</h3>
           <div className="flex items-center justify-center w-full">
             <iframe
               ref={iframeRef}
