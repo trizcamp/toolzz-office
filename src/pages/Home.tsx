@@ -4,6 +4,7 @@ import { useState } from "react";
 import { cn } from "@/lib/utils";
 import { useTasks } from "@/hooks/useTasks";
 import { useAuth } from "@/hooks/useAuth";
+import ToolzzChatDialog from "@/components/ToolzzChatDialog";
 
 function getGreeting() {
   const h = new Date().getHours();
@@ -31,6 +32,7 @@ const statusLabels: Record<string, string> = {
 
 export default function HomePage() {
   const [isListening, setIsListening] = useState(false);
+  const [chatOpen, setChatOpen] = useState(false);
   const { user } = useAuth();
   const { tasks } = useTasks(null);
   
@@ -81,7 +83,7 @@ export default function HomePage() {
             </p>
           </div>
           <div className="flex gap-2 w-full">
-            <button className="flex-1 btn-gradient rounded-lg py-2 text-xs font-medium">
+            <button onClick={() => setChatOpen(true)} className="flex-1 btn-gradient rounded-lg py-2 text-xs font-medium">
               <MessageSquare className="w-3.5 h-3.5 inline mr-1.5" />Via texto
             </button>
             <button
@@ -139,6 +141,7 @@ export default function HomePage() {
           <p className="text-xs text-muted-foreground text-center py-4">A atividade será exibida aqui conforme o uso</p>
         </motion.div>
       </div>
+      <ToolzzChatDialog open={chatOpen} onOpenChange={setChatOpen} />
     </div>
   );
 }
