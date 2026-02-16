@@ -163,7 +163,8 @@ export default function BlockEditor({ blocks, onChange, readOnly = false }: Bloc
   };
 
   const renderBlock = (block: Block, index: number) => {
-    const baseClasses = "outline-none w-full";
+  const baseClasses = "outline-none w-full";
+  const ltrStyle = { textAlign: "left" as const, direction: "ltr" as const, unicodeBidi: "plaintext" as const };
 
     const typeClasses: Record<string, string> = {
       heading1: "text-2xl font-bold text-foreground",
@@ -221,8 +222,8 @@ export default function BlockEditor({ blocks, onChange, readOnly = false }: Bloc
             ref={(el) => { blockRefs.current[block.id] = el; }}
             contentEditable={!readOnly}
             suppressContentEditableWarning
-            dir="ltr"
-            style={{ textAlign: "left" }}
+          dir="ltr"
+            style={ltrStyle}
             className={cn(baseClasses, typeClasses[block.type], block.checked && "line-through text-muted-foreground")}
             onInput={(e) => handleInput(block.id, e.currentTarget)}
             onKeyDown={(e) => handleKeyDown(e, block)}
@@ -247,8 +248,8 @@ export default function BlockEditor({ blocks, onChange, readOnly = false }: Bloc
               ref={(el) => { blockRefs.current[block.id] = el; }}
               contentEditable={!readOnly}
               suppressContentEditableWarning
-              dir="ltr"
-              style={{ textAlign: "left" }}
+          dir="ltr"
+            style={ltrStyle}
               className={cn(baseClasses, "text-sm font-medium text-foreground")}
               onInput={(e) => handleInput(block.id, e.currentTarget)}
               onKeyDown={(e) => handleKeyDown(e, block)}
@@ -268,8 +269,8 @@ export default function BlockEditor({ blocks, onChange, readOnly = false }: Bloc
               ref={(el) => { blockRefs.current[block.id] = el; }}
               contentEditable={!readOnly}
               suppressContentEditableWarning
-              dir="ltr"
-              style={{ textAlign: "left" }}
+          dir="ltr"
+            style={ltrStyle}
               className={cn(baseClasses, "text-sm text-secondary-foreground")}
               onInput={(e) => handleInput(block.id, e.currentTarget)}
               onKeyDown={(e) => handleKeyDown(e, block)}
@@ -309,8 +310,8 @@ export default function BlockEditor({ blocks, onChange, readOnly = false }: Bloc
             ref={(el) => { blockRefs.current[block.id] = el; }}
             contentEditable={!readOnly}
             suppressContentEditableWarning
-            dir="ltr"
-            style={{ textAlign: "left" }}
+          dir="ltr"
+            style={ltrStyle}
             className={cn(baseClasses, typeClasses.code)}
             onInput={(e) => handleInput(block.id, e.currentTarget)}
             onKeyDown={(e) => {
@@ -335,8 +336,8 @@ export default function BlockEditor({ blocks, onChange, readOnly = false }: Bloc
         ref={(el) => { blockRefs.current[block.id] = el; }}
         contentEditable={!readOnly}
         suppressContentEditableWarning
-        dir="ltr"
-        style={{ textAlign: "left" }}
+      dir="ltr"
+        style={ltrStyle}
         className={cn(baseClasses, typeClasses[block.type])}
         data-placeholder={block.content === "" ? "Escreva algo ou digite '/' para comandos" : undefined}
         onInput={(e) => handleInput(block.id, e.currentTarget)}
