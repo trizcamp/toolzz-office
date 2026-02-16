@@ -1,27 +1,62 @@
+import { useState } from "react";
+import { Trash2, Pencil, Check } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
 import { cn } from "@/lib/utils";
 import type { Task } from "@/data/mockTasks";
 import { fibonacciPoints } from "@/data/mockTasks";
 
 interface PriorityPokerCardProps {
   task: Task;
+  onDelete: () => void;
+  onUpdate: (task: Task) => void;
+  onSelect: () => void;
 }
 
-export default function PriorityPokerCard({ task }: PriorityPokerCardProps) {
+export default function PriorityPokerCard({ task, onDelete, onUpdate, onSelect }: PriorityPokerCardProps) {
+  const [editing, setEditing] = useState(false);
+  const [editTitle, setEditTitle] = useState(task.title);
+  const [editDesc, setEditDesc] = useState(task.description);
+
   const avgPoints = task.votes.length > 0
     ? Math.round(task.votes.reduce((s, v) => s + v.points, 0) / task.votes.length)
     : null;
 
+  const handleSave = () => {
+    onUpdate({ ...task, title: editTitle, description: editDesc });
+    setEditing(false);
+  };
+
   return (
     <div className="bg-card border border-border rounded-lg p-4 space-y-3">
       <div className="flex items-center justify-between">
-        <span className="text-[10px] text-muted-foreground font-mono">{task.id}</span>
-        {avgPoints !== null && (
-          <Badge variant="outline" className="text-xs bg-primary/10 text-primary border-0">{avgPoints} pts</Badge>
-        )}
+        <span className="text-[10px] text-muted-foreground font-mono cursor-pointer hover:text-primary" onClick={onSelect}>{task.id}</span>
+        <div className="flex items-center gap-1">
+          {avgPoints !== null && (
+            <Badge variant="outline" className="text-xs bg-primary/10 text-primary border-0">{avgPoints} pts</Badge>
+          )}
+          <Button size="icon" variant="ghost" className="h-6 w-6" onClick={() => setEditing(!editing)}>
+            {editing ? <Check className="w-3 h-3" /> : <Pencil className="w-3 h-3" />}
+          </Button>
+          <Button size="icon" variant="ghost" className="h-6 w-6 text-destructive hover:bg-destructive/10" onClick={onDelete}>
+            <Trash2 className="w-3 h-3" />
+          </Button>
+        </div>
       </div>
-      <p className="text-sm font-medium text-foreground">{task.title}</p>
-      <p className="text-xs text-muted-foreground">{task.description}</p>
+
+      {editing ? (
+        <div className="space-y-2">
+          <Input value={editTitle} onChange={(e) => setEditTitle(e.target.value)} className="text-sm" />
+          <Input value={editDesc} onChange={(e) => setEditDesc(e.target.value)} className="text-xs" onKeyDown={(e) => e.key === "Enter" && handleSave()} />
+          <Button size="sm" className="btn-gradient text-xs" onClick={handleSave}>Salvar</Button>
+        </div>
+      ) : (
+        <>
+          <p className="text-sm font-medium text-foreground cursor-pointer hover:text-primary" onClick={onSelect}>{task.title}</p>
+          <p className="text-xs text-muted-foreground">{task.description}</p>
+        </>
+      )}
 
       {task.votes.length > 0 ? (
         <div className="space-y-2">

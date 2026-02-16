@@ -1,3 +1,4 @@
+import { useState } from "react";
 import { Calendar } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { cn } from "@/lib/utils";
@@ -22,12 +23,27 @@ interface TaskCardProps {
   task: Task;
   onMoveLeft?: () => void;
   onMoveRight?: () => void;
+  onClick?: () => void;
   showMoveButtons?: boolean;
 }
 
-export default function TaskCard({ task, onMoveLeft, onMoveRight, showMoveButtons = true }: TaskCardProps) {
+export default function TaskCard({ task, onMoveLeft, onMoveRight, onClick, showMoveButtons = true }: TaskCardProps) {
+  const [isDragging, setIsDragging] = useState(false);
+
   return (
-    <div className="bg-card border border-border rounded-lg p-3 space-y-2 hover:border-muted-foreground/30 transition-colors cursor-pointer">
+    <div
+      draggable
+      onDragStart={(e) => {
+        e.dataTransfer.setData("taskId", task.id);
+        setIsDragging(true);
+      }}
+      onDragEnd={() => setIsDragging(false)}
+      onClick={onClick}
+      className={cn(
+        "bg-card border border-border rounded-lg p-3 space-y-2 hover:border-muted-foreground/30 transition-all cursor-pointer",
+        isDragging && "opacity-40"
+      )}
+    >
       {/* Header: ID + Type badge */}
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-1.5">
@@ -57,18 +73,6 @@ export default function TaskCard({ task, onMoveLeft, onMoveRight, showMoveButton
           </div>
         </div>
       </div>
-
-      {/* Move buttons */}
-      {showMoveButtons && (onMoveLeft || onMoveRight) && (
-        <div className="flex gap-1 pt-0.5 border-t border-border/50">
-          {onMoveLeft && (
-            <button onClick={(e) => { e.stopPropagation(); onMoveLeft(); }} className="text-[10px] text-muted-foreground hover:text-foreground transition-colors">← Mover</button>
-          )}
-          {onMoveRight && (
-            <button onClick={(e) => { e.stopPropagation(); onMoveRight(); }} className="text-[10px] text-muted-foreground hover:text-foreground transition-colors ml-auto">Mover →</button>
-          )}
-        </div>
-      )}
     </div>
   );
 }

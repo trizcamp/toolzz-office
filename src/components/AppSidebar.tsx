@@ -8,10 +8,10 @@ import {
   FileText,
   ChevronLeft,
   ChevronRight,
-  Users,
-  BarChart3,
   Calendar,
+  Puzzle,
 } from "lucide-react";
+import VoiceConnectionBar from "./VoiceConnectionBar";
 
 const navItems = [
   { icon: Home, label: "Home", path: "/" },
@@ -19,8 +19,8 @@ const navItems = [
   { icon: Kanban, label: "Esteira", path: "/board" },
   { icon: FileText, label: "Documentos", path: "/docs" },
   { icon: Calendar, label: "Reuniões", path: "/meetings" },
-  { icon: BarChart3, label: "Relatórios", path: "/reports" },
-  { icon: Users, label: "Equipe", path: "/team" },
+  { icon: Calendar, label: "Calendário", path: "/calendar" },
+  { icon: Puzzle, label: "Integrações", path: "/integrations" },
 ];
 
 export default function AppSidebar() {
@@ -84,6 +84,9 @@ export default function AppSidebar() {
           ))}
         </div>
       </nav>
+
+      {/* Voice Connection Bar */}
+      <VoiceConnectionBar collapsed={collapsed} />
 
       {/* Collapse toggle */}
       <div className="px-3 py-3 border-t border-border shrink-0">

@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { Bot, Sparkles } from "lucide-react";
+import { Bot, Sparkles, MicOff, Mic, Volume2, VolumeX, PhoneOff } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -12,7 +12,7 @@ interface VoiceParticipantsProps {
 }
 
 export default function VoiceParticipants({ room }: VoiceParticipantsProps) {
-  const { connectedRoom, currentUser } = useVoiceConnection();
+  const { connectedRoom, currentUser, isMuted, isDeafened, toggleMute, toggleDeafen, disconnect } = useVoiceConnection();
   const { toast } = useToast();
   const [aiEnabled, setAiEnabled] = useState(false);
   const isConnectedHere = connectedRoom?.id === room.id;
@@ -21,12 +21,20 @@ export default function VoiceParticipants({ room }: VoiceParticipantsProps) {
     ? [...room.connectedUsers, { ...currentUser, isSpeaking: false }]
     : room.connectedUsers;
 
-  const handleEnableAI = () => {
-    setAiEnabled(true);
-    toast({
-      title: "IA habilitada",
-      description: "A IA está transcrevendo esta reunião em tempo real.",
-    });
+  const handleToggleAI = () => {
+    if (aiEnabled) {
+      setAiEnabled(false);
+      toast({
+        title: "IA desabilitada",
+        description: "Reunião salva em 'Reuniões'",
+      });
+    } else {
+      setAiEnabled(true);
+      toast({
+        title: "IA habilitada",
+        description: "A IA está transcrevendo esta reunião em tempo real.",
+      });
+    }
   };
 
   if (members.length === 0 && !isConnectedHere) return null;
@@ -41,17 +49,16 @@ export default function VoiceParticipants({ room }: VoiceParticipantsProps) {
               size="sm"
               variant={aiEnabled ? "default" : "outline"}
               className="h-8 gap-1.5 text-xs"
-              onClick={handleEnableAI}
-              disabled={aiEnabled}
+              onClick={handleToggleAI}
             >
               {aiEnabled ? <Sparkles className="w-3.5 h-3.5" /> : <Bot className="w-3.5 h-3.5" />}
-              {aiEnabled ? "IA Ativa" : "Habilitar IA"}
+              {aiEnabled ? "Parar IA" : "Habilitar IA"}
               {aiEnabled && <Badge variant="secondary" className="ml-1 text-[9px] px-1 py-0">Transcrevendo</Badge>}
             </Button>
           </TooltipTrigger>
           <TooltipContent>
             {aiEnabled
-              ? "A IA está transcrevendo a chamada em tempo real"
+              ? "Clique para parar a transcrição e salvar a reunião"
               : "Habilite a IA para transcrever automaticamente esta reunião"}
           </TooltipContent>
         </Tooltip>
@@ -80,6 +87,36 @@ export default function VoiceParticipants({ room }: VoiceParticipantsProps) {
           </div>
         ))}
       </div>
+
+      {/* Inline voice controls below participants */}
+      {isConnectedHere && (
+        <div className="mt-6 flex items-center gap-2">
+          <Button
+            variant="ghost"
+            size="icon"
+            className="h-9 w-9 rounded-full bg-muted"
+            onClick={toggleMute}
+          >
+            {isMuted ? <MicOff className="w-4 h-4 text-destructive" /> : <Mic className="w-4 h-4" />}
+          </Button>
+          <Button
+            variant="ghost"
+            size="icon"
+            className="h-9 w-9 rounded-full bg-muted"
+            onClick={toggleDeafen}
+          >
+            {isDeafened ? <VolumeX className="w-4 h-4 text-destructive" /> : <Volume2 className="w-4 h-4" />}
+          </Button>
+          <Button
+            variant="ghost"
+            size="icon"
+            className="h-9 w-9 rounded-full bg-destructive/10 text-destructive hover:bg-destructive/20"
+            onClick={disconnect}
+          >
+            <PhoneOff className="w-4 h-4" />
+          </Button>
+        </div>
+      )}
     </div>
   );
 }

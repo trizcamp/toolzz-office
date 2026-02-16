@@ -1,0 +1,320 @@
+import { useState, useCallback, useRef, KeyboardEvent } from "react";
+import type { Block, BlockType } from "@/data/mockDocuments";
+import SlashCommandMenu from "./SlashCommandMenu";
+import { cn } from "@/lib/utils";
+import { GripVertical, Plus, Trash2, Copy, ChevronRight } from "lucide-react";
+
+interface BlockEditorProps {
+  blocks: Block[];
+  onChange: (blocks: Block[]) => void;
+  readOnly?: boolean;
+}
+
+function generateId() {
+  return "bl_" + Math.random().toString(36).substring(2, 9);
+}
+
+export default function BlockEditor({ blocks, onChange, readOnly = false }: BlockEditorProps) {
+  const [slashMenu, setSlashMenu] = useState<{ blockId: string; position: { top: number; left: number }; filter: string } | null>(null);
+  const [draggedId, setDraggedId] = useState<string | null>(null);
+  const blockRefs = useRef<Record<string, HTMLElement | null>>({});
+
+  const updateBlock = useCallback((id: string, updates: Partial<Block>) => {
+    onChange(blocks.map((b) => (b.id === id ? { ...b, ...updates } : b)));
+  }, [blocks, onChange]);
+
+  const addBlockAfter = useCallback((afterId: string, type: BlockType = "paragraph") => {
+    const newBlock: Block = { id: generateId(), type, content: "" };
+    const idx = blocks.findIndex((b) => b.id === afterId);
+    const next = [...blocks];
+    next.splice(idx + 1, 0, newBlock);
+    onChange(next);
+    setTimeout(() => {
+      blockRefs.current[newBlock.id]?.focus();
+    }, 10);
+  }, [blocks, onChange]);
+
+  const deleteBlock = useCallback((id: string) => {
+    if (blocks.length <= 1) return;
+    const idx = blocks.findIndex((b) => b.id === id);
+    const prevId = idx > 0 ? blocks[idx - 1].id : null;
+    onChange(blocks.filter((b) => b.id !== id));
+    if (prevId) setTimeout(() => blockRefs.current[prevId]?.focus(), 10);
+  }, [blocks, onChange]);
+
+  const duplicateBlock = useCallback((id: string) => {
+    const idx = blocks.findIndex((b) => b.id === id);
+    const dup = { ...blocks[idx], id: generateId() };
+    const next = [...blocks];
+    next.splice(idx + 1, 0, dup);
+    onChange(next);
+  }, [blocks, onChange]);
+
+  const handleKeyDown = useCallback((e: KeyboardEvent<HTMLElement>, block: Block) => {
+    if (e.key === "Enter" && !e.shiftKey && block.type !== "code") {
+      e.preventDefault();
+      if (slashMenu) return;
+      addBlockAfter(block.id);
+    }
+    if (e.key === "Backspace" && block.content === "" && blocks.length > 1) {
+      e.preventDefault();
+      deleteBlock(block.id);
+    }
+    // Formatting shortcuts
+    if (e.ctrlKey || e.metaKey) {
+      if (e.key === "b") { e.preventDefault(); document.execCommand("bold"); }
+      if (e.key === "i") { e.preventDefault(); document.execCommand("italic"); }
+      if (e.key === "u") { e.preventDefault(); document.execCommand("underline"); }
+    }
+  }, [addBlockAfter, deleteBlock, blocks.length, slashMenu]);
+
+  const handleInput = useCallback((blockId: string, el: HTMLElement) => {
+    const text = el.innerText;
+    // Markdown shortcuts
+    if (text === "# ") { updateBlock(blockId, { type: "heading1", content: "" }); el.innerText = ""; return; }
+    if (text === "## ") { updateBlock(blockId, { type: "heading2", content: "" }); el.innerText = ""; return; }
+    if (text === "### ") { updateBlock(blockId, { type: "heading3", content: "" }); el.innerText = ""; return; }
+    if (text === "* " || text === "- ") { updateBlock(blockId, { type: "bulletList", content: "" }); el.innerText = ""; return; }
+    if (text === "1. ") { updateBlock(blockId, { type: "numberedList", content: "" }); el.innerText = ""; return; }
+    if (text === "> ") { updateBlock(blockId, { type: "quote", content: "" }); el.innerText = ""; return; }
+    if (text === "[] " || text === "[ ] ") { updateBlock(blockId, { type: "todoList", content: "" }); el.innerText = ""; return; }
+    if (text.startsWith("```")) { updateBlock(blockId, { type: "code", content: "", metadata: { language: "typescript" } }); el.innerText = ""; return; }
+    if (text === "--- ") { updateBlock(blockId, { type: "divider", content: "" }); el.innerText = ""; return; }
+
+    // Slash command
+    if (text.startsWith("/")) {
+      const rect = el.getBoundingClientRect();
+      setSlashMenu({ blockId, position: { top: rect.bottom + 4, left: rect.left }, filter: text.slice(1) });
+    } else if (slashMenu?.blockId === blockId) {
+      setSlashMenu(null);
+    }
+
+    updateBlock(blockId, { content: el.innerHTML });
+  }, [updateBlock, slashMenu]);
+
+  const handleSlashSelect = useCallback((type: BlockType) => {
+    if (!slashMenu) return;
+    updateBlock(slashMenu.blockId, { type, content: "" });
+    setSlashMenu(null);
+    setTimeout(() => blockRefs.current[slashMenu.blockId]?.focus(), 10);
+  }, [slashMenu, updateBlock]);
+
+  // DnD handlers
+  const handleDragStart = (id: string) => setDraggedId(id);
+  const handleDragOver = (e: React.DragEvent, targetId: string) => {
+    e.preventDefault();
+    if (!draggedId || draggedId === targetId) return;
+  };
+  const handleDrop = (targetId: string) => {
+    if (!draggedId || draggedId === targetId) return;
+    const from = blocks.findIndex((b) => b.id === draggedId);
+    const to = blocks.findIndex((b) => b.id === targetId);
+    const next = [...blocks];
+    const [moved] = next.splice(from, 1);
+    next.splice(to, 0, moved);
+    onChange(next);
+    setDraggedId(null);
+  };
+
+  const renderBlock = (block: Block, index: number) => {
+    const baseClasses = "outline-none w-full";
+
+    const typeClasses: Record<string, string> = {
+      heading1: "text-2xl font-bold text-foreground",
+      heading2: "text-xl font-semibold text-foreground",
+      heading3: "text-lg font-medium text-foreground",
+      paragraph: "text-sm text-secondary-foreground leading-relaxed",
+      bulletList: "text-sm text-secondary-foreground pl-4 before:content-['•'] before:absolute before:-left-0 before:text-muted-foreground relative",
+      numberedList: `text-sm text-secondary-foreground pl-6 before:content-['${index + 1}.'] before:absolute before:-left-0 before:text-muted-foreground relative`,
+      quote: "text-sm text-secondary-foreground italic border-l-2 border-primary/50 pl-4",
+      code: "text-sm font-mono bg-muted/50 rounded-lg p-3 text-foreground whitespace-pre-wrap",
+      callout: "text-sm text-secondary-foreground bg-primary/5 border border-primary/10 rounded-lg p-3",
+      todoList: "text-sm text-secondary-foreground",
+      toggle: "text-sm text-secondary-foreground",
+      divider: "",
+    };
+
+    if (block.type === "divider") {
+      return (
+        <div key={block.id} className="py-2">
+          <hr className="border-border" />
+        </div>
+      );
+    }
+
+    if (block.type === "todoList") {
+      return (
+        <div key={block.id} className="flex items-start gap-2 group">
+          <input
+            type="checkbox"
+            checked={block.checked ?? false}
+            onChange={(e) => updateBlock(block.id, { checked: e.target.checked })}
+            className="mt-1 accent-primary"
+            disabled={readOnly}
+          />
+          <div
+            ref={(el) => { blockRefs.current[block.id] = el; }}
+            contentEditable={!readOnly}
+            suppressContentEditableWarning
+            className={cn(baseClasses, typeClasses[block.type], block.checked && "line-through text-muted-foreground")}
+            onInput={(e) => handleInput(block.id, e.currentTarget)}
+            onKeyDown={(e) => handleKeyDown(e, block)}
+            dangerouslySetInnerHTML={{ __html: block.content }}
+          />
+        </div>
+      );
+    }
+
+    if (block.type === "toggle") {
+      const isCollapsed = block.metadata?.collapsed !== false;
+      return (
+        <div key={block.id}>
+          <div className="flex items-start gap-1">
+            <button
+              onClick={() => updateBlock(block.id, { metadata: { ...block.metadata, collapsed: !isCollapsed } })}
+              className="mt-0.5 text-muted-foreground hover:text-foreground transition-transform"
+            >
+              <ChevronRight className={cn("w-4 h-4 transition-transform", !isCollapsed && "rotate-90")} />
+            </button>
+            <div
+              ref={(el) => { blockRefs.current[block.id] = el; }}
+              contentEditable={!readOnly}
+              suppressContentEditableWarning
+              className={cn(baseClasses, "text-sm font-medium text-foreground")}
+              onInput={(e) => handleInput(block.id, e.currentTarget)}
+              onKeyDown={(e) => handleKeyDown(e, block)}
+              dangerouslySetInnerHTML={{ __html: block.content }}
+            />
+          </div>
+        </div>
+      );
+    }
+
+    if (block.type === "callout") {
+      return (
+        <div key={block.id} className={typeClasses.callout}>
+          <div className="flex items-start gap-2">
+            <span className="text-sm">{block.metadata?.icon || "💡"}</span>
+            <div
+              ref={(el) => { blockRefs.current[block.id] = el; }}
+              contentEditable={!readOnly}
+              suppressContentEditableWarning
+              className={cn(baseClasses, "text-sm text-secondary-foreground")}
+              onInput={(e) => handleInput(block.id, e.currentTarget)}
+              onKeyDown={(e) => handleKeyDown(e, block)}
+              dangerouslySetInnerHTML={{ __html: block.content }}
+            />
+          </div>
+        </div>
+      );
+    }
+
+    if (block.type === "code") {
+      return (
+        <div key={block.id} className="relative">
+          {block.metadata?.language && (
+            <span className="absolute top-2 right-3 text-[9px] text-muted-foreground uppercase tracking-wider">{block.metadata.language}</span>
+          )}
+          <div
+            ref={(el) => { blockRefs.current[block.id] = el; }}
+            contentEditable={!readOnly}
+            suppressContentEditableWarning
+            className={cn(baseClasses, typeClasses.code)}
+            onInput={(e) => handleInput(block.id, e.currentTarget)}
+            onKeyDown={(e) => {
+              if (e.key === "Enter") {
+                e.preventDefault();
+                document.execCommand("insertLineBreak");
+              }
+              if (e.key === "Backspace" && block.content === "" && blocks.length > 1) {
+                e.preventDefault();
+                deleteBlock(block.id);
+              }
+            }}
+            dangerouslySetInnerHTML={{ __html: block.content }}
+          />
+        </div>
+      );
+    }
+
+    return (
+      <div
+        key={block.id}
+        ref={(el) => { blockRefs.current[block.id] = el; }}
+        contentEditable={!readOnly}
+        suppressContentEditableWarning
+        className={cn(baseClasses, typeClasses[block.type])}
+        data-placeholder={block.content === "" ? "Escreva algo ou digite '/' para comandos" : undefined}
+        onInput={(e) => handleInput(block.id, e.currentTarget)}
+        onKeyDown={(e) => handleKeyDown(e, block)}
+        dangerouslySetInnerHTML={{ __html: block.content }}
+      />
+    );
+  };
+
+  return (
+    <div className="space-y-1">
+      {blocks.map((block, index) => (
+        <div
+          key={block.id}
+          className={cn(
+            "group flex items-start gap-1 py-0.5 rounded transition-colors",
+            draggedId === block.id && "opacity-40"
+          )}
+          draggable={!readOnly}
+          onDragStart={() => handleDragStart(block.id)}
+          onDragOver={(e) => handleDragOver(e, block.id)}
+          onDrop={() => handleDrop(block.id)}
+          onDragEnd={() => setDraggedId(null)}
+        >
+          {/* Drag handle + actions */}
+          {!readOnly && (
+            <div className="flex items-center gap-0.5 opacity-0 group-hover:opacity-100 transition-opacity shrink-0 pt-0.5">
+              <button
+                onClick={() => addBlockAfter(blocks[index - 1]?.id || block.id, "paragraph")}
+                className="w-5 h-5 flex items-center justify-center text-muted-foreground hover:text-foreground rounded hover:bg-surface-hover"
+              >
+                <Plus className="w-3 h-3" />
+              </button>
+              <div className="cursor-grab text-muted-foreground hover:text-foreground">
+                <GripVertical className="w-3.5 h-3.5" />
+              </div>
+            </div>
+          )}
+          <div className="flex-1 min-w-0">
+            {renderBlock(block, index)}
+          </div>
+          {/* Context actions */}
+          {!readOnly && (
+            <div className="flex items-center gap-0.5 opacity-0 group-hover:opacity-100 transition-opacity shrink-0 pt-0.5">
+              <button onClick={() => duplicateBlock(block.id)} className="w-5 h-5 flex items-center justify-center text-muted-foreground hover:text-foreground rounded hover:bg-surface-hover">
+                <Copy className="w-3 h-3" />
+              </button>
+              <button onClick={() => deleteBlock(block.id)} className="w-5 h-5 flex items-center justify-center text-muted-foreground hover:text-destructive rounded hover:bg-surface-hover">
+                <Trash2 className="w-3 h-3" />
+              </button>
+            </div>
+          )}
+        </div>
+      ))}
+
+      {slashMenu && (
+        <SlashCommandMenu
+          position={slashMenu.position}
+          filter={slashMenu.filter}
+          onSelect={handleSlashSelect}
+          onClose={() => setSlashMenu(null)}
+        />
+      )}
+
+      {/* Empty state placeholder CSS */}
+      <style>{`
+        [data-placeholder]:empty::before {
+          content: attr(data-placeholder);
+          color: hsl(0 0% 35%);
+          pointer-events: none;
+        }
+      `}</style>
+    </div>
+  );
+}

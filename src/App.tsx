@@ -9,7 +9,9 @@ import Home from "./pages/Home";
 import OfficePage from "./pages/OfficePage";
 import BoardPage from "./pages/BoardPage";
 import MeetingsPage from "./pages/MeetingsPage";
-import PlaceholderPage from "./pages/PlaceholderPage";
+import CalendarPage from "./pages/CalendarPage";
+import IntegrationsPage from "./pages/IntegrationsPage";
+import DocumentsPage from "./pages/DocumentsPage";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
@@ -26,10 +28,10 @@ const App = () => (
               <Route path="/" element={<Home />} />
               <Route path="/chat" element={<OfficePage />} />
               <Route path="/board" element={<BoardPage />} />
-              <Route path="/docs" element={<PlaceholderPage title="Documentos" />} />
+              <Route path="/docs" element={<DocumentsPage />} />
               <Route path="/meetings" element={<MeetingsPage />} />
-              <Route path="/reports" element={<PlaceholderPage title="Relatórios" />} />
-              <Route path="/team" element={<PlaceholderPage title="Equipe" />} />
+              <Route path="/calendar" element={<CalendarPage />} />
+              <Route path="/integrations" element={<IntegrationsPage />} />
             </Route>
             <Route path="*" element={<NotFound />} />
           </Routes>

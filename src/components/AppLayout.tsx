@@ -1,7 +1,6 @@
 import { Outlet } from "react-router-dom";
 import AppSidebar from "./AppSidebar";
 import TopBar from "./TopBar";
-import VoiceConnectionBar from "./VoiceConnectionBar";
 
 export default function AppLayout() {
   return (
@@ -12,7 +11,6 @@ export default function AppLayout() {
         <main className="flex-1 overflow-y-auto">
           <Outlet />
         </main>
-        <VoiceConnectionBar />
       </div>
     </div>
   );
