@@ -414,12 +414,6 @@ export default function BlockEditor({ blocks, onChange, readOnly = false }: Bloc
           color: hsl(0 0% 35%);
           pointer-events: none;
         }
-        [contenteditable] {
-          direction: ltr !important;
-          text-align: left !important;
-          caret-color: hsl(var(--foreground));
-          unicode-bidi: normal !important;
-        }
       `}</style>
     </div>
   );
