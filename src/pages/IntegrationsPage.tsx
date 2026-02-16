@@ -1,7 +1,11 @@
 import { useState } from "react";
-import { ArrowLeft, Github } from "lucide-react";
+import { ArrowLeft, Github, Loader2, Check, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { useToast } from "@/hooks/use-toast";
+import { useGithubIntegration } from "@/hooks/useGithubIntegration";
 import makeIcon from "@/assets/make-icon.png";
 
 const integrations = [
@@ -68,6 +72,33 @@ function IntegrationIcon({ type, size = 24 }: { type: string; size?: number }) {
 
 export default function IntegrationsPage() {
   const [selectedIntegration, setSelectedIntegration] = useState<string | null>(null);
+  const [token, setToken] = useState("");
+  const [connecting, setConnecting] = useState(false);
+  const { connected, username, loading, connect, disconnect } = useGithubIntegration();
+  const { toast } = useToast();
+
+  const handleConnect = async () => {
+    if (!token.trim()) return;
+    setConnecting(true);
+    try {
+      await connect(token.trim());
+      toast({ title: "GitHub conectado!", description: "Sua conta foi vinculada com sucesso." });
+      setToken("");
+    } catch (e: any) {
+      toast({ title: "Erro", description: e.message || "Falha ao conectar", variant: "destructive" });
+    } finally {
+      setConnecting(false);
+    }
+  };
+
+  const handleDisconnect = async () => {
+    try {
+      await disconnect();
+      toast({ title: "GitHub desconectado", description: "A integração foi removida." });
+    } catch {
+      toast({ title: "Erro", description: "Falha ao desconectar", variant: "destructive" });
+    }
+  };
 
   if (selectedIntegration === "github") {
     return (
@@ -83,20 +114,55 @@ export default function IntegrationsPage() {
           <div className="bg-card border border-border rounded-xl p-6 space-y-4">
             <div className="flex items-center gap-3">
               <IntegrationIcon type="github" size={32} />
-              <div>
+              <div className="flex-1">
                 <h2 className="text-lg font-semibold text-foreground">GitHub</h2>
-                <p className="text-sm text-muted-foreground">Conecte sua conta GitHub</p>
+                <p className="text-sm text-muted-foreground">
+                  {connected ? `Conectado como @${username}` : "Conecte sua conta GitHub"}
+                </p>
               </div>
+              {connected && (
+                <Badge className="bg-[hsl(var(--success))]/20 text-[hsl(var(--success))] border-0">
+                  <Check className="w-3 h-3 mr-1" /> Conectado
+                </Badge>
+              )}
             </div>
-            <p className="text-sm text-secondary-foreground">
-              Ao conectar o GitHub, você poderá vincular repositórios às tarefas, visualizar branches e PRs diretamente na Central de Tarefas, e selecionar repositórios ao criar novas tarefas.
-            </p>
-            <Button
-              className="btn-gradient w-full"
-              onClick={() => window.open("https://github.com", "_blank")}
-            >
-              Conectar com GitHub
-            </Button>
+
+            {connected ? (
+              <div className="space-y-3">
+                <p className="text-sm text-secondary-foreground">
+                  Sua conta GitHub está conectada. Tarefas do tipo <strong>Bug</strong> ou <strong>Melhoria</strong> criarão automaticamente issues no repositório selecionado.
+                </p>
+                <Button variant="outline" className="w-full text-destructive hover:text-destructive" onClick={handleDisconnect}>
+                  <X className="w-4 h-4 mr-2" /> Desconectar GitHub
+                </Button>
+              </div>
+            ) : (
+              <div className="space-y-3">
+                <p className="text-sm text-secondary-foreground">
+                  Ao conectar o GitHub, você poderá vincular repositórios às tarefas. Tarefas do tipo Bug ou Melhoria criarão automaticamente issues no GitHub.
+                </p>
+                <div className="space-y-2">
+                  <Label>Personal Access Token</Label>
+                  <Input
+                    type="password"
+                    placeholder="ghp_xxxxxxxxxxxx"
+                    value={token}
+                    onChange={(e) => setToken(e.target.value)}
+                  />
+                  <p className="text-[10px] text-muted-foreground">
+                    Crie em GitHub → Settings → Developer settings → Personal access tokens → Tokens (classic). Permissões necessárias: <code className="text-primary">repo</code>
+                  </p>
+                </div>
+                <Button
+                  className="btn-gradient w-full"
+                  onClick={handleConnect}
+                  disabled={connecting || !token.trim()}
+                >
+                  {connecting ? <Loader2 className="w-4 h-4 animate-spin mr-2" /> : null}
+                  {connecting ? "Conectando..." : "Conectar com GitHub"}
+                </Button>
+              </div>
+            )}
           </div>
         </div>
       </div>
@@ -120,9 +186,11 @@ export default function IntegrationsPage() {
               <div className="flex-1">
                 <h3 className="text-sm font-semibold text-foreground">{integration.name}</h3>
               </div>
-              {!integration.available && (
+              {integration.id === "github" && connected ? (
+                <Badge className="text-[10px] bg-[hsl(var(--success))]/20 text-[hsl(var(--success))] border-0">Conectado</Badge>
+              ) : !integration.available ? (
                 <Badge variant="secondary" className="text-[10px]">Em breve</Badge>
-              )}
+              ) : null}
             </div>
             <p className="text-xs text-muted-foreground">{integration.description}</p>
             <Button
@@ -131,7 +199,7 @@ export default function IntegrationsPage() {
               disabled={!integration.available}
               onClick={() => integration.available && setSelectedIntegration(integration.id)}
             >
-              {integration.available ? "Configurar" : "Em breve"}
+              {integration.id === "github" && connected ? "Gerenciar" : integration.available ? "Configurar" : "Em breve"}
             </Button>
           </div>
         ))}

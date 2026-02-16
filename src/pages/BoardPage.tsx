@@ -129,7 +129,8 @@ export default function BoardPage() {
       description: partial.description || "",
       status: partial.status || "todo",
       board_id: selectedBoard,
-      type: "task",
+      type: partial.type || "task",
+      github_repo: partial.github_repo,
     });
   };
 
