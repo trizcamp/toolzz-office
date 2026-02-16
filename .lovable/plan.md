@@ -1,109 +1,51 @@
 
-# Relatório Funcional em Tempo Real e Poker de Votação
+# Plano de Implementacao - 4 Melhorias na Plataforma
 
-## Visao Geral
+## 1. Botao "Via texto" - Integrar Chatbot Toolzz Externo
 
-Tres grandes blocos de trabalho:
+Ao clicar em "Via texto" na Home, abrir um modal/dialog que carrega o widget de chat externo da Toolzz usando o script fornecido.
 
-1. **Relatorio funcional** com dados reais do banco (remover custo da feature, calcular metricas de performance real)
-2. **Poker funcional** com votacao persistida no banco, exibicao de votos por membro, e documentacao apenas visualizavel
-3. Hook de votos (`useTaskVotes`) para CRUD na tabela `task_votes`
+**Detalhes tecnicos:**
+- Criar um componente `ToolzzChatDialog` que renderiza um Dialog/modal
+- Dentro do modal, usar `useEffect` para injetar o script `https://chat-embed.toolzz.ai/dist/web.js` e chamar `Chatbot.initTzzaiWeb({ id: "92658cc0-7927-46f9-bce9-9972b6aae3d7" })`
+- No `Home.tsx`, o botao "Via texto" abrira esse dialog
+- O widget sera carregado dentro de um container no modal
 
----
+## 2. Tarefas do Dia - Filtrar por data de entrega de hoje
 
-## 1. Relatorio (`BoardReport.tsx`)
+Atualmente o filtro mostra tarefas com status `todo` ou `in_progress` sem considerar a data. Corrigir para mostrar tarefas cuja `delivery_date` corresponde ao dia de hoje.
 
-### Remover
-- Secao inteira "Custo da Feature" (linhas 62-67 e 118-130)
-- Mock data `performanceData` (linhas 19-25)
-- Mock `weeklyData` (linhas 48-53)
-- Lead Time Medio hardcoded "4.2d"
+**Detalhes tecnicos:**
+- Em `Home.tsx`, alterar o filtro `todayTasks` para usar `isSameDay(parseISO(t.delivery_date), new Date())` do date-fns
+- Manter o fallback: se nao houver tarefas com delivery_date de hoje, exibir a mensagem vazia
 
-### Novas props
-O componente recebera `boardId` para buscar assignees e membros do board.
+## 3. Atividade Recente - Rastrear acoes do usuario
 
-### Metricas reais (cards superiores)
-- **Total**: `tasks.length`
-- **Concluidas**: tarefas com `status === "done"`
-- **Em Progresso**: tarefas com `status === "in_progress"`
-- **Lead Time Medio**: calculado a partir de tarefas "done" usando `(updated_at - created_at)` em dias, media arredondada
+Criar uma tabela `activity_logs` no banco de dados e registrar eventos como edicao de documentos, mudanca de status de tarefas, criacao de tarefas, etc.
 
-### Grafico "Concluidas por Semana"
-- Agrupar tarefas com `status === "done"` pela semana do `updated_at` (momento em que foi marcada como done)
-- Mostrar as ultimas 4 semanas
+**Detalhes tecnicos:**
+- **Banco de dados:** Criar tabela `activity_logs` com colunas: `id`, `user_id`, `action` (ex: "task_created", "task_status_changed", "document_edited"), `entity_type`, `entity_id`, `entity_title`, `metadata` (JSONB), `created_at`. Habilitar RLS e realtime.
+- **Trigger SQL:** Criar triggers em `tasks` (INSERT e UPDATE de status) e `documents`/`document_blocks` (UPDATE) para inserir registros automaticamente na tabela `activity_logs`
+- **Hook `useActivityLogs`:** Buscar os ultimos 10 logs do usuario logado, com subscription realtime
+- **Home.tsx:** Renderizar a lista de atividades com icones por tipo (tarefa criada, status alterado, documento editado) e timestamps relativos usando `formatDistanceToNow`
 
-### Performance da Equipe (dados reais)
-- Buscar `task_assignees` com join em `members` e `tasks` para o board atual
-- Para cada membro vinculado ao board:
-  - **Entregues**: count de tarefas "done" atribuidas ao membro
-  - **No Prazo**: tarefas "done" onde `updated_at <= delivery_date` (ou sem delivery_date conta como no prazo)
-  - **Atrasos**: tarefas "done" onde `updated_at > delivery_date`
-  - **Desgaste**: calculado por ratio de atrasos (0 = Baixo, ate 30% = Medio, acima = Alto)
+## 4. Busca Global (Command Palette)
 
----
+Transformar o input de busca da TopBar em um Command Palette funcional usando o componente `cmdk` ja instalado. Ao clicar no input ou pressionar Cmd+K, abrir um dialog de busca global.
 
-## 2. Poker Funcional (`PriorityPokerCard.tsx`)
+**Detalhes tecnicos:**
+- Criar componente `SearchCommandDialog` usando `CommandDialog` do cmdk
+- Buscar em tempo real: tarefas (tabela `tasks`), centrais/boards (tabela `boards`), integracoes (lista estatica)
+- Agrupar resultados por categoria: "Tarefas", "Centrais", "Integracoes"
+- Ao selecionar um item, navegar para a pagina correspondente (`/board` para tarefas/centrais, `/integrations` para integracoes)
+- Em `TopBar.tsx`, substituir o input estatico por um botao que abre o `CommandDialog`
+- Registrar atalho de teclado `Cmd+K` / `Ctrl+K` para abrir
 
-### Hook `useTaskVotes`
-Novo hook em `src/hooks/useTaskVotes.ts`:
-- `useTaskVotes(boardId)` - busca todos os votos das tarefas do board
-- `castVote(taskId, points)` - insere/atualiza voto do usuario logado via upsert
-- Realtime via subscription na tabela `task_votes`
+## Sequencia de implementacao
 
-### Alteracoes no `PriorityPokerCard`
-- Receber `votes` (do hook) e `onVote(taskId, points)` como props
-- Ao clicar em um numero fibonacci, chamar `onVote` que persiste no banco
-- Destacar o botao do ponto que o usuario atual votou
-- Exibir lista de votos com avatar/inicial e pontos de cada membro
-- Calcular media dos pontos automaticamente
-- Documentacao aberta ao clicar na tarefa sera **read-only** (sem `onChange` no `BlockEditor`)
-
-### Alteracoes no `BoardPage.tsx`
-- Importar e usar `useTaskVotes` na tab Poker
-- Passar `mappedTasks` com votos reais mesclados
-- Ao selecionar tarefa no Poker, abrir `TaskDetailPanel` em modo read-only para documentacao
-
----
-
-## 3. Documentacao Read-Only no Poker
-
-Quando a tarefa for aberta a partir da tab Poker:
-- O `TaskDetailPanel` recebera uma prop `readOnly?: boolean`
-- Quando `readOnly=true`: inputs de titulo/status/prioridade ficam desabilitados, `BlockEditor` nao recebe `onChange`
-- O usuario pode visualizar toda a documentacao mas nao editar
-
----
-
-## Detalhes Tecnicos
-
-### Novo arquivo: `src/hooks/useTaskVotes.ts`
-```typescript
-// Busca votos de todas as tarefas de um board
-// castVote faz upsert (user_id + task_id unique)
-// Realtime subscription em task_votes
-```
-
-### `BoardReport.tsx` - Mudancas
-- Props: `tasks` + `boardId`
-- Queries internas: buscar `task_assignees` com join `members` e `tasks` para calcular performance
-- Calcular lead time real: `differenceInDays(updated_at, created_at)` para tarefas done
-- Agrupar tarefas done por semana usando `date-fns`
-- Remover toda secao de custo
-
-### `PriorityPokerCard.tsx` - Mudancas
-- Props adicionais: `votes`, `currentUserId`, `onVote`
-- Fibonacci buttons executam `onVote(task._dbId, points)`
-- Exibir votos reais com nome/avatar de cada membro
-
-### `TaskDetailPanel.tsx` - Mudancas
-- Nova prop `readOnly?: boolean`
-- Quando true: desabilitar inputs, nao passar `onChange` ao BlockEditor
-
-### `BoardPage.tsx` - Mudancas
-- Instanciar `useTaskVotes(selectedBoard)`
-- Mesclar votos nos `mappedTasks` para a tab Poker
-- Passar `readOnly={true}` ao `TaskDetailPanel` quando aberto via Poker
-- Passar `boardId` ao `BoardReport`
-
-### Tabela `task_votes`
-Ja existe no banco com colunas: `id`, `task_id`, `user_id`, `points`, `created_at`. Nao precisa de migration. Precisa apenas garantir constraint unique em `(task_id, user_id)` para upsert funcionar - isso sera feito via migration se necessario.
+1. Migracao SQL (tabela `activity_logs` + triggers)
+2. `useActivityLogs` hook
+3. `ToolzzChatDialog` componente
+4. `SearchCommandDialog` componente
+5. Atualizar `Home.tsx` (tarefas do dia + atividade recente + chatbot)
+6. Atualizar `TopBar.tsx` (busca global)
