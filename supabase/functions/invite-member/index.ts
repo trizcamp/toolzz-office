@@ -92,6 +92,19 @@ serve(async (req) => {
         user_id: inviteData.user.id,
         role: role || "member",
       }, { onConflict: "user_id,role" });
+
+      // Add invited user to all existing boards
+      const { data: allBoards } = await supabaseAdmin.from("boards").select("id");
+      if (allBoards && allBoards.length > 0) {
+        const boardMemberRows = allBoards.map((b: any) => ({
+          board_id: b.id,
+          user_id: inviteData.user!.id,
+        }));
+        await supabaseAdmin.from("board_members").upsert(boardMemberRows, {
+          onConflict: "board_id,user_id",
+          ignoreDuplicates: true,
+        });
+      }
     }
 
     return new Response(JSON.stringify({ success: true, userId: inviteData?.user?.id }), {

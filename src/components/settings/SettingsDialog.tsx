@@ -32,16 +32,10 @@ export default function SettingsDialog({ open, onOpenChange }: SettingsDialogPro
 
   // Account fields
   const [firstName, setFirstName] = useState("");
-  const [lastName, setLastName] = useState("");
-  const [phone, setPhone] = useState("");
-  const [language, setLanguage] = useState("pt-BR");
 
   useEffect(() => {
     if (currentMember) {
       setFirstName(currentMember.name);
-      setLastName(currentMember.surname);
-      setPhone(currentMember.phone || "");
-      setLanguage(currentMember.language || "pt-BR");
     }
   }, [currentMember]);
 
@@ -91,9 +85,6 @@ export default function SettingsDialog({ open, onOpenChange }: SettingsDialogPro
     try {
       await updateProfile.mutateAsync({
         name: firstName,
-        surname: lastName,
-        phone,
-        language,
       });
       toast.success("Perfil atualizado!");
     } catch (err: any) {
@@ -142,7 +133,7 @@ export default function SettingsDialog({ open, onOpenChange }: SettingsDialogPro
               {/* Avatar */}
               <div className="flex items-center gap-4">
                 <div className="w-16 h-16 rounded-full bg-primary/20 flex items-center justify-center text-xl font-semibold text-primary">
-                  {firstName?.charAt(0)?.toUpperCase() || "U"}{lastName?.charAt(0)?.toUpperCase() || ""}
+                  {firstName?.charAt(0)?.toUpperCase() || "U"}
                 </div>
                 <div className="flex gap-2">
                   <Button size="sm" variant="outline" className="text-xs">Enviar imagem</Button>
@@ -151,36 +142,13 @@ export default function SettingsDialog({ open, onOpenChange }: SettingsDialogPro
               </div>
 
               {/* Fields */}
-              <div className="grid grid-cols-2 gap-4">
-                <div className="space-y-2">
-                  <Label className="text-xs">Nome</Label>
-                  <Input value={firstName} onChange={(e) => setFirstName(e.target.value)} />
-                </div>
-                <div className="space-y-2">
-                  <Label className="text-xs">Sobrenome</Label>
-                  <Input value={lastName} onChange={(e) => setLastName(e.target.value)} />
-                </div>
+              <div className="space-y-2">
+                <Label className="text-xs">Nome</Label>
+                <Input value={firstName} onChange={(e) => setFirstName(e.target.value)} />
               </div>
               <div className="space-y-2">
                 <Label className="text-xs">E-mail</Label>
                 <Input value={currentMember?.email || ""} readOnly className="opacity-60" />
-              </div>
-              <div className="grid grid-cols-2 gap-4">
-                <div className="space-y-2">
-                  <Label className="text-xs">Celular</Label>
-                  <Input value={phone} onChange={(e) => setPhone(e.target.value)} />
-                </div>
-                <div className="space-y-2">
-                  <Label className="text-xs">Idioma</Label>
-                  <Select value={language} onValueChange={setLanguage}>
-                    <SelectTrigger><SelectValue /></SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="pt-BR">Português (BR)</SelectItem>
-                      <SelectItem value="en">English</SelectItem>
-                      <SelectItem value="es">Español</SelectItem>
-                    </SelectContent>
-                  </Select>
-                </div>
               </div>
 
               <div className="flex justify-end gap-2 pt-2">
