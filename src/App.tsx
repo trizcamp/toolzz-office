@@ -38,11 +38,11 @@ const AppRoutes = () => (
     <Route path="/reset-password" element={<ResetPasswordPage />} />
     <Route element={<ProtectedRoute><AppLayout /></ProtectedRoute>}>
       <Route path="/" element={<Home />} />
-      <Route path="/chat" element={<ComingSoonPage title="Escritório em breve" description="Em breve sua equipe poderá se reunir em salas de voz e chat e realizar reuniões com agentes de IA." />} />
+      <Route path="/chat" element={<ComingSoonPage variant="office" title="Escritório em breve" description="Em breve sua equipe poderá se reunir em salas de voz e chat e realizar reuniões com agentes de IA." />} />
       <Route path="/board" element={<BoardPage />} />
       <Route path="/docs" element={<DocumentsPage />} />
-      <Route path="/meetings" element={<ComingSoonPage title="Reuniões em breve" description="Em breve você poderá acessar o histórico e a transcrição completa das reuniões realizadas no escritório." />} />
-      <Route path="/automations" element={<ComingSoonPage title="Automações em breve" description="Configure como suas tarefas serão movidas de forma automatizada." />} />
+      <Route path="/meetings" element={<ComingSoonPage variant="meetings" title="Reuniões em breve" description="Em breve você poderá acessar o histórico e a transcrição completa das reuniões realizadas no escritório." />} />
+      <Route path="/automations" element={<ComingSoonPage variant="automations" title="Automações em breve" description="Configure como suas tarefas serão movidas de forma automatizada." />} />
       <Route path="/calendar" element={<CalendarPage />} />
       <Route path="/integrations" element={<IntegrationsPage />} />
     </Route>

@@ -6,14 +6,14 @@ import VoiceConnectionBar from "./VoiceConnectionBar";
 import toolzzLogo from "@/assets/toolzz-logo.png";
 
 const navItems = [
-  { icon: Home, label: "Home", path: "/" },
-  { icon: Building2, label: "Escritório", path: "/chat" },
-  { icon: Kanban, label: "Gerenciamento", path: "/board" },
-  { icon: FileText, label: "Documentos", path: "/docs" },
-  { icon: Calendar, label: "Reuniões", path: "/meetings" },
-  { icon: Zap, label: "Automações", path: "/automations" },
-  { icon: Calendar, label: "Calendário", path: "/calendar" },
-  { icon: Puzzle, label: "Integrações", path: "/integrations" },
+  { icon: Home, label: "Home", path: "/", comingSoon: false },
+  { icon: Kanban, label: "Gerenciamento", path: "/board", comingSoon: false },
+  { icon: FileText, label: "Documentos", path: "/docs", comingSoon: false },
+  { icon: Calendar, label: "Calendário", path: "/calendar", comingSoon: false },
+  { icon: Building2, label: "Escritório", path: "/chat", comingSoon: true },
+  { icon: Calendar, label: "Reuniões", path: "/meetings", comingSoon: true },
+  { icon: Zap, label: "Automações", path: "/automations", comingSoon: true },
+  { icon: Puzzle, label: "Integrações", path: "/integrations", comingSoon: false },
 ];
 
 export default function AppSidebar() {
@@ -65,12 +65,17 @@ export default function AppSidebar() {
                     initial={{ opacity: 0 }}
                     animate={{ opacity: 1 }}
                     exit={{ opacity: 0 }}
-                    className="whitespace-nowrap"
+                    className="whitespace-nowrap flex-1"
                   >
                     {item.label}
                   </motion.span>
                 )}
               </AnimatePresence>
+              {!collapsed && item.comingSoon && (
+                <span className="text-[9px] px-1.5 py-0.5 rounded-full bg-muted text-muted-foreground font-medium whitespace-nowrap">
+                  Em breve
+                </span>
+              )}
             </NavLink>
           ))}
         </div>
