@@ -1,124 +1,176 @@
+# Evolucao da Plataforma Toolzz Office
 
-
-# Modulo Escritorio -- Salas Colaborativas (Estilo Discord)
-
-## Visao Geral
-
-Construir o modulo "Escritorio" com salas de voz e texto estilo Discord, incluindo conexao persistente que sobrevive a navegacao entre paginas, mini player fixo global e interface completa de sala.
-
-Como ainda nao ha backend/Supabase conectado, toda a logica sera simulada com estado local (React Context), preparando a arquitetura para integracao futura com WebRTC/Supabase Realtime.
+Tres modulos serao criados/reformulados: Escritorio, Reunioes e Esteira. Alem disso, a secao de Workspaces sera removida da sidebar principal.
 
 ---
 
-## Arquitetura
+## 1. Remover Workspaces da Sidebar
+
+**Arquivo:** `src/components/AppSidebar.tsx`
+
+- Remover o array `workspaces` e toda a secao visual entre o logo e a navegacao (linhas 65-119)
+- Remover importacao do icone `Plus` (se nao usado em outro lugar)
+- A navegacao sobe diretamente abaixo do logo
+
+---
+
+## 2. Modulo Escritorio -- Melhorias
+
+### 2.1 Edicao e criacao de canais
+
+**Arquivo:** `src/components/office/RoomList.tsx`
+
+- Adicionar botao "+" no header para criar novo canal
+- Ao clicar, abrir um dialog/modal com campos: nome, categoria (select), tipo (voz/texto/hibrido)
+- Ao lado de cada canal, exibir icone de edicao (visivel no hover) que abre o mesmo modal em modo de edicao
+- Estado dos canais sera gerenciado localmente com `useState` inicializado com `mockRooms`
+
+**Novo arquivo:** `src/components/office/RoomFormDialog.tsx`
+
+- Dialog reutilizavel para criar e editar canal
+- Campos: Nome (input), Categoria (select), Tipo (radio group com icones)
+
+### 2.2 Flag de canal conectado
+
+**Arquivo:** `src/components/office/RoomItem.tsx`
+
+- Adicionar indicador visual (ponto verde pulsante) quando o usuario esta conectado naquele canal especifico
+- Verificar comparando `room.id` com `connectedRoom?.id` do contexto
+
+### 2.3 Membros minimizados e expansao em sala de voz
+
+**Arquivo:** `src/pages/OfficePage.tsx` e `src/components/office/MemberList.tsx`
+
+- Remover `MemberList` como coluna fixa sempre visivel deixar de forma que usuário possa recolher e encolher a visualização dos membros
+- Quando uma sala de voz/hibrida estiver selecionada:
+  - Exibir lista de participantes expandida dentro da area central, acima do chat
+  - Mostrar avatares, nomes, indicador de "falando"
+  - Adicionar botao "Habilitar IA na reuniao" com badge informando que a IA fara a transcricao da chamada
+- Quando sala de texto: area central mostra apenas o chat, sem lista de participantes
+
+**Arquivo:** `src/components/office/VoiceParticipants.tsx` (novo)
+
+- Componente que exibe participantes da chamada de voz em grid/lista
+- Botao "Habilitar IA na reuniao" com tooltip explicativo
+- Indicador visual de quem esta falando (ring verde pulsante)
+
+### 2.4 Participantes no canal de voz (sidebar)
+
+**Arquivo:** `src/components/office/RoomItem.tsx`
+
+- Quando a sala e de voz e tem usuarios conectados, exibir abaixo do nome do canal uma lista compacta dos avatares/nomes dos participantes (similar ao Discord)
+
+---
+
+## 3. Modulo Reunioes
+
+**Novo arquivo:** `src/pages/MeetingsPage.tsx`
+
+Layout com abas (Tabs):
+
+### Aba "Historico"
+
+- Listagem de reunioes transcritas (dados mockados)
+- Cada item mostra: titulo, data/hora, sala onde ocorreu, participantes (avatares)
+- Botao "Ver detalhes" que navega para a pagina de detalhes
+- Ao clicar em ver detalhes abre aba lateral exibindo em formato notion a transcrição gerada (ata) da reunião e pontos discutidos pelos participantes
+
+### Aba "Agendar"
+
+- Formulario para agendar nova reuniao
+- Campos: titulo, data, horario, sala (select), participantes (multi-select), descricao
+- Botao de confirmar
+
+**Novo arquivo:** `src/pages/MeetingDetailPage.tsx`
+
+- Exibe detalhes completos da reuniao
+- Secoes: Informacoes gerais (sala, data, duracao), Participantes, Transcricao da chamada (texto longo mockado com timestamps), Tarefas criadas a partir da reuniao (lista linkavel)
+
+**Rota nova:** `/meetings/:id` no `App.tsx`
+
+**Dados mockados:** `src/data/mockMeetings.ts`
+
+- Array de reunioes com transcricao, participantes, data de inicio, data de fim...
+
+---
+
+## 4. Modulo Esteira (Kanban)
+
+**Novo arquivo:** `src/pages/BoardPage.tsx`
+
+Layout principal com abas (Tabs):
+
+### Aba "Kanban"
+
+- Board com colunas: Backlog, To Do, Em Progresso, Em Revisao, Concluido
+- Cards com: titulo, id, prioridade (badge colorido), responsavel (avatar), tipo (badge)
+- Drag and drop entre colunas usando estado local (sem lib externa -- simular com botoes de mover por enquanto, ou implementar drag basico com HTML5 DnD)
+
+### Aba "Lista"
+
+- Tabela com todas as tarefas do kanban mas em formato lista
+- Colunas: ID, Titulo, Status, Prioridade, Responsavel, Tipo, Data
+- Filtros no topo: por usuario, tipo, periodo
+
+### Aba "Relatorio"
+
+- Cards de metricas: total de tarefas, concluidas, em progresso, lead time medio
+- Graficos simples com recharts: distribuicao por status (pie chart), tarefas concluidas por semana (bar chart)
+
+### Aba "Prioridade"
+
+- Listagem estilo Sprint Poker
+- Cada tarefa exibe: titulo, estimativa de pontos, votos dos participantes (mockados)
+- Visual inspirado em sessoes de planning poker com cards de pontuacao
+
+### Botao "Nova Tarefa"
+
+- Botao fixo no header do modulo
+- Ao clicar, exibe dialog informando que o usuario sera direcionado a uma ligacao de voz com IA para descrever a tarefa
+- Botao de confirmar que simula a acao (toast de confirmacao)
+
+**Dados mockados:** `src/data/mockTasks.ts`
+
+- Array de tarefas com campos: id, titulo, descricao, status, prioridade, responsavel, tipo, pontos, data de criacao
+
+**Componentes auxiliares:**
+
+- `src/components/board/KanbanColumn.tsx`
+- `src/components/board/TaskCard.tsx`
+- `src/components/board/TaskFilters.tsx`
+- `src/components/board/PriorityPokerCard.tsx`
+- `src/components/board/BoardReport.tsx`
+
+---
+
+## 5. Alteracoes em arquivos existentes
+
+
+| Arquivo                                   | Alteracao                                                                                                          |
+| ----------------------------------------- | ------------------------------------------------------------------------------------------------------------------ |
+| `src/components/AppSidebar.tsx`           | Remover secao de workspaces                                                                                        |
+| `src/App.tsx`                             | Trocar PlaceholderPage de `/board` por `BoardPage`, `/meetings` por `MeetingsPage`, adicionar rota `/meetings/:id` |
+| `src/pages/OfficePage.tsx`                | Remover MemberList como coluna fixa, integrar VoiceParticipants na area central                                    |
+| `src/components/office/RoomItem.tsx`      | Adicionar flag de conectado e lista de participantes inline                                                        |
+| `src/components/office/RoomList.tsx`      | Adicionar botao de criar canal e icone de editar                                                                   |
+| `src/contexts/VoiceConnectionContext.tsx` | Sem alteracoes estruturais, apenas ajustes menores se necessario                                                   |
+
+
+---
+
+## Resumo de novos arquivos
 
 ```text
-AppLayout
-├── AppSidebar
-├── Content Area
-│   ├── TopBar
-│   └── <Outlet /> (paginas)
-│       └── /chat -> OfficePage
-│           ├── Sidebar de Salas (categorias + lista)
-│           └── Area da Sala Ativa (chat + membros)
-└── VoiceConnectionBar (fixo no bottom, visivel em TODAS as paginas)
+src/data/mockTasks.ts
+src/data/mockMeetings.ts
+src/pages/BoardPage.tsx
+src/pages/MeetingsPage.tsx
+src/pages/MeetingDetailPage.tsx
+src/components/office/RoomFormDialog.tsx
+src/components/office/VoiceParticipants.tsx
+src/components/board/KanbanColumn.tsx
+src/components/board/TaskCard.tsx
+src/components/board/TaskFilters.tsx
+src/components/board/PriorityPokerCard.tsx
+src/components/board/BoardReport.tsx
 ```
-
-O estado de conexao de voz vive em um **React Context** (`VoiceConnectionContext`) no nivel do `App`, garantindo persistencia ao navegar.
-
----
-
-## Componentes e Arquivos
-
-### 1. Context Global -- `src/contexts/VoiceConnectionContext.tsx`
-- Estado: sala conectada (nome, id, categoria), status do mic, status do audio, usuario
-- Acoes: conectar a sala, desconectar, toggle mute, toggle deafen
-- Dados mockados de usuarios conectados por sala
-
-### 2. Pagina Escritorio -- `src/pages/OfficePage.tsx`
-Layout em 3 colunas:
-- **Coluna esquerda (220px):** Lista de salas agrupadas por categoria
-  - Categorias: Geral, Produto, Mentoria, Equipes
-  - Tipos de sala com icones: voz, texto, hibrida
-  - Indicador de usuarios conectados por sala
-  - Sala ativa destacada visualmente
-- **Coluna central (flex-1):** Area de chat/conteudo da sala selecionada
-  - Chat com mensagens mockadas
-  - Input de mensagem na parte inferior
-- **Coluna direita (220px):** Lista de membros conectados
-  - Avatar + nome + indicador de "falando"
-  - Botao de convidar membro
-
-### 3. Barra Fixa de Voz -- `src/components/VoiceConnectionBar.tsx`
-- Posicionada no bottom do `AppLayout`, acima de tudo
-- Visivel apenas quando conectado a uma sala de voz
-- Conteudo:
-  - Nome da sala + categoria
-  - Botao mute/unmute microfone
-  - Botao deafen/undeafen audio
-  - Botao de configuracoes (popover com selecao de mic/audio/volume)
-  - Botao de desconectar (vermelho)
-  - Avatar do usuario
-- Animacao de entrada/saida suave com framer-motion
-
-### 4. Componentes auxiliares
-- `src/components/office/RoomList.tsx` -- lista lateral de salas
-- `src/components/office/ChatArea.tsx` -- area de chat da sala
-- `src/components/office/MemberList.tsx` -- lista de membros conectados
-- `src/components/office/RoomItem.tsx` -- item individual de sala
-
-### 5. Alteracoes em arquivos existentes
-- **`src/App.tsx`**: Envolver com `VoiceConnectionProvider`; trocar rota `/chat` de PlaceholderPage para OfficePage
-- **`src/components/AppLayout.tsx`**: Adicionar `VoiceConnectionBar` no bottom, abaixo do `<main>`
-
----
-
-## Dados Mockados
-
-Categorias e salas de exemplo:
-
-| Categoria | Sala | Tipo | Usuarios |
-|-----------|------|------|----------|
-| Geral | Lobby | hibrida | 3 |
-| Geral | Avisos | texto | -- |
-| Produto | Daily | voz | 2 |
-| Produto | Sprint Review | hibrida | 0 |
-| Produto | Backlog | texto | -- |
-| Mentoria | Sessao 1:1 | voz | 1 |
-| Equipes | Design | hibrida | 4 |
-| Equipes | Engenharia | voz | 2 |
-
-Usuarios mockados: Beatriz F., Joao S., Rafael M., Amanda L., Thiago M.
-
----
-
-## Comportamento de Navegacao
-
-1. Usuario clica em sala de voz/hibrida -> conecta (estado no context)
-2. Navega para /board, /, /docs -> VoiceConnectionBar permanece visivel
-3. Volta para /chat -> sala ainda esta selecionada e ativa
-4. Clica em "Desconectar" na barra -> limpa estado, barra desaparece
-5. Fechar aba -> estado perde-se (sem persistencia em storage)
-
----
-
-## Design Visual
-
-- Segue o tema dark existente (tokens de cor ja configurados)
-- Salas de voz: icone `Volume2`, salas de texto: icone `Hash`, hibridas: icone `Headphones`
-- Indicador de "falando" com borda verde pulsante no avatar
-- Barra de voz com fundo `glass` e borda sutil
-- Hover states e transicoes suaves em todos os elementos interativos
-- Separacao de categorias com labels uppercase tracking-widest (mesmo padrao da sidebar)
-
----
-
-## Detalhes Tecnicos
-
-- **Sem dependencias novas** -- tudo com React, framer-motion, lucide-react e componentes UI existentes
-- **React Context + useReducer** para gerenciar estado de voz
-- **framer-motion** para animacoes de entrada da barra e transicoes de sala
-- Audio real nao sera implementado (mock visual apenas), preparado para integracao futura
-- Chat com scroll automatico para ultima mensagem
-- Layout responsivo: em telas menores, a lista de membros colapsa e a sidebar de salas vira um drawer
-
