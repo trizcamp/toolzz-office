@@ -1,9 +1,68 @@
-import { useState, useCallback, useRef, KeyboardEvent } from "react";
+import { useState, useCallback, useRef, useEffect, KeyboardEvent, memo } from "react";
 import type { Block, BlockType } from "@/data/mockDocuments";
 import SlashCommandMenu from "./SlashCommandMenu";
 import { cn } from "@/lib/utils";
 import { GripVertical, Plus, Trash2, Copy, ChevronRight, ImageIcon } from "lucide-react";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+
+// Uncontrolled contentEditable — only updates DOM when html changes externally
+const EditableDiv = memo(function EditableDiv({
+  html,
+  className,
+  style,
+  placeholder,
+  onInput,
+  onKeyDown,
+  blockRef,
+  readOnly,
+}: {
+  html: string;
+  className?: string;
+  style?: React.CSSProperties;
+  placeholder?: string;
+  onInput: (el: HTMLElement) => void;
+  onKeyDown: (e: KeyboardEvent<HTMLElement>) => void;
+  blockRef?: (el: HTMLElement | null) => void;
+  readOnly?: boolean;
+}) {
+  const ref = useRef<HTMLDivElement>(null);
+  const lastHtml = useRef(html);
+
+  useEffect(() => {
+    if (ref.current && html !== lastHtml.current) {
+      ref.current.innerHTML = html;
+      lastHtml.current = html;
+    }
+  }, [html]);
+
+  useEffect(() => {
+    if (ref.current) {
+      ref.current.innerHTML = html;
+      lastHtml.current = html;
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  return (
+    <div
+      ref={(el) => {
+        (ref as React.MutableRefObject<HTMLDivElement | null>).current = el;
+        blockRef?.(el);
+      }}
+      contentEditable={!readOnly}
+      suppressContentEditableWarning
+      dir="ltr"
+      style={style}
+      className={className}
+      data-placeholder={placeholder}
+      onInput={(e) => {
+        lastHtml.current = e.currentTarget.innerHTML;
+        onInput(e.currentTarget);
+      }}
+      onKeyDown={onKeyDown}
+    />
+  );
+});
 
 interface BlockEditorProps {
   blocks: Block[];
@@ -164,7 +223,7 @@ export default function BlockEditor({ blocks, onChange, readOnly = false }: Bloc
 
   const renderBlock = (block: Block, index: number) => {
   const baseClasses = "outline-none w-full";
-  const ltrStyle = { textAlign: "left" as const, direction: "ltr" as const, unicodeBidi: "bidi-override" as const };
+  const ltrStyle = { textAlign: "left" as const, direction: "ltr" as const };
 
     const typeClasses: Record<string, string> = {
       heading1: "text-2xl font-bold text-foreground",
@@ -218,16 +277,14 @@ export default function BlockEditor({ blocks, onChange, readOnly = false }: Bloc
             className="mt-1 accent-primary"
             disabled={readOnly}
           />
-          <div
-            ref={(el) => { blockRefs.current[block.id] = el; }}
-            contentEditable={!readOnly}
-            suppressContentEditableWarning
-          dir="ltr"
+          <EditableDiv
+            blockRef={(el) => { blockRefs.current[block.id] = el; }}
+            readOnly={readOnly}
             style={ltrStyle}
+            html={block.content}
             className={cn(baseClasses, typeClasses[block.type], block.checked && "line-through text-muted-foreground")}
-            onInput={(e) => handleInput(block.id, e.currentTarget)}
+            onInput={(el) => handleInput(block.id, el)}
             onKeyDown={(e) => handleKeyDown(e, block)}
-            dangerouslySetInnerHTML={{ __html: block.content }}
           />
         </div>
       );
@@ -244,16 +301,14 @@ export default function BlockEditor({ blocks, onChange, readOnly = false }: Bloc
             >
               <ChevronRight className={cn("w-4 h-4 transition-transform", !isCollapsed && "rotate-90")} />
             </button>
-            <div
-              ref={(el) => { blockRefs.current[block.id] = el; }}
-              contentEditable={!readOnly}
-              suppressContentEditableWarning
-          dir="ltr"
-            style={ltrStyle}
+            <EditableDiv
+              blockRef={(el) => { blockRefs.current[block.id] = el; }}
+              readOnly={readOnly}
+              style={ltrStyle}
+              html={block.content}
               className={cn(baseClasses, "text-sm font-medium text-foreground")}
-              onInput={(e) => handleInput(block.id, e.currentTarget)}
+              onInput={(el) => handleInput(block.id, el)}
               onKeyDown={(e) => handleKeyDown(e, block)}
-              dangerouslySetInnerHTML={{ __html: block.content }}
             />
           </div>
         </div>
@@ -265,16 +320,14 @@ export default function BlockEditor({ blocks, onChange, readOnly = false }: Bloc
         <div key={block.id} className={typeClasses.callout}>
           <div className="flex items-start gap-2">
             <span className="text-sm">{block.metadata?.icon || "💡"}</span>
-            <div
-              ref={(el) => { blockRefs.current[block.id] = el; }}
-              contentEditable={!readOnly}
-              suppressContentEditableWarning
-          dir="ltr"
-            style={ltrStyle}
+            <EditableDiv
+              blockRef={(el) => { blockRefs.current[block.id] = el; }}
+              readOnly={readOnly}
+              style={ltrStyle}
+              html={block.content}
               className={cn(baseClasses, "text-sm text-secondary-foreground")}
-              onInput={(e) => handleInput(block.id, e.currentTarget)}
+              onInput={(el) => handleInput(block.id, el)}
               onKeyDown={(e) => handleKeyDown(e, block)}
-              dangerouslySetInnerHTML={{ __html: block.content }}
             />
           </div>
         </div>
@@ -306,14 +359,13 @@ export default function BlockEditor({ blocks, onChange, readOnly = false }: Bloc
               <span className={cn("text-[9px] uppercase tracking-wider", LANG_COLORS[lang] || "text-muted-foreground")}>{lang}</span>
             )}
           </div>
-          <div
-            ref={(el) => { blockRefs.current[block.id] = el; }}
-            contentEditable={!readOnly}
-            suppressContentEditableWarning
-          dir="ltr"
+          <EditableDiv
+            blockRef={(el) => { blockRefs.current[block.id] = el; }}
+            readOnly={readOnly}
             style={ltrStyle}
+            html={block.content}
             className={cn(baseClasses, typeClasses.code)}
-            onInput={(e) => handleInput(block.id, e.currentTarget)}
+            onInput={(el) => handleInput(block.id, el)}
             onKeyDown={(e) => {
               if (e.key === "Enter") {
                 e.preventDefault();
@@ -324,25 +376,22 @@ export default function BlockEditor({ blocks, onChange, readOnly = false }: Bloc
                 deleteBlock(block.id);
               }
             }}
-            dangerouslySetInnerHTML={{ __html: block.content }}
           />
         </div>
       );
     }
 
     return (
-      <div
+      <EditableDiv
         key={block.id}
-        ref={(el) => { blockRefs.current[block.id] = el; }}
-        contentEditable={!readOnly}
-        suppressContentEditableWarning
-      dir="ltr"
+        blockRef={(el) => { blockRefs.current[block.id] = el; }}
+        readOnly={readOnly}
         style={ltrStyle}
+        html={block.content}
         className={cn(baseClasses, typeClasses[block.type])}
-        data-placeholder={block.content === "" ? "Escreva algo ou digite '/' para comandos" : undefined}
-        onInput={(e) => handleInput(block.id, e.currentTarget)}
+        placeholder={block.content === "" ? "Escreva algo ou digite '/' para comandos" : undefined}
+        onInput={(el) => handleInput(block.id, el)}
         onKeyDown={(e) => handleKeyDown(e, block)}
-        dangerouslySetInnerHTML={{ __html: block.content }}
       />
     );
   };
