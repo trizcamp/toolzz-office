@@ -17,7 +17,7 @@ interface ToolzzChatDialogProps {
 }
 
 const BOT_API_URL = "https://kratos.api.toolzz.com.br/api/v1/chat/send-message/";
-const BOT_ID = "ff2e284b-6b79-4af4-894a-8bee9f2fc16e";
+const BOT_ID = "c9214171-8ceb-4f61-9dc1-8e3dffbb21c4";
 
 export default function ToolzzChatDialog({ open, onOpenChange }: ToolzzChatDialogProps) {
   const [messages, setMessages] = useState<Message[]>([]);
