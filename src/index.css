@@ -64,11 +64,7 @@
     font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
   }
 
-  /* Force LTR on all editable content */
   [contenteditable] {
-    direction: ltr !important;
-    text-align: left !important;
-    unicode-bidi: bidi-override !important;
     caret-color: hsl(0 0% 95%);
   }
 
