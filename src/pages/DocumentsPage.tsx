@@ -1,7 +1,11 @@
-import { useState, useMemo } from "react";
+import { useState, useMemo, useCallback, useRef } from "react";
 import { Plus, FileText, Link2, MessageSquare, X, Maximize2, Minimize2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { cn } from "@/lib/utils";
 import { typeLabelsDoc } from "@/data/mockDocuments";
 import type { Block } from "@/data/mockDocuments";
@@ -9,19 +13,30 @@ import BlockEditor from "@/components/documents/BlockEditor";
 import { AnimatePresence, motion } from "framer-motion";
 import { useDocuments, useDocumentBlocks, useDocumentComments } from "@/hooks/useDocuments";
 import { Skeleton } from "@/components/ui/skeleton";
-import { useCallback, useRef, useEffect } from "react";
+import { useTasks } from "@/hooks/useTasks";
+import { useBoards } from "@/hooks/useBoards";
 
 export default function DocumentsPage() {
   const { documents, isLoading, createDocument, updateDocument } = useDocuments();
+  const { boards } = useBoards();
+  const { tasks: allTasks } = useTasks(null);
   const [selectedDocId, setSelectedDocId] = useState<string | null>(null);
   const [showComments, setShowComments] = useState(false);
   const [fullscreen, setFullscreen] = useState(false);
+  const [newDocOpen, setNewDocOpen] = useState(false);
+  const [newDocTitle, setNewDocTitle] = useState("");
+  const [newDocTaskId, setNewDocTaskId] = useState<string>("none");
 
   const selectedDoc = documents.find((d: any) => d.id === selectedDocId) || null;
   const { blocks: dbBlocks, saveBlocks } = useDocumentBlocks(selectedDocId);
   const { comments } = useDocumentComments(selectedDocId);
 
-  // Convert db blocks to editor format
+  // Available tasks that don't already have a document
+  const tasksWithoutDoc = useMemo(() => {
+    const docTaskIds = new Set(documents.filter((d: any) => d.task_id).map((d: any) => d.task_id));
+    return allTasks.filter((t) => !docTaskIds.has(t.id));
+  }, [allTasks, documents]);
+
   const editorBlocks: Block[] = useMemo(() => {
     if (dbBlocks.length === 0) return [{ id: "new_b1", type: "heading1" as const, content: "" }];
     return dbBlocks.map((b) => ({
@@ -37,7 +52,6 @@ export default function DocumentsPage() {
 
   const handleBlocksChange = useCallback((blocks: Block[]) => {
     if (!selectedDocId) return;
-    // Debounce save
     if (saveTimeoutRef.current) clearTimeout(saveTimeoutRef.current);
     saveTimeoutRef.current = setTimeout(() => {
       saveBlocks.mutate({
@@ -55,10 +69,28 @@ export default function DocumentsPage() {
     }, 1000);
   }, [selectedDocId, saveBlocks]);
 
-  const createNewDocument = () => {
+  const handleCreateDocument = () => {
+    const taskId = newDocTaskId !== "none" ? newDocTaskId : undefined;
+    const task = taskId ? allTasks.find((t) => t.id === taskId) : null;
+    const title = newDocTitle.trim() || (task ? task.title : "Sem título");
+
     createDocument.mutate(
-      { title: "Sem título", icon: "📄", type: "doc" },
-      { onSuccess: (data) => { setSelectedDocId(data.id); setFullscreen(true); } }
+      { title, icon: taskId ? "📋" : "📄", type: taskId ? "spec" : "doc", task_id: taskId },
+      {
+        onSuccess: (data) => {
+          // If linked to task, also update task.document_id
+          if (taskId) {
+            import("@/integrations/supabase/client").then(({ supabase }) => {
+              supabase.from("tasks").update({ document_id: data.id }).eq("id", taskId);
+            });
+          }
+          setSelectedDocId(data.id);
+          setFullscreen(true);
+          setNewDocOpen(false);
+          setNewDocTitle("");
+          setNewDocTaskId("none");
+        },
+      }
     );
   };
 
@@ -67,6 +99,7 @@ export default function DocumentsPage() {
     updateDocument.mutate({ id: selectedDocId, title });
   };
 
+  // Fullscreen view
   if (fullscreen && selectedDoc) {
     return (
       <div className="h-full flex flex-col">
@@ -74,6 +107,11 @@ export default function DocumentsPage() {
           <div className="flex items-center gap-3">
             <span className="text-lg">{selectedDoc.icon}</span>
             <input className="text-lg font-semibold text-foreground bg-transparent border-none outline-none" value={selectedDoc.title} onChange={(e) => updateDocTitle(e.target.value)} />
+            {selectedDoc.tasks && (
+              <Badge variant="outline" className="text-[9px] gap-1">
+                <Link2 className="w-2.5 h-2.5" />{selectedDoc.tasks?.display_id}
+              </Badge>
+            )}
           </div>
           <div className="flex items-center gap-2">
             <Button size="sm" variant="ghost" className="gap-1.5 text-xs" onClick={() => setShowComments(!showComments)}>
@@ -126,7 +164,7 @@ export default function DocumentsPage() {
       <div className="w-64 border-r border-border flex flex-col shrink-0">
         <div className="px-4 py-3 border-b border-border flex items-center justify-between">
           <h2 className="text-sm font-semibold text-foreground">Documentos</h2>
-          <Button size="icon" variant="ghost" className="h-7 w-7" onClick={createNewDocument}>
+          <Button size="icon" variant="ghost" className="h-7 w-7" onClick={() => setNewDocOpen(true)}>
             <Plus className="w-4 h-4" />
           </Button>
         </div>
@@ -171,6 +209,11 @@ export default function DocumentsPage() {
               <div className="flex items-center gap-3 min-w-0">
                 <span className="text-lg">{selectedDoc.icon}</span>
                 <input className="text-lg font-semibold text-foreground bg-transparent border-none outline-none min-w-0 flex-1" value={selectedDoc.title} onChange={(e) => updateDocTitle(e.target.value)} />
+                {selectedDoc.tasks && (
+                  <Badge variant="outline" className="text-[9px] gap-1 shrink-0">
+                    <Link2 className="w-2.5 h-2.5" />{selectedDoc.tasks?.display_id}
+                  </Badge>
+                )}
               </div>
               <div className="flex items-center gap-2 shrink-0">
                 <Button size="sm" variant="ghost" className="gap-1.5 text-xs" onClick={() => setShowComments(!showComments)}>
@@ -213,13 +256,50 @@ export default function DocumentsPage() {
             <div className="text-center space-y-3">
               <FileText className="w-12 h-12 text-muted-foreground/30 mx-auto" />
               <p className="text-sm text-muted-foreground">Selecione um documento ou crie um novo</p>
-              <Button size="sm" className="btn-gradient" onClick={createNewDocument}>
+              <Button size="sm" className="btn-gradient" onClick={() => setNewDocOpen(true)}>
                 <Plus className="w-4 h-4 mr-1.5" /> Novo Documento
               </Button>
             </div>
           </div>
         )}
       </div>
+
+      {/* New Document Dialog */}
+      <Dialog open={newDocOpen} onOpenChange={setNewDocOpen}>
+        <DialogContent className="sm:max-w-[420px]">
+          <DialogHeader>
+            <DialogTitle>Novo Documento</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4 py-2">
+            <div className="space-y-2">
+              <Label>Título</Label>
+              <Input placeholder="Nome do documento" value={newDocTitle} onChange={(e) => setNewDocTitle(e.target.value)} />
+            </div>
+            <div className="space-y-2">
+              <Label>Vincular a uma tarefa (opcional)</Label>
+              <Select value={newDocTaskId} onValueChange={setNewDocTaskId}>
+                <SelectTrigger className="text-sm">
+                  <SelectValue placeholder="Nenhuma tarefa" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="none">Nenhuma tarefa</SelectItem>
+                  {tasksWithoutDoc.map((t) => (
+                    <SelectItem key={t.id} value={t.id}>
+                      <span className="flex items-center gap-2">
+                        <span className="font-mono text-[10px] text-muted-foreground">{t.display_id}</span>
+                        <span>{t.title}</span>
+                      </span>
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+            <Button className="w-full btn-gradient" onClick={handleCreateDocument}>
+              Criar Documento
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
