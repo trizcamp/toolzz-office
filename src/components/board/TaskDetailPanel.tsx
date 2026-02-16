@@ -7,7 +7,8 @@ import { Badge } from "@/components/ui/badge";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Label } from "@/components/ui/label";
 import type { Task, TaskStatus, TaskPriority, TaskType } from "@/data/mockTasks";
-import { statusLabels, priorityLabels, allAssignees, type TaskAssignee } from "@/data/mockTasks";
+import { statusLabels, priorityLabels } from "@/data/mockTasks";
+import { useMembers } from "@/hooks/useMembers";
 import BlockEditor from "@/components/documents/BlockEditor";
 import type { Block } from "@/data/mockDocuments";
 import { motion } from "framer-motion";
@@ -171,8 +172,14 @@ export default function TaskDetailPanel({
     );
   }
 
+  const { members } = useMembers();
+  const realAssignees = members.map((m) => ({
+    id: m.id,
+    name: `${m.name}${m.surname ? ` ${m.surname.charAt(0)}.` : ""}`,
+  }));
+
   const handleAddAssignee = (assigneeId: string) => {
-    const assignee = allAssignees.find((a) => a.id === assigneeId);
+    const assignee = realAssignees.find((a) => a.id === assigneeId);
     if (assignee && !task.assignees.some((a) => a.id === assigneeId)) {
       onUpdate({ ...task, assignees: [...task.assignees, assignee] });
     }
@@ -293,16 +300,18 @@ export default function TaskDetailPanel({
               </div>
             ))}
           </div>
-          <Select onValueChange={handleAddAssignee}>
-            <SelectTrigger className="h-7 text-[10px] w-40">
-              <SelectValue placeholder="+ Adicionar responsável" />
-            </SelectTrigger>
-            <SelectContent>
-              {allAssignees.filter((a) => !task.assignees.some((ta) => ta.id === a.id)).map((a) => (
-                <SelectItem key={a.id} value={a.id}>{a.name}</SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
+          {!readOnly && (
+            <Select onValueChange={handleAddAssignee}>
+              <SelectTrigger className="h-7 text-[10px] w-40">
+                <SelectValue placeholder="+ Adicionar responsável" />
+              </SelectTrigger>
+              <SelectContent>
+                {realAssignees.filter((a) => !task.assignees.some((ta) => ta.id === a.id)).map((a) => (
+                  <SelectItem key={a.id} value={a.id}>{a.name}</SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          )}
         </div>
 
         {/* Document section */}
