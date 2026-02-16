@@ -69,16 +69,15 @@ export default function HomePage() {
           className="bg-card border border-border rounded-xl p-3 flex flex-col items-center gap-2 lg:col-span-1 self-start"
         >
           <h3 className="text-sm font-semibold text-foreground w-full text-center">Scrum Agent</h3>
-          <div className="flex items-center justify-center w-full">
+          <div className="flex items-center justify-center w-full overflow-hidden rounded-lg">
             <iframe
               ref={iframeRef}
               src="https://admin.toolzz.ai/emb-voice/c46f095b-4520-4319-b4a0-882abde69ddc"
-              width="460"
-              height="100"
+              width="100%"
+              height="120"
               id="chatbotVoiceIframe"
               allow="microphone"
-              style={{ border: 'none', background: 'transparent' }}
-              data-allowtransparency="true"
+              style={{ border: 'none', minHeight: '120px' }}
             />
           </div>
           <div className="w-full">
