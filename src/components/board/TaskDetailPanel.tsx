@@ -179,7 +179,9 @@ export default function TaskDetailPanel({
                 onUpdate({ ...task, type: v as TaskType });
               }
             }}>
-              <SelectTrigger className="h-8 text-xs"><SelectValue /></SelectTrigger>
+              <SelectTrigger className="h-8 text-xs">
+                <span className={cn("px-1.5 py-0.5 rounded text-[10px]", typeColors[task.type] || "")}>{typeLabels[task.type] || task.type}</span>
+              </SelectTrigger>
               <SelectContent>
                 {Object.entries(typeLabels).map(([k, v]) => (
                   <SelectItem key={k} value={k}>{v}</SelectItem>

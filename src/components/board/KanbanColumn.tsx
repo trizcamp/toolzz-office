@@ -11,9 +11,11 @@ interface KanbanColumnProps {
   onDropTask: (taskId: string, newStatus: TaskStatus) => void;
   onSelectTask: (task: Task) => void;
   allStatuses: TaskStatus[];
+  typeLabels?: Record<string, string>;
+  typeColors?: Record<string, string>;
 }
 
-export default function KanbanColumn({ status, tasks, onMoveTask, onDropTask, onSelectTask, allStatuses }: KanbanColumnProps) {
+export default function KanbanColumn({ status, tasks, onMoveTask, onDropTask, onSelectTask, allStatuses, typeLabels, typeColors }: KanbanColumnProps) {
   const idx = allStatuses.indexOf(status);
   const [isDragOver, setIsDragOver] = useState(false);
 
@@ -44,6 +46,8 @@ export default function KanbanColumn({ status, tasks, onMoveTask, onDropTask, on
             onMoveLeft={idx > 0 ? () => onMoveTask(task.id, "left") : undefined}
             onMoveRight={idx < allStatuses.length - 1 ? () => onMoveTask(task.id, "right") : undefined}
             onClick={() => onSelectTask(task)}
+            typeLabels={typeLabels}
+            typeColors={typeColors}
           />
         ))}
       </div>

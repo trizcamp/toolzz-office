@@ -32,27 +32,15 @@ export default function RoomList({ rooms, activeRoomId, onSelectRoom, onRoomsCha
     if (editingRoom) {
       onRoomsChange(rooms.map((r) => r.id === editingRoom.id ? { ...r, ...data } : r));
     } else {
-      const newRoom: Room = {
-        id: `r${Date.now()}`,
-        name: data.name,
-        category: data.category,
-        type: data.type,
-        connectedUsers: [],
-      };
+      const newRoom: Room = { id: `r${Date.now()}`, name: data.name, category: data.category, type: data.type, connectedUsers: [] };
       onRoomsChange([...rooms, newRoom]);
     }
     setEditingRoom(null);
   };
 
-  const handleEdit = (room: Room) => {
-    setEditingRoom(room);
-    setDialogOpen(true);
-  };
-
-  const handleNew = () => {
-    setEditingRoom(null);
-    setDialogOpen(true);
-  };
+  const handleEdit = (room: Room) => { setEditingRoom(room); setDialogOpen(true); };
+  const handleNew = () => { setEditingRoom(null); setDialogOpen(true); };
+  const handleDelete = (roomId: string) => { onRoomsChange(rooms.filter((r) => r.id !== roomId)); };
 
   return (
     <div className="w-[220px] shrink-0 border-r border-border bg-sidebar overflow-y-auto flex flex-col">
@@ -65,30 +53,16 @@ export default function RoomList({ rooms, activeRoomId, onSelectRoom, onRoomsCha
       <div className="flex-1 px-2 py-2 space-y-3">
         {Array.from(grouped.entries()).map(([category, categoryRooms]) => (
           <div key={category}>
-            <p className="text-[10px] uppercase tracking-widest text-muted-foreground px-2 mb-1">
-              {category}
-            </p>
+            <p className="text-[10px] uppercase tracking-widest text-muted-foreground px-2 mb-1">{category}</p>
             <div className="space-y-0.5">
               {categoryRooms.map((room) => (
-                <RoomItem
-                  key={room.id}
-                  room={room}
-                  isActive={room.id === activeRoomId}
-                  onSelect={onSelectRoom}
-                  onEdit={handleEdit}
-                />
+                <RoomItem key={room.id} room={room} isActive={room.id === activeRoomId} onSelect={onSelectRoom} onEdit={handleEdit} onDelete={handleDelete} />
               ))}
             </div>
           </div>
         ))}
       </div>
-      <RoomFormDialog
-        open={dialogOpen}
-        onOpenChange={setDialogOpen}
-        room={editingRoom}
-        onSubmit={handleSubmit}
-        categories={categories}
-      />
+      <RoomFormDialog open={dialogOpen} onOpenChange={setDialogOpen} room={editingRoom} onSubmit={handleSubmit} categories={categories} />
     </div>
   );
 }
