@@ -42,7 +42,15 @@ export default function NewTaskDialog({ open, onOpenChange, onCreateTask, existi
 
   const resetAndClose = () => {
     setMode("select");
-    setFormData({ title: "", objective: "", status: "todo", assigneeId: "", deliveryDate: "", parentId: "", repository: "" });
+    setFormData({
+      title: "",
+      objective: "",
+      status: "todo",
+      assigneeId: "",
+      deliveryDate: "",
+      parentId: "",
+      repository: "",
+    });
     onOpenChange(false);
   };
 
@@ -58,16 +66,17 @@ export default function NewTaskDialog({ open, onOpenChange, onCreateTask, existi
       status: formData.status,
       assignee: assignee ? { id: assignee.id, name: assignee.name } : { id: "1", name: "Beatriz F." },
     });
-    toast({ title: "Tarefa criada", description: `${formData.title} adicionada à esteira.` });
+    toast({ title: "Tarefa criada", description: `${formData.title} adicionada à gerenciamento.` });
     resetAndClose();
   };
 
   const handleAIStart = (type: "voice" | "text") => {
     toast({
       title: type === "voice" ? "Agente de Voz" : "Agente de Texto",
-      description: type === "voice"
-        ? "Conectando ao agente de voz para auxiliar na criação da tarefa..."
-        : "Abrindo chat com o agente de IA...",
+      description:
+        type === "voice"
+          ? "Conectando ao agente de voz para auxiliar na criação da tarefa..."
+          : "Abrindo chat com o agente de IA...",
     });
     resetAndClose();
   };
@@ -104,7 +113,9 @@ export default function NewTaskDialog({ open, onOpenChange, onCreateTask, existi
                 <p className="text-sm font-medium text-foreground">Criar com template</p>
                 <p className="text-xs text-muted-foreground">Use um modelo pré-definido</p>
               </div>
-              <Badge variant="secondary" className="absolute top-3 right-3 text-[9px]">Em breve</Badge>
+              <Badge variant="secondary" className="absolute top-3 right-3 text-[9px]">
+                Em breve
+              </Badge>
             </button>
 
             <button
@@ -159,7 +170,9 @@ export default function NewTaskDialog({ open, onOpenChange, onCreateTask, existi
               </div>
             </button>
           </div>
-          <Button variant="ghost" size="sm" onClick={() => setMode("select")}>← Voltar</Button>
+          <Button variant="ghost" size="sm" onClick={() => setMode("select")}>
+            ← Voltar
+          </Button>
         </DialogContent>
       </Dialog>
     );
@@ -193,8 +206,13 @@ export default function NewTaskDialog({ open, onOpenChange, onCreateTask, existi
           <div className="grid grid-cols-2 gap-3">
             <div className="space-y-2">
               <Label>Etapa</Label>
-              <Select value={formData.status} onValueChange={(v) => setFormData({ ...formData, status: v as TaskStatus })}>
-                <SelectTrigger><SelectValue /></SelectTrigger>
+              <Select
+                value={formData.status}
+                onValueChange={(v) => setFormData({ ...formData, status: v as TaskStatus })}
+              >
+                <SelectTrigger>
+                  <SelectValue />
+                </SelectTrigger>
                 <SelectContent>
                   <SelectItem value="backlog">Backlog</SelectItem>
                   <SelectItem value="todo">To Do</SelectItem>
@@ -206,7 +224,9 @@ export default function NewTaskDialog({ open, onOpenChange, onCreateTask, existi
             <div className="space-y-2">
               <Label>Responsável</Label>
               <Select value={formData.assigneeId} onValueChange={(v) => setFormData({ ...formData, assigneeId: v })}>
-                <SelectTrigger><SelectValue placeholder="Selecionar" /></SelectTrigger>
+                <SelectTrigger>
+                  <SelectValue placeholder="Selecionar" />
+                </SelectTrigger>
                 <SelectContent>
                   {assigneeRoles.map((a) => (
                     <SelectItem key={a.id} value={a.id}>
@@ -229,11 +249,15 @@ export default function NewTaskDialog({ open, onOpenChange, onCreateTask, existi
             <div className="space-y-2">
               <Label>Subtarefa de</Label>
               <Select value={formData.parentId} onValueChange={(v) => setFormData({ ...formData, parentId: v })}>
-                <SelectTrigger><SelectValue placeholder="Nenhuma" /></SelectTrigger>
+                <SelectTrigger>
+                  <SelectValue placeholder="Nenhuma" />
+                </SelectTrigger>
                 <SelectContent>
                   <SelectItem value="none">Nenhuma</SelectItem>
                   {existingTasks.map((t) => (
-                    <SelectItem key={t.id} value={t.id}>{t.id} — {t.title}</SelectItem>
+                    <SelectItem key={t.id} value={t.id}>
+                      {t.id} — {t.title}
+                    </SelectItem>
                   ))}
                 </SelectContent>
               </Select>
@@ -242,15 +266,21 @@ export default function NewTaskDialog({ open, onOpenChange, onCreateTask, existi
           <div className="space-y-2">
             <Label>Repositório GitHub</Label>
             <Select disabled>
-              <SelectTrigger><SelectValue placeholder="Conecte o GitHub nas integrações" /></SelectTrigger>
+              <SelectTrigger>
+                <SelectValue placeholder="Conecte o GitHub nas integrações" />
+              </SelectTrigger>
               <SelectContent>
                 <SelectItem value="none">Nenhum</SelectItem>
               </SelectContent>
             </Select>
           </div>
           <div className="flex justify-end gap-2 pt-2">
-            <Button variant="ghost" onClick={() => setMode("select")}>← Voltar</Button>
-            <Button className="btn-gradient" onClick={handleManualCreate}>Criar Tarefa</Button>
+            <Button variant="ghost" onClick={() => setMode("select")}>
+              ← Voltar
+            </Button>
+            <Button className="btn-gradient" onClick={handleManualCreate}>
+              Criar Tarefa
+            </Button>
           </div>
         </div>
       </DialogContent>
