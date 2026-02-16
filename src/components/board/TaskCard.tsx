@@ -68,8 +68,17 @@ export default function TaskCard({ task, onMoveLeft, onMoveRight, onClick, showM
           <span className="text-[10px] text-muted-foreground flex items-center gap-0.5">
             <Calendar className="w-2.5 h-2.5" /> {task.createdAt}
           </span>
-          <div className="w-6 h-6 rounded-full bg-muted flex items-center justify-center text-[9px] font-medium text-muted-foreground">
-            {task.assignee.name.charAt(0)}
+          <div className="flex -space-x-1">
+            {task.assignees.slice(0, 3).map((a) => (
+              <div key={a.id} className="w-6 h-6 rounded-full bg-muted flex items-center justify-center text-[9px] font-medium text-muted-foreground border border-card">
+                {a.name.charAt(0)}
+              </div>
+            ))}
+            {task.assignees.length > 3 && (
+              <div className="w-6 h-6 rounded-full bg-muted flex items-center justify-center text-[8px] font-medium text-muted-foreground border border-card">
+                +{task.assignees.length - 3}
+              </div>
+            )}
           </div>
         </div>
       </div>

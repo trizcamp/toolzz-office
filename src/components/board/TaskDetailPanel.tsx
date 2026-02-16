@@ -1,19 +1,27 @@
 import { useState } from "react";
-import { X, Maximize2, Minimize2 } from "lucide-react";
+import { X, Maximize2, Minimize2, Plus, Trash2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Badge } from "@/components/ui/badge";
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { Label } from "@/components/ui/label";
 import type { Task, TaskStatus, TaskPriority, TaskType } from "@/data/mockTasks";
-import { statusLabels, priorityLabels, typeLabels } from "@/data/mockTasks";
+import { statusLabels, priorityLabels, allAssignees, type TaskAssignee } from "@/data/mockTasks";
 import BlockEditor from "@/components/documents/BlockEditor";
 import type { Block } from "@/data/mockDocuments";
 import { motion } from "framer-motion";
+import { cn } from "@/lib/utils";
 
 interface TaskDetailPanelProps {
   task: Task;
   onClose: () => void;
   onUpdate: (task: Task) => void;
+  fullscreenDoc?: boolean;
+  onToggleFullscreen?: () => void;
+  typeLabels?: Record<string, string>;
+  typeColors?: Record<string, string>;
+  onAddType?: (name: string, color: string) => void;
 }
 
 const defaultBlocks: Block[] = [
@@ -25,7 +33,26 @@ const defaultBlocks: Block[] = [
   { id: "td6", type: "paragraph", content: "" },
 ];
 
-export default function TaskDetailPanel({ task, onClose, onUpdate }: TaskDetailPanelProps) {
+const typeColorOptions = [
+  "bg-primary/15 text-primary",
+  "bg-destructive/15 text-destructive",
+  "bg-[hsl(var(--success))]/15 text-[hsl(var(--success))]",
+  "bg-[hsl(var(--warning))]/15 text-[hsl(var(--warning))]",
+  "bg-purple-500/15 text-purple-400",
+  "bg-pink-500/15 text-pink-400",
+  "bg-cyan-500/15 text-cyan-400",
+];
+
+export default function TaskDetailPanel({
+  task,
+  onClose,
+  onUpdate,
+  fullscreenDoc = false,
+  onToggleFullscreen,
+  typeLabels = {},
+  typeColors = {},
+  onAddType,
+}: TaskDetailPanelProps) {
   const [blocks, setBlocks] = useState<Block[]>(() => {
     if (task.description) {
       return [
@@ -37,6 +64,59 @@ export default function TaskDetailPanel({ task, onClose, onUpdate }: TaskDetailP
     return defaultBlocks;
   });
   const [docExpanded, setDocExpanded] = useState(true);
+  const [addTypeOpen, setAddTypeOpen] = useState(false);
+  const [newTypeName, setNewTypeName] = useState("");
+  const [newTypeColor, setNewTypeColor] = useState(typeColorOptions[0]);
+
+  // Fullscreen doc overlay
+  if (fullscreenDoc) {
+    return (
+      <div className="fixed inset-0 z-40 bg-background flex flex-col" style={{ left: 240 }}>
+        <div className="px-4 py-3 border-b border-border flex items-center justify-between shrink-0">
+          <div className="flex items-center gap-3">
+            <Input
+              className="text-xs font-mono border-none bg-transparent px-0 h-auto w-24 text-muted-foreground"
+              value={task.id}
+              onChange={(e) => onUpdate({ ...task, id: e.target.value })}
+            />
+            <span className="text-sm font-semibold text-foreground">{task.title}</span>
+          </div>
+          <div className="flex items-center gap-1">
+            <Button size="icon" variant="ghost" className="h-7 w-7" onClick={onToggleFullscreen}>
+              <Minimize2 className="w-4 h-4" />
+            </Button>
+            <Button size="icon" variant="ghost" className="h-7 w-7" onClick={onClose}>
+              <X className="w-4 h-4" />
+            </Button>
+          </div>
+        </div>
+        <div className="flex-1 overflow-y-auto p-6 max-w-4xl mx-auto w-full">
+          <BlockEditor blocks={blocks} onChange={setBlocks} />
+        </div>
+      </div>
+    );
+  }
+
+  const handleAddAssignee = (assigneeId: string) => {
+    const assignee = allAssignees.find((a) => a.id === assigneeId);
+    if (assignee && !task.assignees.some((a) => a.id === assigneeId)) {
+      onUpdate({ ...task, assignees: [...task.assignees, assignee] });
+    }
+  };
+
+  const handleRemoveAssignee = (assigneeId: string) => {
+    if (task.assignees.length <= 1) return;
+    onUpdate({ ...task, assignees: task.assignees.filter((a) => a.id !== assigneeId) });
+  };
+
+  const handleAddNewType = () => {
+    if (!newTypeName.trim() || !onAddType) return;
+    onAddType(newTypeName, newTypeColor);
+    const key = newTypeName.toLowerCase().replace(/\s+/g, "_");
+    onUpdate({ ...task, type: key });
+    setAddTypeOpen(false);
+    setNewTypeName("");
+  };
 
   return (
     <motion.div
@@ -48,7 +128,11 @@ export default function TaskDetailPanel({ task, onClose, onUpdate }: TaskDetailP
     >
       {/* Header */}
       <div className="px-4 py-3 border-b border-border flex items-center justify-between shrink-0">
-        <Badge variant="outline" className="text-xs font-mono">{task.id}</Badge>
+        <Input
+          className="text-xs font-mono border-none bg-transparent px-0 h-auto w-24 text-muted-foreground"
+          value={task.id}
+          onChange={(e) => onUpdate({ ...task, id: e.target.value })}
+        />
         <Button size="icon" variant="ghost" className="h-7 w-7" onClick={onClose}>
           <X className="w-4 h-4" />
         </Button>
@@ -88,39 +172,116 @@ export default function TaskDetailPanel({ task, onClose, onUpdate }: TaskDetailP
           </div>
           <div className="space-y-1">
             <p className="text-[10px] uppercase tracking-widest text-muted-foreground">Tipo</p>
-            <Select value={task.type} onValueChange={(v) => onUpdate({ ...task, type: v as TaskType })}>
+            <Select value={task.type} onValueChange={(v) => {
+              if (v === "__add_new__") {
+                setAddTypeOpen(true);
+              } else {
+                onUpdate({ ...task, type: v as TaskType });
+              }
+            }}>
               <SelectTrigger className="h-8 text-xs"><SelectValue /></SelectTrigger>
               <SelectContent>
                 {Object.entries(typeLabels).map(([k, v]) => (
                   <SelectItem key={k} value={k}>{v}</SelectItem>
                 ))}
+                <SelectItem value="__add_new__">
+                  <span className="flex items-center gap-1 text-primary">
+                    <Plus className="w-3 h-3" /> Adicionar tipo
+                  </span>
+                </SelectItem>
               </SelectContent>
             </Select>
           </div>
           <div className="space-y-1">
-            <p className="text-[10px] uppercase tracking-widest text-muted-foreground">Responsável</p>
-            <p className="text-sm text-foreground">{task.assignee.name}</p>
+            <p className="text-[10px] uppercase tracking-widest text-muted-foreground">Criado em</p>
+            <p className="text-xs text-secondary-foreground pt-1.5">{task.createdAt}</p>
           </div>
         </div>
 
-        <div className="space-y-1">
-          <p className="text-[10px] uppercase tracking-widest text-muted-foreground">Criado em</p>
-          <p className="text-xs text-secondary-foreground">{task.createdAt}</p>
+        {/* Assignees */}
+        <div className="space-y-2">
+          <p className="text-[10px] uppercase tracking-widest text-muted-foreground">Responsáveis</p>
+          <div className="flex flex-wrap gap-1.5">
+            {task.assignees.map((a) => (
+              <div key={a.id} className="flex items-center gap-1 bg-muted rounded-md px-2 py-1">
+                <div className="w-4 h-4 rounded-full bg-surface-hover flex items-center justify-center text-[8px] text-muted-foreground">
+                  {a.name.charAt(0)}
+                </div>
+                <span className="text-[10px] text-secondary-foreground">{a.name}</span>
+                {task.assignees.length > 1 && (
+                  <button onClick={() => handleRemoveAssignee(a.id)} className="text-muted-foreground hover:text-destructive ml-0.5">
+                    <X className="w-2.5 h-2.5" />
+                  </button>
+                )}
+              </div>
+            ))}
+          </div>
+          <Select onValueChange={handleAddAssignee}>
+            <SelectTrigger className="h-7 text-[10px] w-40">
+              <SelectValue placeholder="+ Adicionar responsável" />
+            </SelectTrigger>
+            <SelectContent>
+              {allAssignees.filter((a) => !task.assignees.some((ta) => ta.id === a.id)).map((a) => (
+                <SelectItem key={a.id} value={a.id}>{a.name}</SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
         </div>
 
         {/* Document section */}
         <div className="border-t border-border pt-4">
           <div className="flex items-center justify-between mb-3">
             <p className="text-xs font-semibold text-foreground">Documentação da Tarefa</p>
-            <Button size="icon" variant="ghost" className="h-6 w-6" onClick={() => setDocExpanded(!docExpanded)}>
-              {docExpanded ? <Minimize2 className="w-3.5 h-3.5" /> : <Maximize2 className="w-3.5 h-3.5" />}
-            </Button>
+            <div className="flex items-center gap-1">
+              {onToggleFullscreen && (
+                <Button size="icon" variant="ghost" className="h-6 w-6" onClick={onToggleFullscreen}>
+                  <Maximize2 className="w-3.5 h-3.5" />
+                </Button>
+              )}
+              <Button size="icon" variant="ghost" className="h-6 w-6" onClick={() => setDocExpanded(!docExpanded)}>
+                {docExpanded ? <Minimize2 className="w-3.5 h-3.5" /> : <Maximize2 className="w-3.5 h-3.5" />}
+              </Button>
+            </div>
           </div>
           {docExpanded && (
             <BlockEditor blocks={blocks} onChange={setBlocks} />
           )}
         </div>
       </div>
+
+      {/* Add Type Dialog */}
+      <Dialog open={addTypeOpen} onOpenChange={setAddTypeOpen}>
+        <DialogContent className="sm:max-w-[360px]">
+          <DialogHeader>
+            <DialogTitle>Novo Tipo de Tarefa</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-3 py-2">
+            <div className="space-y-2">
+              <Label>Nome</Label>
+              <Input placeholder="Ex: Design" value={newTypeName} onChange={(e) => setNewTypeName(e.target.value)} />
+            </div>
+            <div className="space-y-2">
+              <Label>Cor</Label>
+              <div className="flex gap-2 flex-wrap">
+                {typeColorOptions.map((c) => (
+                  <button
+                    key={c}
+                    onClick={() => setNewTypeColor(c)}
+                    className={cn(
+                      "w-8 h-8 rounded-lg border-2 transition-colors",
+                      c.split(" ")[0],
+                      newTypeColor === c ? "border-primary" : "border-transparent"
+                    )}
+                  />
+                ))}
+              </div>
+            </div>
+            <Button className="w-full btn-gradient" onClick={handleAddNewType} disabled={!newTypeName.trim()}>
+              Criar Tipo
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
     </motion.div>
   );
 }

@@ -1,6 +1,6 @@
 export type TaskStatus = "backlog" | "todo" | "in_progress" | "review" | "done";
 export type TaskPriority = "critical" | "high" | "medium" | "low";
-export type TaskType = "feature" | "bug" | "improvement" | "task";
+export type TaskType = "feature" | "bug" | "improvement" | "task" | string;
 
 export interface TaskAssignee {
   id: string;
@@ -19,11 +19,12 @@ export interface Task {
   description: string;
   status: TaskStatus;
   priority: TaskPriority;
-  assignee: TaskAssignee;
+  assignees: TaskAssignee[];
   type: TaskType;
   points: number;
   votes: PriorityVote[];
   createdAt: string;
+  deliveryDate?: string;
 }
 
 const assignees: TaskAssignee[] = [
@@ -34,6 +35,8 @@ const assignees: TaskAssignee[] = [
   { id: "5", name: "Thiago M." },
 ];
 
+export const allAssignees = assignees;
+
 export const mockTasks: Task[] = [
   {
     id: "TOZ-101",
@@ -41,7 +44,7 @@ export const mockTasks: Task[] = [
     description: "Adicionar login com Google e GitHub usando OAuth 2.0",
     status: "done",
     priority: "critical",
-    assignee: assignees[0],
+    assignees: [assignees[0], assignees[1]],
     type: "feature",
     points: 8,
     votes: [
@@ -50,6 +53,7 @@ export const mockTasks: Task[] = [
       { userId: "3", userName: "Rafael M.", points: 8 },
     ],
     createdAt: "2025-01-20",
+    deliveryDate: "2025-02-14",
   },
   {
     id: "TOZ-102",
@@ -57,7 +61,7 @@ export const mockTasks: Task[] = [
     description: "Arquivos acima de 10MB falham silenciosamente",
     status: "review",
     priority: "high",
-    assignee: assignees[1],
+    assignees: [assignees[1]],
     type: "bug",
     points: 3,
     votes: [
@@ -65,6 +69,7 @@ export const mockTasks: Task[] = [
       { userId: "4", userName: "Amanda L.", points: 5 },
     ],
     createdAt: "2025-01-22",
+    deliveryDate: "2025-02-16",
   },
   {
     id: "TOZ-103",
@@ -72,7 +77,7 @@ export const mockTasks: Task[] = [
     description: "Criar dashboard com gráficos de uso e performance",
     status: "in_progress",
     priority: "medium",
-    assignee: assignees[2],
+    assignees: [assignees[2], assignees[4]],
     type: "feature",
     points: 13,
     votes: [
@@ -81,6 +86,7 @@ export const mockTasks: Task[] = [
       { userId: "5", userName: "Thiago M.", points: 8 },
     ],
     createdAt: "2025-01-25",
+    deliveryDate: "2025-02-20",
   },
   {
     id: "TOZ-104",
@@ -88,7 +94,7 @@ export const mockTasks: Task[] = [
     description: "Otimizar renderização com virtualização de lista",
     status: "todo",
     priority: "medium",
-    assignee: assignees[3],
+    assignees: [assignees[3]],
     type: "improvement",
     points: 5,
     votes: [
@@ -96,6 +102,7 @@ export const mockTasks: Task[] = [
       { userId: "2", userName: "João S.", points: 5 },
     ],
     createdAt: "2025-01-28",
+    deliveryDate: "2025-02-22",
   },
   {
     id: "TOZ-105",
@@ -103,7 +110,7 @@ export const mockTasks: Task[] = [
     description: "Enviar notificações de tarefas para canais do Slack",
     status: "backlog",
     priority: "low",
-    assignee: assignees[4],
+    assignees: [assignees[4]],
     type: "feature",
     points: 8,
     votes: [],
@@ -115,7 +122,7 @@ export const mockTasks: Task[] = [
     description: "Simplificar lógica de RBAC e adicionar testes",
     status: "backlog",
     priority: "high",
-    assignee: assignees[0],
+    assignees: [assignees[0]],
     type: "improvement",
     points: 13,
     votes: [
@@ -130,7 +137,7 @@ export const mockTasks: Task[] = [
     description: "Wizard de configuração inicial para novos usuários",
     status: "todo",
     priority: "medium",
-    assignee: assignees[1],
+    assignees: [assignees[1]],
     type: "feature",
     points: 5,
     votes: [
@@ -138,6 +145,7 @@ export const mockTasks: Task[] = [
       { userId: "4", userName: "Amanda L.", points: 8 },
     ],
     createdAt: "2025-02-03",
+    deliveryDate: "2025-02-18",
   },
   {
     id: "TOZ-108",
@@ -145,11 +153,12 @@ export const mockTasks: Task[] = [
     description: "Usuários recebem a mesma notificação múltiplas vezes",
     status: "in_progress",
     priority: "critical",
-    assignee: assignees[2],
+    assignees: [assignees[2]],
     type: "bug",
     points: 3,
     votes: [],
     createdAt: "2025-02-05",
+    deliveryDate: "2025-02-15",
   },
   {
     id: "TOZ-109",
@@ -157,7 +166,7 @@ export const mockTasks: Task[] = [
     description: "Endpoint para exportar dados de tarefas em CSV e PDF",
     status: "todo",
     priority: "low",
-    assignee: assignees[3],
+    assignees: [assignees[3], assignees[0]],
     type: "task",
     points: 8,
     votes: [
@@ -165,6 +174,7 @@ export const mockTasks: Task[] = [
       { userId: "5", userName: "Thiago M.", points: 5 },
     ],
     createdAt: "2025-02-07",
+    deliveryDate: "2025-02-25",
   },
   {
     id: "TOZ-110",
@@ -172,11 +182,12 @@ export const mockTasks: Task[] = [
     description: "Adaptar templates de email para suportar dark mode",
     status: "done",
     priority: "low",
-    assignee: assignees[4],
+    assignees: [assignees[4]],
     type: "improvement",
     points: 2,
     votes: [],
     createdAt: "2025-02-08",
+    deliveryDate: "2025-02-12",
   },
 ];
 
@@ -195,11 +206,20 @@ export const priorityLabels: Record<TaskPriority, string> = {
   low: "Baixa",
 };
 
-export const typeLabels: Record<TaskType, string> = {
+export const defaultTypeLabels: Record<string, string> = {
   feature: "Feature",
   bug: "Bug",
   improvement: "Melhoria",
   task: "Tarefa",
+};
+
+export const typeLabels = defaultTypeLabels;
+
+export const defaultTypeColors: Record<string, string> = {
+  feature: "bg-primary/15 text-primary",
+  bug: "bg-destructive/15 text-destructive",
+  improvement: "bg-[hsl(var(--success))]/15 text-[hsl(var(--success))]",
+  task: "bg-muted text-muted-foreground",
 };
 
 export const fibonacciPoints = [1, 2, 3, 5, 8, 13, 21];

@@ -21,6 +21,7 @@ const commands: { type: BlockType; label: string; icon: string; description: str
   { type: "callout", label: "Callout", icon: "💡", description: "Destaque com ícone" },
   { type: "divider", label: "Divisor", icon: "—", description: "Linha horizontal" },
   { type: "toggle", label: "Toggle", icon: "▶", description: "Conteúdo expansível" },
+  { type: "image", label: "Imagem", icon: "🖼", description: "Upload de imagem" },
 ];
 
 export default function SlashCommandMenu({ position, onSelect, onClose, filter }: SlashCommandMenuProps) {

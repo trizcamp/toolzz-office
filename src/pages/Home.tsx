@@ -111,7 +111,7 @@ export default function HomePage() {
                 <div className={cn("w-2 h-2 rounded-full shrink-0", priorityDot[task.priority])} />
                 <div className="flex-1 min-w-0">
                   <p className="text-sm text-foreground truncate">{task.title}</p>
-                  <p className="text-[10px] text-muted-foreground">{task.id} • {task.assignee.name}</p>
+                  <p className="text-[10px] text-muted-foreground">{task.id} • {task.assignees.map(a => a.name).join(", ")}</p>
                 </div>
                 <span className="text-[10px] text-muted-foreground bg-muted rounded px-1.5 py-0.5">{task.status === "in_progress" ? "Em progresso" : "A fazer"}</span>
               </div>
