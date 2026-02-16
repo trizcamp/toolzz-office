@@ -32,17 +32,15 @@ export default function VoiceParticipants({ room }: VoiceParticipantsProps) {
   if (members.length === 0 && !isConnectedHere) return null;
 
   return (
-    <div className="border-b border-border px-4 py-3">
-      <div className="flex items-center justify-between mb-3">
-        <p className="text-[10px] uppercase tracking-widest text-muted-foreground">
-          Participantes — {members.length}
-        </p>
+    <div className="flex-1 bg-surface/50 flex flex-col items-center justify-center relative min-h-[300px]">
+      {/* AI Button - top right */}
+      <div className="absolute top-4 right-4">
         <Tooltip>
           <TooltipTrigger asChild>
             <Button
               size="sm"
               variant={aiEnabled ? "default" : "outline"}
-              className="h-7 gap-1.5 text-xs"
+              className="h-8 gap-1.5 text-xs"
               onClick={handleEnableAI}
               disabled={aiEnabled}
             >
@@ -58,19 +56,27 @@ export default function VoiceParticipants({ room }: VoiceParticipantsProps) {
           </TooltipContent>
         </Tooltip>
       </div>
-      <div className="flex flex-wrap gap-3">
+
+      {/* Large avatars grid */}
+      <div className="flex flex-wrap items-center justify-center gap-8 px-8">
         {members.map((user) => (
-          <div key={user.id} className="flex items-center gap-2 bg-surface rounded-lg px-3 py-2">
+          <div key={user.id} className="flex flex-col items-center gap-2">
             <div
               className={cn(
-                "w-8 h-8 rounded-full bg-muted flex items-center justify-center text-xs font-medium text-muted-foreground shrink-0",
-                user.isSpeaking && "ring-2 animate-pulse"
+                "w-24 h-24 rounded-full bg-muted flex items-center justify-center text-2xl font-semibold text-muted-foreground transition-all",
+                user.isSpeaking && "ring-4 ring-[hsl(var(--success))]/50 shadow-[0_0_20px_hsl(var(--success)/0.3)]"
               )}
-              style={user.isSpeaking ? { "--tw-ring-color": "hsl(var(--success))" } as React.CSSProperties : undefined}
             >
               {user.name.charAt(0)}
             </div>
-            <span className="text-sm text-secondary-foreground">{user.name}</span>
+            <span className="text-xs text-secondary-foreground">{user.name}</span>
+            {user.isSpeaking && (
+              <div className="flex items-center gap-1">
+                <span className="w-1 h-3 bg-[hsl(var(--success))] rounded-full animate-pulse" />
+                <span className="w-1 h-4 bg-[hsl(var(--success))] rounded-full animate-pulse" style={{ animationDelay: "0.1s" }} />
+                <span className="w-1 h-2 bg-[hsl(var(--success))] rounded-full animate-pulse" style={{ animationDelay: "0.2s" }} />
+              </div>
+            )}
           </div>
         ))}
       </div>

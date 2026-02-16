@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { Users, ChevronRight, ChevronLeft } from "lucide-react";
+import { Users, ChevronRight } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import RoomList from "@/components/office/RoomList";
 import ChatArea from "@/components/office/ChatArea";
