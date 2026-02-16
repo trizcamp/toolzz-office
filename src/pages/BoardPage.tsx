@@ -1,5 +1,5 @@
 import { useState, useMemo } from "react";
-import { Plus, LayoutGrid, ArrowLeft, Mic, MessageSquare, Sparkles, Pencil, Trash2 } from "lucide-react";
+import { Plus, LayoutGrid, ArrowLeft, Mic, MessageSquare, Sparkles, Pencil, Trash2, Package, Building2, Wrench } from "lucide-react";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { Button } from "@/components/ui/button";
 import { Table, TableHeader, TableRow, TableHead, TableBody, TableCell } from "@/components/ui/table";
@@ -33,10 +33,16 @@ const priorityColors: Record<string, string> = {
   low: "bg-muted text-muted-foreground",
 };
 
+const sectorIcons: Record<string, any> = {
+  Produto: Package,
+  Departamento: Building2,
+  Serviço: Wrench,
+};
+
 const sectorTemplates = [
-  { sector: "Produto", icon: "◼", description: "Kanban para equipes de produto com foco em features e bugs." },
-  { sector: "Departamento", icon: "◻", description: "Gestão de tarefas e demandas por departamento." },
-  { sector: "Serviço", icon: "▣", description: "Acompanhamento de entregas e prestação de serviços." },
+  { sector: "Produto", description: "Kanban para equipes de produto com foco em features e bugs." },
+  { sector: "Departamento", description: "Gestão de tarefas e demandas por departamento." },
+  { sector: "Serviço", description: "Acompanhamento de entregas e prestação de serviços." },
 ];
 
 export default function BoardPage() {
@@ -146,7 +152,7 @@ export default function BoardPage() {
       name: newBoardName,
       description: "",
       sector: newBoardSector,
-      icon: template?.icon || "📋",
+      icon: newBoardSector,
     });
     setNewBoardOpen(false);
     setNewBoardName("");
@@ -224,7 +230,10 @@ export default function BoardPage() {
                   </div>
                   <button onClick={() => setSelectedBoard(board.id)} className="w-full text-left space-y-3">
                     <div className="flex items-center gap-3">
-                      <span className="text-2xl">{board.icon}</span>
+                      {(() => {
+                        const Icon = sectorIcons[board.sector || board.icon || ""] || Package;
+                        return <Icon className="w-5 h-5 text-foreground" />;
+                      })()}
                       <div>
                         <h3 className="text-sm font-semibold text-foreground">{board.name}</h3>
                         <p className="text-[10px] text-muted-foreground">{board.sector}</p>
@@ -259,7 +268,10 @@ export default function BoardPage() {
                         newBoardSector === t.sector ? "border-primary bg-primary/5" : "border-border hover:bg-surface-hover"
                       )}
                     >
-                      <span className="text-xl">{t.icon}</span>
+                      {(() => {
+                        const Icon = sectorIcons[t.sector] || Package;
+                        return <Icon className="w-5 h-5 text-foreground" />;
+                      })()}
                       <div>
                         <p className="text-sm font-medium text-foreground">{t.sector}</p>
                         <p className="text-[10px] text-muted-foreground">{t.description}</p>
