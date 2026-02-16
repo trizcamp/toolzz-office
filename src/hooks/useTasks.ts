@@ -22,6 +22,9 @@ export interface DbTask {
   created_by: string | null;
   created_at: string;
   updated_at: string;
+  github_repo: string | null;
+  github_issue_url: string | null;
+  github_issue_number: number | null;
 }
 
 export function useTasks(boardId: string | null) {
@@ -68,6 +71,7 @@ export function useTasks(boardId: string | null) {
       board_id: string;
       delivery_date?: string;
       parent_id?: string;
+      github_repo?: string;
     }) => {
       const { data, error } = await supabase
         .from("tasks")
@@ -83,6 +87,32 @@ export function useTasks(boardId: string | null) {
         });
       } catch (e) {
         console.error("Failed to trigger task-created event:", e);
+      }
+
+      // Auto-create GitHub issue for bug/improvement types with a repo
+      if (task.github_repo && (task.type === "bug" || task.type === "improvement")) {
+        try {
+          const label = task.type === "bug" ? "bug" : "enhancement";
+          const body = `**${data.display_id}** — Criado via Toolzz Office\n\n${task.description || "Sem descrição."}`;
+          const { data: issueData } = await supabase.functions.invoke("github-api", {
+            body: {
+              action: "create-issue",
+              repo: task.github_repo,
+              title: `[${data.display_id}] ${task.title}`,
+              body,
+              labels: [label],
+            },
+          });
+
+          if (issueData?.issue_url) {
+            await supabase.from("tasks").update({
+              github_issue_url: issueData.issue_url,
+              github_issue_number: issueData.issue_number,
+            }).eq("id", data.id);
+          }
+        } catch (e) {
+          console.error("Failed to create GitHub issue:", e);
+        }
       }
 
       return data;

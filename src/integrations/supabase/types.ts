@@ -193,6 +193,33 @@ export type Database = {
           },
         ]
       }
+      github_integrations: {
+        Row: {
+          access_token: string
+          created_at: string
+          github_username: string | null
+          id: string
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          access_token: string
+          created_at?: string
+          github_username?: string | null
+          id?: string
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          access_token?: string
+          created_at?: string
+          github_username?: string | null
+          id?: string
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
       meeting_participants: {
         Row: {
           id: string
@@ -529,6 +556,9 @@ export type Database = {
           description: string | null
           display_id: string
           document_id: string | null
+          github_issue_number: number | null
+          github_issue_url: string | null
+          github_repo: string | null
           id: string
           parent_id: string | null
           points: number | null
@@ -546,6 +576,9 @@ export type Database = {
           description?: string | null
           display_id?: string
           document_id?: string | null
+          github_issue_number?: number | null
+          github_issue_url?: string | null
+          github_repo?: string | null
           id?: string
           parent_id?: string | null
           points?: number | null
@@ -563,6 +596,9 @@ export type Database = {
           description?: string | null
           display_id?: string
           document_id?: string | null
+          github_issue_number?: number | null
+          github_issue_url?: string | null
+          github_repo?: string | null
           id?: string
           parent_id?: string | null
           points?: number | null
