@@ -34,6 +34,13 @@ export default function NewTaskDialog({ open, onOpenChange, onCreateTask, existi
     githubRepo: "",
   });
 
+  // Reset mode when dialog opens
+  useEffect(() => {
+    if (open) {
+      setMode("select");
+    }
+  }, [open]);
+
   // Fetch repos when entering manual mode and GitHub is connected
   useEffect(() => {
     if (mode === "manual" && connected && repos.length === 0) {
