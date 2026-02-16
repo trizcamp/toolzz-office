@@ -1,9 +1,10 @@
 import { useState } from "react";
-import { Calendar } from "lucide-react";
+import { Calendar, Trash2 } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { cn } from "@/lib/utils";
 import type { Task } from "@/data/mockTasks";
 import { priorityLabels, defaultTypeLabels, defaultTypeColors } from "@/data/mockTasks";
+import { ContextMenu, ContextMenuContent, ContextMenuItem, ContextMenuTrigger } from "@/components/ui/context-menu";
 
 const priorityIcons: Record<string, { color: string; icon: string }> = {
   critical: { color: "text-destructive", icon: "🔴" },
@@ -17,17 +18,19 @@ interface TaskCardProps {
   onMoveLeft?: () => void;
   onMoveRight?: () => void;
   onClick?: () => void;
+  onDelete?: () => void;
   showMoveButtons?: boolean;
+  isAdmin?: boolean;
   typeLabels?: Record<string, string>;
   typeColors?: Record<string, string>;
 }
 
-export default function TaskCard({ task, onMoveLeft, onMoveRight, onClick, showMoveButtons = true, typeLabels = defaultTypeLabels, typeColors = defaultTypeColors }: TaskCardProps) {
+export default function TaskCard({ task, onMoveLeft, onMoveRight, onClick, onDelete, showMoveButtons = true, isAdmin = false, typeLabels = defaultTypeLabels, typeColors = defaultTypeColors }: TaskCardProps) {
   const [isDragging, setIsDragging] = useState(false);
   const typeLabel = typeLabels[task.type] || task.type;
   const typeColor = typeColors[task.type] || "bg-muted text-muted-foreground";
 
-  return (
+  const card = (
     <div
       draggable
       onDragStart={(e) => { e.dataTransfer.setData("taskId", task.id); setIsDragging(true); }}
@@ -78,5 +81,18 @@ export default function TaskCard({ task, onMoveLeft, onMoveRight, onClick, showM
         </div>
       </div>
     </div>
+  );
+
+  if (!isAdmin || !onDelete) return card;
+
+  return (
+    <ContextMenu>
+      <ContextMenuTrigger asChild>{card}</ContextMenuTrigger>
+      <ContextMenuContent>
+        <ContextMenuItem className="text-destructive focus:text-destructive gap-2" onClick={onDelete}>
+          <Trash2 className="w-4 h-4" /> Apagar tarefa
+        </ContextMenuItem>
+      </ContextMenuContent>
+    </ContextMenu>
   );
 }
