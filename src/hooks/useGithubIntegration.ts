@@ -9,6 +9,8 @@ interface GithubRepo {
   owner: string;
 }
 
+// No client-side env vars needed — OAuth URL is fetched from edge function
+
 export function useGithubIntegration() {
   const { user } = useAuth();
   const [connected, setConnected] = useState(false);
@@ -20,17 +22,18 @@ export function useGithubIntegration() {
   const checkConnection = useCallback(async () => {
     if (!user) { setLoading(false); return; }
     try {
-      const { data } = await supabase.functions.invoke("github-api", {
-        body: { action: "check-connection" },
-      });
-      setConnected(!!data?.connected);
-      // Also check username from DB
       const { data: intData } = await supabase
         .from("github_integrations")
         .select("github_username")
         .eq("user_id", user.id)
         .maybeSingle();
-      setUsername(intData?.github_username || null);
+      if (intData) {
+        setConnected(true);
+        setUsername(intData.github_username || null);
+      } else {
+        setConnected(false);
+        setUsername(null);
+      }
     } catch {
       setConnected(false);
     } finally {
@@ -40,21 +43,34 @@ export function useGithubIntegration() {
 
   useEffect(() => { checkConnection(); }, [checkConnection]);
 
-  const connect = async (token: string) => {
-    const { data, error } = await supabase.functions.invoke("github-api", {
-      body: { action: "connect", token },
-    });
-    if (error) throw error;
-    if (data?.error) throw new Error(data.error);
-    setConnected(true);
-    setUsername(data?.username || null);
-    return data;
+  // Check URL params for OAuth callback result
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    if (params.get("github") === "connected") {
+      const ghUsername = params.get("username");
+      setConnected(true);
+      setUsername(ghUsername);
+      // Clean URL
+      window.history.replaceState({}, "", window.location.pathname);
+    }
+  }, []);
+
+  const startOAuth = async () => {
+    if (!user) return;
+    try {
+      const { data, error } = await supabase.functions.invoke("github-api", {
+        body: { action: "get-oauth-url" },
+      });
+      if (error || data?.error) throw new Error(data?.error || "Erro ao gerar URL");
+      window.location.href = data.authUrl;
+    } catch (e) {
+      console.error("Failed to start GitHub OAuth:", e);
+    }
   };
 
   const disconnect = async () => {
-    await supabase.functions.invoke("github-api", {
-      body: { action: "disconnect" },
-    });
+    if (!user) return;
+    await supabase.from("github_integrations").delete().eq("user_id", user.id);
     setConnected(false);
     setUsername(null);
     setRepos([]);
@@ -90,7 +106,7 @@ export function useGithubIntegration() {
     loading,
     repos,
     loadingRepos,
-    connect,
+    startOAuth,
     disconnect,
     fetchRepos,
     createIssue,
