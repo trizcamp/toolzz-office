@@ -1,154 +1,314 @@
 
 
-# Melhorias Multi-Modulo - Fase 3
+# Backend Completo com Arquitetura Orientada a Eventos
 
-Conjunto de refinamentos cobrindo Gerenciamento, Documentos, Escritorio e novo modal de Configuracoes.
-
----
-
-## 1. Modulo Gerenciamento (Central de Tarefas)
-
-### 1.1 Modal de Edicao da Central (substituir inline edit)
-
-**Arquivo:** `src/pages/BoardPage.tsx`
-- Substituir a edicao inline do nome por um Dialog/modal ao clicar no botao de editar (Pencil)
-- Modal com campos: "Nome da Central" (Input) e "Descricao" (Textarea opcional)
-- Adicionar campo `description` a interface `BoardDef`
-- Botoes "Cancelar" e "Salvar"
-
-### 1.2 Filtros Avancados na Lista e Kanban
-
-**Arquivo:** `src/components/board/TaskFilters.tsx`
-- Expandir componente para incluir filtros adicionais:
-  - **Responsavel** (ja existente)
-  - **Tipo** (ja existente)
-  - **Prioridade** (novo Select: Critica, Alta, Media, Baixa)
-  - **Etapa/Status** (novo Select: Backlog, To Do, Em Progresso, Em Revisao, Concluido)
-  - **Data** (novo input type="date" para filtrar por `createdAt` ou `deliveryDate`)
-- Envolver tudo em um botao "Filtros" que ao clicar expande/recolhe a barra de filtros (toggle)
-
-**Arquivo:** `src/pages/BoardPage.tsx`
-- Adicionar estados para `priorityFilter`, `statusFilter`, `dateFilter`
-- Passar novos filtros ao `TaskFilters` e aplicar no `filteredTasks`
-- Exibir botao de filtro tambem na aba Kanban (acima das colunas)
-
-### 1.3 Documentacao Lateral no Modo Lista
-
-**Arquivo:** `src/pages/BoardPage.tsx`
-- O `TaskDetailPanel` ja abre via `selectedTask` e ja funciona no modo Kanban
-- Garantir que ao clicar numa tarefa na tabela (modo Lista), o mesmo `TaskDetailPanel` com documentacao seja renderizado ao lado (ja esta no JSX no final do componente, fora das abas -- verificar se funciona corretamente para a aba lista)
-- O painel ja esta posicionado fora das `TabsContent`, portanto ja deve funcionar -- validar que nao ha conflito de overflow
-
-### 1.4 Tipo com Nome Visivel (nao apenas cor)
-
-**Arquivo:** `src/pages/BoardPage.tsx` (coluna Tipo na tabela)
-- Ja exibe `typeLabelsState[task.type]` -- validar
-- Adicionar a cor de fundo do tipo ao Badge: usar `typeColorsState[task.type]` nas classes do Badge
-
-**Arquivo:** `src/components/board/TaskCard.tsx`
-- No card do Kanban, exibir Badge com nome do tipo + cor correspondente
-- Passar `typeLabels` e `typeColors` como props
-
-**Arquivo:** `src/components/board/TaskDetailPanel.tsx`
-- No Select de tipo, exibir o nome do tipo com a cor de fundo correspondente no SelectTrigger
+Migrar toda a plataforma Toolzz Office de dados mockados para um backend funcional usando Lovable Cloud (Supabase), com eventos que conectam os modulos automaticamente.
 
 ---
 
-## 2. Modulo Documentos
+## Visao Geral da Arquitetura
 
-### 2.1 Cursor e Texto LTR
-
-**Arquivo:** `src/components/documents/BlockEditor.tsx`
-- Ja possui `dir="ltr"` e `text-align: left` nos blocos contentEditable
-- Adicionar `direction: ltr` ao CSS global do `[contenteditable]` (ja presente)
-- Validar que a regra CSS esta correta -- nenhuma mudanca necessaria (ja implementado)
-
----
-
-## 3. Modulo Escritorio
-
-### 3.1 Menu de Contexto (botao direito) para Apagar Canal
-
-**Arquivo:** `src/components/office/RoomItem.tsx`
-- Adicionar evento `onContextMenu` no componente do canal
-- Ao clicar com botao direito, exibir menu de contexto customizado (ContextMenu do Radix ou div posicionada)
-- Opcao "Apagar canal" com confirmacao (AlertDialog)
-- Passar callback `onDelete` do `RoomList` para `RoomItem`
-
-**Arquivo:** `src/components/office/RoomList.tsx`
-- Adicionar funcao `handleDeleteRoom` que remove a sala do array
-- Passar `onDelete` para cada `RoomItem`
-
-### 3.2 Configuracoes de Audio (Mic/Saida)
-
-**Arquivo:** `src/components/office/VoiceParticipants.tsx`
-- Adicionar botao de engrenagem (Settings) ao lado dos controles de voz
-- Ao clicar, abrir Popover ou Dialog com:
-  - Select "Dispositivo de Entrada (Microfone)" com opcoes mockadas (Microfone Padrao, Headset USB, etc.)
-  - Select "Dispositivo de Saida (Audio)" com opcoes mockadas (Alto-falantes, Fones de ouvido, etc.)
-- Armazenar selecao em estado local
-
----
-
-## 4. Modal de Configuracoes (Global)
-
-### 4.1 Trigger no TopBar
-
-**Arquivo:** `src/components/TopBar.tsx`
-- Ao clicar no icone de Settings (engrenagem), abrir o modal de Configuracoes
-- Adicionar estado `settingsOpen` e renderizar o novo componente `SettingsDialog`
-
-### 4.2 Componente SettingsDialog
-
-**Novo arquivo:** `src/components/settings/SettingsDialog.tsx`
-- Dialog fullscreen ou grande (max-w-3xl)
-- Layout com sidebar esquerda + conteudo direito (conforme referencia image-24)
-- Sidebar com abas: "Minha conta", "Membros"
-- Estado `activeTab` para alternar entre as abas
-
-### 4.3 Aba "Minha Conta"
-
-- Cabecalho: icone + "Minha conta" + subtitulo "Altere as suas informacoes pessoais"
-- Foto de perfil: avatar com iniciais + botoes "Enviar imagem" e "Remover imagem"
-- Campos (todos mockados/editaveis localmente):
-  - Nome, Sobrenome (2 colunas)
-  - E-mail
-  - Celular, Idioma (2 colunas, idioma como Select)
-  - Secao "Alterar senha" com botao
-- Botoes "Cancelar" e "Salvar" no rodape
-
-### 4.4 Aba "Membros"
-
-- Cabecalho: icone + "Membros" + subtitulo "Gerencie membros e usuarios e defina seu nivel de acesso"
-- Input de busca + botao "+ Convidar"
-- Tabela com colunas: Membro (avatar + nome + email), Acesso (ADMINISTRADOR / MEMBRO)
-- Primeiro membro com "(voce)" ao lado do nome -- sem botao de acoes
-- Demais membros: botao "..." (DropdownMenu) com opcoes "Tornar membro" e "Excluir"
-- Ao clicar "+ Convidar": sub-dialog "Convidar membro" com campos Nome, E-mail, Acesso (Select: Administrador/Membro) e botoes Cancelar/Convidar
-- Dados mockados: lista de 4 membros conforme referencia
-
----
-
-## Resumo de Arquivos
-
-### Novos Arquivos
 ```text
-src/components/settings/SettingsDialog.tsx    -- Modal de configuracoes com abas Conta e Membros
++-----------+     Supabase Realtime     +------------------+
+|  Frontend | <-----------------------> | Supabase Database |
+|  (React)  |                           +--------+---------+
+|           |      invoke()                      |
+|           | -----------------> Edge Functions  |
++-----------+                    |               |
+                                 | DB Webhooks / |
+                                 | Triggers      |
+                                 v               |
+                          +------+------+        |
+                          | Event Bus   | -------+
+                          | (pg_notify) |
+                          +------+------+
+                                 |
+                    +------------+------------+
+                    |            |            |
+              task.created  meeting.saved  message.sent
+                    |            |            |
+              Auto-gera doc  Extrai tasks  Broadcast
+              via Edge Fn    via IA         Realtime
 ```
 
-### Arquivos Modificados
+---
+
+## 1. Schema do Banco de Dados
+
+### 1.1 Tabelas Principais
+
+**`boards`** - Centrais de tarefas
+- id (uuid, PK), name, description, sector, icon, created_by, created_at, updated_at
+
+**`tasks`** - Tarefas
+- id (uuid, PK), display_id (text, "TOZ-101"), board_id (FK boards), title, description, status (enum), priority (enum), type, points, delivery_date, parent_id (self FK), created_by, created_at, updated_at
+
+**`task_assignees`** - Relacao N:N tarefas-membros
+- id, task_id (FK), user_id (FK), created_at
+
+**`task_votes`** - Votos do Priority Poker
+- id, task_id (FK), user_id (FK), points, created_at
+
+**`documents`** - Documentos
+- id (uuid, PK), title, icon, type (doc/spec/note), task_id (FK tasks, nullable), created_by, created_at, updated_at
+
+**`document_blocks`** - Blocos do editor
+- id, document_id (FK), type (enum), content (text), position (int), checked (bool), metadata (jsonb), created_at, updated_at
+
+**`document_comments`** - Comentarios
+- id, document_id (FK), user_id (FK), text, created_at
+
+**`rooms`** - Salas do escritorio
+- id (uuid, PK), name, category, type (voice/text/hybrid), created_by, created_at
+
+**`messages`** - Mensagens do chat
+- id (uuid, PK), room_id (FK rooms), user_id (FK), text, created_at
+
+**`meetings`** - Reunioes salvas
+- id, title, room_id (FK), date, start_time, end_time, summary, created_by, created_at
+
+**`meeting_participants`** - Participantes
+- id, meeting_id (FK), user_id (FK)
+
+**`meeting_transcripts`** - Transcricao
+- id, meeting_id (FK), speaker_id (FK), text, timestamp, created_at
+
+**`meeting_tasks`** - Tarefas geradas pela reuniao
+- id, meeting_id (FK), task_id (FK)
+
+**`members`** - Perfis dos membros
+- id (uuid, PK, FK auth.users), name, surname, email, phone, avatar_url, language, created_at, updated_at
+
+**`user_roles`** - Papeis (tabela separada por seguranca)
+- id, user_id (FK auth.users), role (enum: admin/member)
+
+**`type_definitions`** - Tipos customizaveis de tarefas
+- id, board_id (FK), name, color_classes, created_at
+
+### 1.2 Enums
+
 ```text
-src/pages/BoardPage.tsx                       -- Modal edicao central, filtros avancados, tipo com cor+nome
-src/components/board/TaskFilters.tsx           -- Filtros prioridade, etapa, data + toggle
-src/components/board/TaskCard.tsx              -- Badge de tipo com nome e cor
-src/components/office/RoomItem.tsx             -- Context menu (botao direito) para apagar canal
-src/components/office/RoomList.tsx             -- Handler de delete room
-src/components/office/VoiceParticipants.tsx    -- Popover config audio (mic/saida)
-src/components/TopBar.tsx                      -- Trigger para SettingsDialog
+task_status: backlog, todo, in_progress, review, done
+task_priority: critical, high, medium, low
+room_type: voice, text, hybrid
+doc_type: doc, spec, note
+app_role: admin, member
+block_type: paragraph, heading1, heading2, heading3, bulletList, numberedList, todoList, code, quote, callout, divider, toggle, image
 ```
 
-### Ordem de Implementacao
-1. Gerenciamento (modal edicao, filtros, tipo com nome)
-2. Escritorio (context menu, config audio)
-3. Configuracoes (SettingsDialog com abas)
+### 1.3 RLS (Row Level Security)
+
+- Todas as tabelas com RLS habilitado
+- Politicas baseadas em `auth.uid()` para leitura e escrita
+- Funcao `has_role()` security definer para checar admin
+- Membros podem ler tudo do workspace; apenas admins podem deletar/gerenciar membros
+
+---
+
+## 2. Edge Functions (Eventos)
+
+### 2.1 `task-created` - Evento: Nova Tarefa
+
+Quando uma tarefa e criada, automaticamente gera um documento associado com template de backlog.
+
+```text
+Frontend cria task -> INSERT tasks
+                   -> Edge function "task-created"
+                      -> INSERT documents (titulo = "Backlog: {task.title}")
+                      -> INSERT document_blocks (template padrao)
+                      -> UPDATE tasks SET document_id
+```
+
+**Trigger:** Chamado pelo frontend apos INSERT na tabela tasks (via `supabase.functions.invoke`).
+
+### 2.2 `ai-analyze-meeting` - Evento: Reuniao Finalizada
+
+Recebe a transcricao, envia para Lovable AI (GPT) para:
+1. Gerar resumo da reuniao
+2. Identificar tarefas mencionadas
+3. Criar tarefas automaticamente com documentos
+
+```text
+Frontend envia transcricao -> Edge function "ai-analyze-meeting"
+   -> Lovable AI Gateway (google/gemini-3-flash-preview)
+      -> Tool calling: extract_tasks, generate_summary
+   -> INSERT tasks (para cada tarefa identificada)
+   -> Chama "task-created" para gerar documentos
+   -> UPDATE meetings SET summary
+   -> Response com resumo + tarefas criadas
+```
+
+### 2.3 `ai-chat` - Assistente de IA para Tarefas
+
+Chat com IA que pode criar tarefas durante a conversa. Usa tool calling para detectar intencao de criar tarefa.
+
+```text
+Frontend envia mensagem -> Edge function "ai-chat"
+   -> Lovable AI Gateway com tools:
+      - create_task(title, description, priority, status)
+   -> Se tool_call detectado:
+      -> INSERT tasks
+      -> Chama logica de "task-created" (gera documento)
+   -> Response com mensagem + tarefas criadas (se houver)
+```
+
+### 2.4 `manage-members` - Gerenciamento de Membros
+
+Endpoint para convidar, remover e alterar roles de membros.
+
+---
+
+## 3. Supabase Realtime
+
+### 3.1 Chat em Tempo Real
+
+- Subscribe no canal `messages:room_id={id}` para receber novas mensagens
+- INSERT na tabela `messages` dispara broadcast automatico via Realtime
+- Componente `ChatArea` usa `useEffect` com `supabase.channel()` para escutar
+
+### 3.2 Presenca Online
+
+- Usar Supabase Realtime Presence para rastrear usuarios online por sala
+- `channel.track({ user_id, user_name, room_id })` ao entrar na sala
+- `channel.on('presence', ...)` para atualizar lista de usuarios conectados
+- Substitui o conceito de Redis para presenca
+
+### 3.3 Atualizacoes em Tempo Real
+
+- Tabela `tasks`: subscribe para atualizacoes (drag-and-drop no Kanban sincronizado)
+- Tabela `documents`: subscribe para edicoes colaborativas basicas
+- Tabela `rooms`: subscribe para novas salas criadas/deletadas
+
+---
+
+## 4. Fluxo de Eventos Detalhado
+
+### Evento: Criar Tarefa (Manual ou IA)
+
+```text
+1. Usuario preenche formulario OU IA detecta tarefa
+2. Frontend chama supabase.from("tasks").insert(...)
+3. Frontend chama edge function "task-created" com task_id
+4. Edge function cria documento com blocos de template:
+   - Heading: titulo da tarefa
+   - Paragrafo: descricao/objetivo
+   - Heading2: "Criterios de Aceite"
+   - TodoList: items vazios para preencher
+   - Divider
+   - Heading2: "Notas Tecnicas"
+   - Paragrafo vazio
+5. Retorna document_id
+6. Frontend recebe confirmacao
+7. Realtime notifica outros usuarios da nova tarefa
+```
+
+### Evento: Habilitar IA na Reuniao
+
+```text
+1. Usuario clica "Habilitar IA" na sala de voz
+2. Frontend comeca a gravar audio (MediaRecorder API)
+3. A cada N segundos, envia chunk para transcricao local
+   (Web Speech API como fallback, ou acumula para enviar no final)
+4. Ao clicar "Parar IA":
+   - Frontend envia transcricao completa para "ai-analyze-meeting"
+   - Edge function processa com Lovable AI
+   - Retorna: summary + array de tarefas extraidas
+   - Frontend salva meeting + cria tarefas via "task-created"
+5. Reuniao aparece no modulo Reunioes com transcricao e tarefas
+```
+
+### Evento: Chat com IA para Criar Tarefa
+
+```text
+1. Usuario escolhe "Assistencia de IA" no dialog de nova tarefa
+2. Abre interface de chat com a IA (modo texto)
+3. Usuario descreve o que precisa
+4. Edge function "ai-chat" processa com tool calling
+5. Se IA identifica tarefa:
+   - Chama tool create_task com dados extraidos
+   - Insere no banco + gera documento
+   - Responde: "Criei a tarefa TOZ-115: {titulo}"
+6. Usuario pode continuar conversando para refinar
+```
+
+---
+
+## 5. Mudancas no Frontend
+
+### 5.1 Camada de Dados (Hooks)
+
+Criar hooks React Query para cada entidade:
+
+- `useBoards()` - CRUD de centrais
+- `useTasks(boardId)` - CRUD de tarefas com filtros
+- `useDocuments()` - CRUD de documentos
+- `useDocument(id)` - Documento com blocos
+- `useRooms()` - CRUD de salas
+- `useMessages(roomId)` - Mensagens com Realtime
+- `usePresence(roomId)` - Presenca online
+- `useMeetings()` - Historico de reunioes
+- `useMembers()` - Lista de membros
+
+### 5.2 Integracao Supabase
+
+- Criar `src/integrations/supabase/client.ts` (auto-gerado pelo Lovable Cloud)
+- Remover todos os arquivos `src/data/mock*.ts`
+- Substituir `useState(mockData)` por hooks React Query
+
+### 5.3 Componentes Modificados
+
+| Componente | Mudanca |
+|---|---|
+| `BoardPage.tsx` | React Query para boards/tasks, mutations com invalidacao |
+| `OfficePage.tsx` | Realtime messages, presence tracking |
+| `ChatArea.tsx` | Subscribe Realtime, INSERT messages |
+| `VoiceParticipants.tsx` | MediaRecorder + transcricao, evento ai-analyze-meeting |
+| `MeetingsPage.tsx` | React Query para meetings |
+| `DocumentsPage.tsx` | React Query para documents |
+| `BlockEditor.tsx` | Salvar blocos no banco |
+| `NewTaskDialog.tsx` | INSERT task + chamar task-created, chat IA funcional |
+| `SettingsDialog.tsx` | React Query para members, edge function manage-members |
+| `RoomList/RoomItem` | CRUD rooms no banco |
+| `MemberList.tsx` | Presence API do Supabase Realtime |
+
+---
+
+## 6. Arquivos Novos
+
+```text
+-- Migracao SQL
+supabase/migrations/001_initial_schema.sql
+
+-- Edge Functions
+supabase/functions/task-created/index.ts
+supabase/functions/ai-analyze-meeting/index.ts
+supabase/functions/ai-chat/index.ts
+supabase/functions/manage-members/index.ts
+
+-- Config
+supabase/config.toml (atualizar com novas functions)
+
+-- Hooks
+src/hooks/useBoards.ts
+src/hooks/useTasks.ts
+src/hooks/useDocuments.ts
+src/hooks/useMessages.ts
+src/hooks/usePresence.ts
+src/hooks/useMeetings.ts
+src/hooks/useMembers.ts
+src/hooks/useRooms.ts
+```
+
+---
+
+## 7. Ordem de Implementacao
+
+1. **Habilitar Lovable Cloud** e Lovable AI
+2. **Schema SQL** - Criar todas as tabelas, enums, RLS, funcoes
+3. **Seed data** - Inserir dados iniciais (membros, boards, rooms)
+4. **Hooks React Query** - Camada de dados
+5. **Edge Functions** - task-created, ai-chat, ai-analyze-meeting
+6. **Migrar componentes** - Substituir mock por dados reais
+7. **Realtime** - Chat + presenca
+8. **IA** - Chat assistente + analise de reunioes
 
