@@ -14,6 +14,7 @@ import {
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import {
   startOfMonth,
   endOfMonth,
@@ -63,12 +64,20 @@ export default function CalendarPage() {
   const [centerCollapsed, setCenterCollapsed] = useState(false);
   const [rightCollapsed, setRightCollapsed] = useState(false);
   const nowLineRef = useRef<HTMLDivElement>(null);
+  const [selectedBoard, setSelectedBoard] = useState<string | null>(null);
 
   const { user } = useAuth();
   const { boards } = useBoards();
 
-  // Fetch tasks from all boards
-  const { tasks: allTasks } = useTasks(null);
+  // Fetch tasks for selected board
+  const { tasks: allTasks } = useTasks(selectedBoard);
+
+  // Auto-select first board
+  useEffect(() => {
+    if (!selectedBoard && boards.length > 0) {
+      setSelectedBoard(boards[0].id);
+    }
+  }, [boards, selectedBoard]);
 
   useEffect(() => {
     nowLineRef.current?.scrollIntoView({ block: "center", behavior: "smooth" });
@@ -128,6 +137,21 @@ export default function CalendarPage() {
                 <PanelLeftClose className="w-3.5 h-3.5" />
               </Button>
             </div>
+            {/* Board selector */}
+            <div className="space-y-1.5 mb-3">
+              <p className="text-[10px] uppercase tracking-widest text-muted-foreground">Central</p>
+              <Select value={selectedBoard || ""} onValueChange={setSelectedBoard}>
+                <SelectTrigger className="h-8 text-xs">
+                  <SelectValue placeholder="Selecione uma central" />
+                </SelectTrigger>
+                <SelectContent>
+                  {boards.map((b) => (
+                    <SelectItem key={b.id} value={b.id}>{b.name}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+
             {/* Category filters */}
             <div className="space-y-0.5">
               <button
