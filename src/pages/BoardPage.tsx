@@ -21,7 +21,7 @@ import BoardReport from "@/components/board/BoardReport";
 import NewTaskDialog from "@/components/board/NewTaskDialog";
 import TaskDetailPanel from "@/components/board/TaskDetailPanel";
 import { AnimatePresence } from "framer-motion";
-import { useMembers } from "@/hooks/useMembers";
+import { useMembers, useUserRoles } from "@/hooks/useMembers";
 import { Skeleton } from "@/components/ui/skeleton";
 
 const allStatuses: TaskStatus[] = ["backlog", "todo", "in_progress", "review", "done"];
@@ -50,6 +50,7 @@ export default function BoardPage() {
   const [selectedBoard, setSelectedBoard] = useState<string | null>(null);
   const { tasks, isLoading: tasksLoading, createTask, updateTask, deleteTask: deleteTaskMut } = useTasks(selectedBoard);
   const { members } = useMembers();
+  const { isAdmin } = useUserRoles();
 
   const [newTaskOpen, setNewTaskOpen] = useState(false);
   const [assigneeFilter, setAssigneeFilter] = useState("all");
@@ -196,9 +197,11 @@ export default function BoardPage() {
       <div className="h-full flex flex-col">
         <div className="px-6 py-4 border-b border-border flex items-center justify-between shrink-0">
           <h1 className="text-lg font-semibold text-foreground">Central de Tarefas</h1>
-          <Button size="sm" className="gap-1.5 btn-gradient" onClick={() => setNewBoardOpen(true)}>
-            <Plus className="w-4 h-4" /> Nova Central
-          </Button>
+          {isAdmin && (
+            <Button size="sm" className="gap-1.5 btn-gradient" onClick={() => setNewBoardOpen(true)}>
+              <Plus className="w-4 h-4" /> Nova Central
+            </Button>
+          )}
         </div>
 
         <div className="flex-1 overflow-y-auto p-6">
@@ -220,14 +223,16 @@ export default function BoardPage() {
                   key={board.id}
                   className="bg-card border border-border rounded-xl p-5 space-y-3 text-left hover:border-muted-foreground/30 transition-all relative group/card"
                 >
-                  <div className="absolute top-2 right-2 flex gap-1 opacity-0 group-hover/card:opacity-100 transition-opacity">
-                    <button onClick={(e) => { e.stopPropagation(); openEditBoard(board); }} className="w-6 h-6 flex items-center justify-center rounded hover:bg-surface-hover text-muted-foreground hover:text-foreground">
-                      <Pencil className="w-3 h-3" />
-                    </button>
-                    <button onClick={(e) => { e.stopPropagation(); setDeleteBoardId(board.id); }} className="w-6 h-6 flex items-center justify-center rounded hover:bg-destructive/10 text-muted-foreground hover:text-destructive">
-                      <Trash2 className="w-3 h-3" />
-                    </button>
-                  </div>
+                  {isAdmin && (
+                    <div className="absolute top-2 right-2 flex gap-1 opacity-0 group-hover/card:opacity-100 transition-opacity">
+                      <button onClick={(e) => { e.stopPropagation(); openEditBoard(board); }} className="w-6 h-6 flex items-center justify-center rounded hover:bg-surface-hover text-muted-foreground hover:text-foreground">
+                        <Pencil className="w-3 h-3" />
+                      </button>
+                      <button onClick={(e) => { e.stopPropagation(); setDeleteBoardId(board.id); }} className="w-6 h-6 flex items-center justify-center rounded hover:bg-destructive/10 text-muted-foreground hover:text-destructive">
+                        <Trash2 className="w-3 h-3" />
+                      </button>
+                    </div>
+                  )}
                   <button onClick={() => setSelectedBoard(board.id)} className="w-full text-left space-y-3">
                     <div className="flex items-center gap-3">
                       {(() => {
@@ -348,9 +353,11 @@ export default function BoardPage() {
               {currentBoard?.name || "Central de Tarefas"}
             </h1>
           </div>
-          <Button size="sm" className="gap-1.5 btn-gradient" onClick={() => setNewTaskOpen(true)}>
-            <Plus className="w-4 h-4" /> Nova Tarefa
-          </Button>
+          {isAdmin && (
+            <Button size="sm" className="gap-1.5 btn-gradient" onClick={() => setNewTaskOpen(true)}>
+              <Plus className="w-4 h-4" /> Nova Tarefa
+            </Button>
+          )}
         </div>
 
         <Tabs defaultValue="kanban" className="flex-1 flex flex-col min-h-0">

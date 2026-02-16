@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Dialog, DialogContent } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -9,30 +9,21 @@ import { Badge } from "@/components/ui/badge";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { User, Users, MoreHorizontal, Search } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { useMembers, useUserRoles } from "@/hooks/useMembers";
+import { useAuth } from "@/hooks/useAuth";
+import { toast } from "sonner";
 
 interface SettingsDialogProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
 }
 
-interface Member {
-  id: string;
-  name: string;
-  email: string;
-  role: "admin" | "member";
-  isYou?: boolean;
-}
-
-const mockMembers: Member[] = [
-  { id: "1", name: "Beatriz Fernandes", email: "beatriz@toolzz.com", role: "admin", isYou: true },
-  { id: "2", name: "João Santos", email: "joao@toolzz.com", role: "member" },
-  { id: "3", name: "Rafael Martins", email: "rafael@toolzz.com", role: "member" },
-  { id: "4", name: "Amanda Lima", email: "amanda@toolzz.com", role: "admin" },
-];
-
 export default function SettingsDialog({ open, onOpenChange }: SettingsDialogProps) {
+  const { user } = useAuth();
+  const { members, currentMember, updateProfile } = useMembers();
+  const { isAdmin, getRoleForUser, updateRole, deleteMember, inviteMember } = useUserRoles();
+
   const [activeTab, setActiveTab] = useState<"account" | "members">("account");
-  const [members, setMembers] = useState<Member[]>(mockMembers);
   const [inviteOpen, setInviteOpen] = useState(false);
   const [inviteName, setInviteName] = useState("");
   const [inviteEmail, setInviteEmail] = useState("");
@@ -40,31 +31,74 @@ export default function SettingsDialog({ open, onOpenChange }: SettingsDialogPro
   const [searchMembers, setSearchMembers] = useState("");
 
   // Account fields
-  const [firstName, setFirstName] = useState("Beatriz");
-  const [lastName, setLastName] = useState("Fernandes");
-  const [email] = useState("beatriz@toolzz.com");
-  const [phone, setPhone] = useState("+55 11 99999-0000");
-  const [language, setLanguage] = useState("pt-br");
+  const [firstName, setFirstName] = useState("");
+  const [lastName, setLastName] = useState("");
+  const [phone, setPhone] = useState("");
+  const [language, setLanguage] = useState("pt-BR");
+
+  useEffect(() => {
+    if (currentMember) {
+      setFirstName(currentMember.name);
+      setLastName(currentMember.surname);
+      setPhone(currentMember.phone || "");
+      setLanguage(currentMember.language || "pt-BR");
+    }
+  }, [currentMember]);
 
   const filteredMembers = members.filter(
     (m) => m.name.toLowerCase().includes(searchMembers.toLowerCase()) || m.email.toLowerCase().includes(searchMembers.toLowerCase())
   );
 
-  const handleInvite = () => {
-    if (!inviteName.trim() || !inviteEmail.trim()) return;
-    setMembers([...members, { id: `m${Date.now()}`, name: inviteName, email: inviteEmail, role: inviteRole }]);
-    setInviteOpen(false);
-    setInviteName("");
-    setInviteEmail("");
-    setInviteRole("member");
+  const handleInvite = async () => {
+    if (!inviteEmail.trim()) return;
+    try {
+      await inviteMember.mutateAsync({
+        email: inviteEmail,
+        name: inviteName || inviteEmail.split("@")[0],
+        role: inviteRole,
+      });
+      toast.success("Convite enviado com sucesso!");
+      setInviteOpen(false);
+      setInviteName("");
+      setInviteEmail("");
+      setInviteRole("member");
+    } catch (err: any) {
+      toast.error(err.message || "Erro ao convidar membro");
+    }
   };
 
-  const handleDeleteMember = (id: string) => {
-    setMembers(members.filter((m) => m.id !== id));
+  const handleDeleteMember = async (id: string) => {
+    try {
+      await deleteMember.mutateAsync(id);
+      toast.success("Membro removido");
+    } catch (err: any) {
+      toast.error(err.message || "Erro ao remover membro");
+    }
   };
 
-  const handleToggleRole = (id: string) => {
-    setMembers(members.map((m) => m.id === id ? { ...m, role: m.role === "admin" ? "member" : "admin" } : m));
+  const handleToggleRole = async (userId: string) => {
+    const currentRole = getRoleForUser(userId);
+    const newRole = currentRole === "admin" ? "member" : "admin";
+    try {
+      await updateRole.mutateAsync({ userId, role: newRole });
+      toast.success(`Acesso alterado para ${newRole === "admin" ? "Administrador" : "Membro"}`);
+    } catch (err: any) {
+      toast.error(err.message || "Erro ao alterar acesso");
+    }
+  };
+
+  const handleSaveProfile = async () => {
+    try {
+      await updateProfile.mutateAsync({
+        name: firstName,
+        surname: lastName,
+        phone,
+        language,
+      });
+      toast.success("Perfil atualizado!");
+    } catch (err: any) {
+      toast.error(err.message || "Erro ao salvar perfil");
+    }
   };
 
   const tabs = [
@@ -108,7 +142,7 @@ export default function SettingsDialog({ open, onOpenChange }: SettingsDialogPro
               {/* Avatar */}
               <div className="flex items-center gap-4">
                 <div className="w-16 h-16 rounded-full bg-primary/20 flex items-center justify-center text-xl font-semibold text-primary">
-                  BF
+                  {firstName?.charAt(0)?.toUpperCase() || "U"}{lastName?.charAt(0)?.toUpperCase() || ""}
                 </div>
                 <div className="flex gap-2">
                   <Button size="sm" variant="outline" className="text-xs">Enviar imagem</Button>
@@ -129,7 +163,7 @@ export default function SettingsDialog({ open, onOpenChange }: SettingsDialogPro
               </div>
               <div className="space-y-2">
                 <Label className="text-xs">E-mail</Label>
-                <Input value={email} readOnly className="opacity-60" />
+                <Input value={currentMember?.email || ""} readOnly className="opacity-60" />
               </div>
               <div className="grid grid-cols-2 gap-4">
                 <div className="space-y-2">
@@ -141,7 +175,7 @@ export default function SettingsDialog({ open, onOpenChange }: SettingsDialogPro
                   <Select value={language} onValueChange={setLanguage}>
                     <SelectTrigger><SelectValue /></SelectTrigger>
                     <SelectContent>
-                      <SelectItem value="pt-br">Português (BR)</SelectItem>
+                      <SelectItem value="pt-BR">Português (BR)</SelectItem>
                       <SelectItem value="en">English</SelectItem>
                       <SelectItem value="es">Español</SelectItem>
                     </SelectContent>
@@ -149,13 +183,9 @@ export default function SettingsDialog({ open, onOpenChange }: SettingsDialogPro
                 </div>
               </div>
 
-              <div className="border-t border-border pt-4">
-                <Button variant="outline" size="sm" className="text-xs">Alterar senha</Button>
-              </div>
-
               <div className="flex justify-end gap-2 pt-2">
                 <Button variant="ghost" size="sm" onClick={() => onOpenChange(false)}>Cancelar</Button>
-                <Button size="sm" className="btn-gradient">Salvar</Button>
+                <Button size="sm" className="btn-gradient" onClick={handleSaveProfile}>Salvar</Button>
               </div>
             </div>
           )}
@@ -181,9 +211,11 @@ export default function SettingsDialog({ open, onOpenChange }: SettingsDialogPro
                     className="bg-transparent text-sm text-foreground placeholder:text-muted-foreground outline-none w-full"
                   />
                 </div>
-                <Button size="sm" className="btn-gradient gap-1" onClick={() => setInviteOpen(true)}>
-                  + Convidar
-                </Button>
+                {isAdmin && (
+                  <Button size="sm" className="btn-gradient gap-1" onClick={() => setInviteOpen(true)}>
+                    + Convidar
+                  </Button>
+                )}
               </div>
 
               <div className="border border-border rounded-lg overflow-hidden">
@@ -196,47 +228,51 @@ export default function SettingsDialog({ open, onOpenChange }: SettingsDialogPro
                     </TableRow>
                   </TableHeader>
                   <TableBody>
-                    {filteredMembers.map((m) => (
-                      <TableRow key={m.id}>
-                        <TableCell>
-                          <div className="flex items-center gap-2">
-                            <div className="w-8 h-8 rounded-full bg-primary/20 flex items-center justify-center text-xs font-medium text-primary">
-                              {m.name.charAt(0)}
+                    {filteredMembers.map((m) => {
+                      const role = getRoleForUser(m.id);
+                      const isCurrentUser = m.id === user?.id;
+                      return (
+                        <TableRow key={m.id}>
+                          <TableCell>
+                            <div className="flex items-center gap-2">
+                              <div className="w-8 h-8 rounded-full bg-primary/20 flex items-center justify-center text-xs font-medium text-primary">
+                                {m.name.charAt(0).toUpperCase()}
+                              </div>
+                              <div>
+                                <p className="text-sm font-medium text-foreground">
+                                  {m.name} {m.surname ? `${m.surname}` : ""} {isCurrentUser && <span className="text-muted-foreground text-xs">(você)</span>}
+                                </p>
+                                <p className="text-[10px] text-muted-foreground">{m.email}</p>
+                              </div>
                             </div>
-                            <div>
-                              <p className="text-sm font-medium text-foreground">
-                                {m.name} {m.isYou && <span className="text-muted-foreground text-xs">(você)</span>}
-                              </p>
-                              <p className="text-[10px] text-muted-foreground">{m.email}</p>
-                            </div>
-                          </div>
-                        </TableCell>
-                        <TableCell>
-                          <Badge variant="outline" className="text-[10px]">
-                            {m.role === "admin" ? "ADMINISTRADOR" : "MEMBRO"}
-                          </Badge>
-                        </TableCell>
-                        <TableCell>
-                          {!m.isYou && (
-                            <DropdownMenu>
-                              <DropdownMenuTrigger asChild>
-                                <Button variant="ghost" size="icon" className="h-7 w-7">
-                                  <MoreHorizontal className="w-4 h-4" />
-                                </Button>
-                              </DropdownMenuTrigger>
-                              <DropdownMenuContent align="end">
-                                <DropdownMenuItem onClick={() => handleToggleRole(m.id)}>
-                                  {m.role === "admin" ? "Tornar membro" : "Tornar administrador"}
-                                </DropdownMenuItem>
-                                <DropdownMenuItem className="text-destructive" onClick={() => handleDeleteMember(m.id)}>
-                                  Excluir
-                                </DropdownMenuItem>
-                              </DropdownMenuContent>
-                            </DropdownMenu>
-                          )}
-                        </TableCell>
-                      </TableRow>
-                    ))}
+                          </TableCell>
+                          <TableCell>
+                            <Badge variant="outline" className="text-[10px]">
+                              {role === "admin" ? "ADMINISTRADOR" : "MEMBRO"}
+                            </Badge>
+                          </TableCell>
+                          <TableCell>
+                            {!isCurrentUser && isAdmin && (
+                              <DropdownMenu>
+                                <DropdownMenuTrigger asChild>
+                                  <Button variant="ghost" size="icon" className="h-7 w-7">
+                                    <MoreHorizontal className="w-4 h-4" />
+                                  </Button>
+                                </DropdownMenuTrigger>
+                                <DropdownMenuContent align="end">
+                                  <DropdownMenuItem onClick={() => handleToggleRole(m.id)}>
+                                    {role === "admin" ? "Tornar membro" : "Tornar administrador"}
+                                  </DropdownMenuItem>
+                                  <DropdownMenuItem className="text-destructive" onClick={() => handleDeleteMember(m.id)}>
+                                    Excluir
+                                  </DropdownMenuItem>
+                                </DropdownMenuContent>
+                              </DropdownMenu>
+                            )}
+                          </TableCell>
+                        </TableRow>
+                      );
+                    })}
                   </TableBody>
                 </Table>
               </div>
@@ -267,7 +303,9 @@ export default function SettingsDialog({ open, onOpenChange }: SettingsDialogPro
                   </div>
                   <div className="flex gap-2 justify-end">
                     <Button variant="ghost" size="sm" onClick={() => setInviteOpen(false)}>Cancelar</Button>
-                    <Button size="sm" className="btn-gradient" onClick={handleInvite}>Convidar</Button>
+                    <Button size="sm" className="btn-gradient" onClick={handleInvite} disabled={inviteMember.isPending}>
+                      {inviteMember.isPending ? "Convidando..." : "Convidar"}
+                    </Button>
                   </div>
                 </div>
               )}
