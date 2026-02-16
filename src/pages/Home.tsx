@@ -66,7 +66,7 @@ export default function HomePage() {
           initial={{ opacity: 0, y: 10 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ delay: 0.1 }}
-          className="bg-card border border-border rounded-xl p-3 flex flex-col items-center justify-center gap-2"
+          className="bg-card border border-border rounded-xl p-3 flex flex-col items-center justify-center gap-2 lg:col-span-1 self-start"
         >
           <div className="flex items-center justify-center w-full">
             <iframe
@@ -87,48 +87,51 @@ export default function HomePage() {
           </div>
         </motion.div>
 
-        {/* Tasks for Today */}
-        <motion.div
-          initial={{ opacity: 0, y: 10 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ delay: 0.15 }}
-          className="bg-card border border-border rounded-xl p-4 lg:col-span-2"
-        >
-          <div className="flex items-center gap-2 mb-3">
-            <CheckCircle2 className="w-4 h-4 text-primary" />
-            <h2 className="text-sm font-semibold text-foreground">Tarefas do Dia</h2>
-            <span className="text-[10px] bg-muted rounded-full px-2 py-0.5 text-muted-foreground ml-auto">{todayTasks.length}</span>
-          </div>
-          <div className="space-y-2">
-            {todayTasks.length === 0 && (
-              <p className="text-xs text-muted-foreground py-4 text-center">Nenhuma tarefa pendente 🎉</p>
-            )}
-            {todayTasks.map((task) => (
-              <div key={task.id} className="flex items-center gap-3 py-1.5 px-2 rounded-lg hover:bg-surface-hover transition-colors">
-                <div className={cn("w-2 h-2 rounded-full shrink-0", priorityDot[task.priority])} />
-                <div className="flex-1 min-w-0">
-                  <p className="text-sm text-foreground truncate">{task.title}</p>
-                  <p className="text-[10px] text-muted-foreground">{task.display_id}</p>
+        {/* Right column: Tasks + Activity stacked */}
+        <div className="lg:col-span-2 flex flex-col gap-4">
+          {/* Tasks for Today */}
+          <motion.div
+            initial={{ opacity: 0, y: 10 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ delay: 0.15 }}
+            className="bg-card border border-border rounded-xl p-4"
+          >
+            <div className="flex items-center gap-2 mb-3">
+              <CheckCircle2 className="w-4 h-4 text-primary" />
+              <h2 className="text-sm font-semibold text-foreground">Tarefas do Dia</h2>
+              <span className="text-[10px] bg-muted rounded-full px-2 py-0.5 text-muted-foreground ml-auto">{todayTasks.length}</span>
+            </div>
+            <div className="space-y-2">
+              {todayTasks.length === 0 && (
+                <p className="text-xs text-muted-foreground py-4 text-center">Nenhuma tarefa pendente 🎉</p>
+              )}
+              {todayTasks.map((task) => (
+                <div key={task.id} className="flex items-center gap-3 py-1.5 px-2 rounded-lg hover:bg-surface-hover transition-colors">
+                  <div className={cn("w-2 h-2 rounded-full shrink-0", priorityDot[task.priority])} />
+                  <div className="flex-1 min-w-0">
+                    <p className="text-sm text-foreground truncate">{task.title}</p>
+                    <p className="text-[10px] text-muted-foreground">{task.display_id}</p>
+                  </div>
+                  <span className="text-[10px] text-muted-foreground bg-muted rounded px-1.5 py-0.5">{statusLabels[task.status] || task.status}</span>
                 </div>
-                <span className="text-[10px] text-muted-foreground bg-muted rounded px-1.5 py-0.5">{statusLabels[task.status] || task.status}</span>
-              </div>
-            ))}
-          </div>
-        </motion.div>
+              ))}
+            </div>
+          </motion.div>
 
-        {/* Activity placeholder */}
-        <motion.div
-          initial={{ opacity: 0, y: 10 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ delay: 0.2 }}
-          className="bg-card border border-border rounded-xl p-4 lg:col-span-2"
-        >
-          <div className="flex items-center gap-2 mb-3">
-            <Activity className="w-4 h-4 text-primary" />
-            <h2 className="text-sm font-semibold text-foreground">Atividade Recente</h2>
-          </div>
-          <p className="text-xs text-muted-foreground text-center py-4">A atividade será exibida aqui conforme o uso</p>
-        </motion.div>
+          {/* Activity placeholder */}
+          <motion.div
+            initial={{ opacity: 0, y: 10 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ delay: 0.2 }}
+            className="bg-card border border-border rounded-xl p-4"
+          >
+            <div className="flex items-center gap-2 mb-3">
+              <Activity className="w-4 h-4 text-primary" />
+              <h2 className="text-sm font-semibold text-foreground">Atividade Recente</h2>
+            </div>
+            <p className="text-xs text-muted-foreground text-center py-4">A atividade será exibida aqui conforme o uso</p>
+          </motion.div>
+        </div>
       </div>
       <ToolzzChatDialog open={chatOpen} onOpenChange={setChatOpen} boardId={boards?.[0]?.id || null} />
     </div>
