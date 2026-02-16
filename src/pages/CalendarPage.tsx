@@ -10,9 +10,10 @@ import {
   PanelLeftOpen,
   PanelRightClose,
   PanelRightOpen,
-  Calendar as CalendarIcon,
+  Clock,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { Badge } from "@/components/ui/badge";
 import {
   startOfMonth,
   endOfMonth,
@@ -30,25 +31,44 @@ import {
   isWithinInterval,
 } from "date-fns";
 import { ptBR } from "date-fns/locale";
-import { mockTasks, type Task } from "@/data/mockTasks";
-import { mockMeetings, type Meeting } from "@/data/mockMeetings";
 import { cn } from "@/lib/utils";
+import { useTasks, type DbTask } from "@/hooks/useTasks";
+import { useBoards } from "@/hooks/useBoards";
+import { useAuth } from "@/hooks/useAuth";
 
 const weekDaysShort = ["D", "S", "T", "Q", "Q", "S", "S"];
 const HOURS = Array.from({ length: 24 }, (_, i) => i);
 const SCHEDULE_DAYS_COUNT = 3;
 
-type CategoryFilter = "all" | "tasks" | "meetings";
+const priorityColors: Record<string, string> = {
+  critical: "bg-destructive/20 text-destructive border-destructive/30",
+  high: "bg-[hsl(var(--warning))]/20 text-[hsl(var(--warning))] border-[hsl(var(--warning))]/30",
+  medium: "bg-primary/20 text-primary border-primary/30",
+  low: "bg-muted text-muted-foreground border-border",
+};
+
+const statusLabels: Record<string, string> = {
+  backlog: "Backlog",
+  todo: "To Do",
+  in_progress: "Em Progresso",
+  review: "Em Revisão",
+  done: "Concluído",
+};
 
 export default function CalendarPage() {
   const [currentMonth, setCurrentMonth] = useState(new Date());
   const [selectedDate, setSelectedDate] = useState(new Date());
-  const [category, setCategory] = useState<CategoryFilter>("all");
   const [scheduleStart, setScheduleStart] = useState(new Date());
   const [leftCollapsed, setLeftCollapsed] = useState(false);
   const [centerCollapsed, setCenterCollapsed] = useState(false);
   const [rightCollapsed, setRightCollapsed] = useState(false);
   const nowLineRef = useRef<HTMLDivElement>(null);
+
+  const { user } = useAuth();
+  const { boards } = useBoards();
+
+  // Fetch tasks from all boards
+  const { tasks: allTasks } = useTasks(null);
 
   useEffect(() => {
     nowLineRef.current?.scrollIntoView({ block: "center", behavior: "smooth" });
@@ -65,37 +85,30 @@ export default function CalendarPage() {
     [scheduleStart]
   );
 
-  const tasksForDay = (day: Date): Task[] =>
-    mockTasks.filter((t) => {
-      try {
-        const created = parseISO(t.createdAt);
-        if (t.deliveryDate) {
-          const delivery = parseISO(t.deliveryDate);
-          return isWithinInterval(day, { start: created, end: delivery }) || isSameDay(day, delivery);
-        }
-        return isSameDay(created, day);
-      } catch { return false; }
+  const tasksForDay = (day: Date): DbTask[] =>
+    allTasks.filter((t) => {
+      if (t.delivery_date) {
+        try {
+          return isSameDay(parseISO(t.delivery_date), day);
+        } catch { return false; }
+      }
+      return false;
     });
 
-  const meetingsForDay = (day: Date): Meeting[] =>
-    mockMeetings.filter((m) => {
-      try { return isSameDay(parseISO(m.date), day); } catch { return false; }
-    });
-
-  const taskCount = mockTasks.length;
-  const meetingCount = mockMeetings.length;
+  const taskCount = allTasks.filter((t) => t.delivery_date).length;
 
   const filteredItems = useMemo(() => {
-    const dayTasks = tasksForDay(selectedDate);
-    const dayMeetings = meetingsForDay(selectedDate);
-    if (category === "tasks") return { tasks: dayTasks, meetings: [] as Meeting[] };
-    if (category === "meetings") return { tasks: [] as Task[], meetings: dayMeetings };
-    return { tasks: dayTasks, meetings: dayMeetings };
-  }, [selectedDate, category]);
+    return tasksForDay(selectedDate);
+  }, [selectedDate, allTasks]);
 
   const now = new Date();
   const currentHour = now.getHours();
   const currentMinute = now.getMinutes();
+
+  // Get board name for a task
+  const getBoardName = (boardId: string) => {
+    return boards.find((b) => b.id === boardId)?.name || "";
+  };
 
   return (
     <div className="h-full flex">
@@ -117,25 +130,19 @@ export default function CalendarPage() {
             </div>
             {/* Category filters */}
             <div className="space-y-0.5">
-              {([
-                { key: "all" as CategoryFilter, label: "Todas", count: taskCount + meetingCount },
-                { key: "tasks" as CategoryFilter, label: "Tarefas", count: taskCount },
-                { key: "meetings" as CategoryFilter, label: "Reuniões", count: meetingCount },
-              ]).map((f) => (
-                <button
-                  key={f.key}
-                  onClick={() => setCategory(f.key)}
-                  className={cn(
-                    "w-full flex items-center justify-between px-2 py-1.5 rounded text-xs transition-colors",
-                    category === f.key
-                      ? "bg-primary/15 text-primary font-medium"
-                      : "text-muted-foreground hover:bg-surface-hover hover:text-foreground"
-                  )}
-                >
-                  <span>{f.label}</span>
-                  <span className="text-[10px] tabular-nums">{f.count}</span>
-                </button>
-              ))}
+              <button
+                className="w-full flex items-center justify-between px-2 py-1.5 rounded text-xs bg-primary/15 text-primary font-medium"
+              >
+                <span>Tarefas</span>
+                <span className="text-[10px] tabular-nums">{taskCount}</span>
+              </button>
+              <button
+                className="w-full flex items-center justify-between px-2 py-1.5 rounded text-xs text-muted-foreground hover:bg-surface-hover hover:text-foreground opacity-50 cursor-not-allowed"
+                disabled
+              >
+                <span>Reuniões</span>
+                <Badge variant="outline" className="text-[8px] px-1 py-0 border-0 bg-muted text-muted-foreground">Em breve</Badge>
+              </button>
             </div>
           </div>
 
@@ -162,7 +169,6 @@ export default function CalendarPage() {
                 const today = isToday(day);
                 const selected = isSameDay(day, selectedDate);
                 const hasTasks = tasksForDay(day).length > 0;
-                const hasMeetings = meetingsForDay(day).length > 0;
                 return (
                   <button
                     key={day.toISOString()}
@@ -176,7 +182,7 @@ export default function CalendarPage() {
                     )}
                   >
                     {format(day, "d")}
-                    {(hasTasks || hasMeetings) && !selected && (
+                    {hasTasks && !selected && (
                       <span className="absolute bottom-0.5 w-1 h-1 rounded-full bg-primary" />
                     )}
                   </button>
@@ -187,7 +193,7 @@ export default function CalendarPage() {
         </div>
       )}
 
-      {/* ── Center Panel: Task list ── */}
+      {/* ── Center Panel: Task list for selected day ── */}
       {centerCollapsed ? (
         <div className="w-10 shrink-0 border-r border-border flex flex-col items-center pt-3">
           <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => setCenterCollapsed(false)}>
@@ -198,55 +204,44 @@ export default function CalendarPage() {
         <div className="w-[300px] shrink-0 border-r border-border flex flex-col bg-card/30">
           <div className="p-4 border-b border-border flex items-center justify-between">
             <h3 className="text-xs font-semibold text-foreground capitalize">
-              {category === "tasks" ? "Tarefas" : category === "meetings" ? "Reuniões" : "Todas"}{" "}
-              — {format(selectedDate, "dd MMM", { locale: ptBR })}
+              Tarefas — {format(selectedDate, "dd MMM", { locale: ptBR })}
             </h3>
             <Button variant="ghost" size="icon" className="h-6 w-6" onClick={() => setCenterCollapsed(true)}>
               <PanelLeftClose className="w-3.5 h-3.5" />
             </Button>
           </div>
 
-          <div className="px-4 py-2 border-b border-border">
-            <button className="flex items-center gap-2 text-xs text-muted-foreground hover:text-foreground transition-colors w-full">
-              <Plus className="w-3.5 h-3.5" />
-              <span>Adicionar item</span>
-            </button>
-          </div>
-
           <div className="flex-1 overflow-y-auto p-2 space-y-0.5">
-            {filteredItems.meetings.map((m) => (
-              <div key={m.id} className="flex items-start gap-2 px-2 py-2 rounded-lg hover:bg-surface-hover transition-colors cursor-default">
-                <Video className="w-3.5 h-3.5 text-primary mt-0.5 shrink-0" />
-                <div className="min-w-0">
-                  <p className="text-xs text-foreground truncate">{m.title}</p>
-                  <p className="text-[10px] text-muted-foreground">{m.startTime} — {m.endTime}</p>
-                </div>
-              </div>
-            ))}
-            {filteredItems.tasks.map((t) => (
+            {filteredItems.map((t) => (
               <div key={t.id} className="flex items-start gap-2 px-2 py-2 rounded-lg hover:bg-surface-hover transition-colors cursor-default">
                 {t.status === "done" ? (
                   <CheckCircle2 className="w-3.5 h-3.5 text-[hsl(var(--success))] mt-0.5 shrink-0" />
                 ) : (
                   <Circle className="w-3.5 h-3.5 text-muted-foreground mt-0.5 shrink-0" />
                 )}
-                <div className="min-w-0">
+                <div className="min-w-0 flex-1">
                   <p className="text-xs text-foreground truncate">{t.title}</p>
-                  <p className="text-[10px] text-muted-foreground">
-                    {t.id} · {t.assignees.map(a => a.name).join(", ")}
-                    {t.deliveryDate && ` · até ${t.deliveryDate}`}
-                  </p>
+                  <div className="flex items-center gap-1.5 mt-0.5">
+                    <span className="text-[10px] text-muted-foreground font-mono">{t.display_id}</span>
+                    <Badge variant="outline" className={cn("text-[8px] px-1 py-0 border-0", priorityColors[t.priority])}>
+                      {t.priority}
+                    </Badge>
+                    <span className="text-[10px] text-muted-foreground">{statusLabels[t.status]}</span>
+                  </div>
+                  {getBoardName(t.board_id) && (
+                    <p className="text-[10px] text-muted-foreground mt-0.5">{getBoardName(t.board_id)}</p>
+                  )}
                 </div>
               </div>
             ))}
-            {filteredItems.tasks.length === 0 && filteredItems.meetings.length === 0 && (
-              <p className="text-xs text-muted-foreground text-center py-8">Nenhum item para este dia</p>
+            {filteredItems.length === 0 && (
+              <p className="text-xs text-muted-foreground text-center py-8">Nenhuma tarefa para este dia</p>
             )}
           </div>
         </div>
       )}
 
-      {/* ── Right Panel: Schedule ── */}
+      {/* ── Right Panel: Schedule (Google Calendar style) ── */}
       {rightCollapsed ? (
         <div className="w-10 shrink-0 flex flex-col items-center pt-3">
           <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => setRightCollapsed(false)}>
@@ -306,7 +301,7 @@ export default function CalendarPage() {
               </div>
 
               {scheduleDays.map((day) => {
-                const dayMeetings = meetingsForDay(day);
+                const dayTasks = tasksForDay(day);
                 const today = isToday(day);
                 return (
                   <div key={day.toISOString()} className={cn("flex-1 border-l border-border relative", today && "bg-primary/[0.02]")}>
@@ -327,22 +322,21 @@ export default function CalendarPage() {
                       </div>
                     )}
 
-                    {dayMeetings.map((m) => {
-                      const [sh, sm] = m.startTime.split(":").map(Number);
-                      const [eh, em] = m.endTime.split(":").map(Number);
-                      const topPx = (sh * 60 + sm) / (24 * 60) * (24 * 56);
-                      const heightPx = ((eh * 60 + em) - (sh * 60 + sm)) / (24 * 60) * (24 * 56);
-                      return (
-                        <div
-                          key={m.id}
-                          className="absolute left-1 right-1 rounded-md bg-primary/20 border border-primary/30 px-1.5 py-1 overflow-hidden cursor-default z-[5]"
-                          style={{ top: `${topPx}px`, height: `${Math.max(heightPx, 20)}px` }}
-                        >
-                          <p className="text-[10px] font-medium text-primary truncate">{m.title}</p>
-                          <p className="text-[9px] text-primary/70">{m.startTime} — {m.endTime}</p>
-                        </div>
-                      );
-                    })}
+                    {/* Render tasks as all-day / top-of-grid events */}
+                    {dayTasks.map((t, idx) => (
+                      <div
+                        key={t.id}
+                        className={cn(
+                          "absolute left-1 right-1 rounded-md px-1.5 py-1 overflow-hidden cursor-default z-[5] border",
+                          priorityColors[t.priority] || "bg-primary/20 text-primary border-primary/30"
+                        )}
+                        style={{ top: `${4 + idx * 28}px`, height: "24px" }}
+                      >
+                        <p className="text-[10px] font-medium truncate">
+                          {t.display_id} · {t.title}
+                        </p>
+                      </div>
+                    ))}
                   </div>
                 );
               })}
