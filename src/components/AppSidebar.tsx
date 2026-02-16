@@ -1,20 +1,18 @@
 import { useState } from "react";
 import { NavLink } from "react-router-dom";
 import { motion, AnimatePresence } from "framer-motion";
-import { Home, Building2, Kanban, FileText, ChevronLeft, ChevronRight, Calendar, Puzzle, Zap } from "lucide-react";
-import { Badge } from "@/components/ui/badge";
+import { Home, Building2, Kanban, FileText, ChevronLeft, ChevronRight, Calendar, Puzzle } from "lucide-react";
 import VoiceConnectionBar from "./VoiceConnectionBar";
 import toolzzLogo from "@/assets/toolzz-logo.png";
 
 const navItems = [
   { icon: Home, label: "Home", path: "/" },
   { icon: Building2, label: "Escritório", path: "/chat" },
-  { icon: Kanban, label: "Central de Tarefas", path: "/board" },
+  { icon: Kanban, label: "Gerenciamento", path: "/board" },
   { icon: FileText, label: "Documentos", path: "/docs" },
   { icon: Calendar, label: "Reuniões", path: "/meetings" },
   { icon: Calendar, label: "Calendário", path: "/calendar" },
   { icon: Puzzle, label: "Integrações", path: "/integrations" },
-  { icon: Zap, label: "Automatização", path: "/automation", disabled: true },
 ];
 
 export default function AppSidebar() {
@@ -47,59 +45,33 @@ export default function AppSidebar() {
       {/* Navigation */}
       <nav className="flex-1 px-3 py-3 overflow-y-auto">
         <div className="flex flex-col gap-0.5">
-          {navItems.map((item) => {
-            const isDisabled = 'disabled' in item && item.disabled;
-            if (isDisabled) {
-              return (
-                <div
-                  key={item.path}
-                  className="flex items-center gap-2.5 px-2 py-2 rounded-lg text-sm text-muted-foreground/50 cursor-not-allowed"
-                >
-                  <item.icon className="w-[18px] h-[18px] shrink-0" />
-                  <AnimatePresence>
-                    {!collapsed && (
-                      <motion.div
-                        initial={{ opacity: 0 }}
-                        animate={{ opacity: 1 }}
-                        exit={{ opacity: 0 }}
-                        className="flex items-center gap-2 whitespace-nowrap"
-                      >
-                        <span>{item.label}</span>
-                        <Badge variant="secondary" className="text-[8px] px-1.5 py-0">Em breve</Badge>
-                      </motion.div>
-                    )}
-                  </AnimatePresence>
-                </div>
-              );
-            }
-            return (
-              <NavLink
-                key={item.path}
-                to={item.path}
-                className={({ isActive }) =>
-                  `flex items-center gap-2.5 px-2 py-2 rounded-lg text-sm transition-all duration-150 ${
-                    isActive
-                      ? "bg-surface-hover text-foreground"
-                      : "text-muted-foreground hover:text-foreground hover:bg-surface-hover"
-                  }`
-                }
-              >
-                <item.icon className="w-[18px] h-[18px] shrink-0" />
-                <AnimatePresence>
-                  {!collapsed && (
-                    <motion.span
-                      initial={{ opacity: 0 }}
-                      animate={{ opacity: 1 }}
-                      exit={{ opacity: 0 }}
-                      className="whitespace-nowrap"
-                    >
-                      {item.label}
-                    </motion.span>
-                  )}
-                </AnimatePresence>
-              </NavLink>
-            );
-          })}
+          {navItems.map((item) => (
+            <NavLink
+              key={item.path}
+              to={item.path}
+              className={({ isActive }) =>
+                `flex items-center gap-2.5 px-2 py-2 rounded-lg text-sm transition-all duration-150 ${
+                  isActive
+                    ? "bg-surface-hover text-foreground"
+                    : "text-muted-foreground hover:text-foreground hover:bg-surface-hover"
+                }`
+              }
+            >
+              <item.icon className="w-[18px] h-[18px] shrink-0" />
+              <AnimatePresence>
+                {!collapsed && (
+                  <motion.span
+                    initial={{ opacity: 0 }}
+                    animate={{ opacity: 1 }}
+                    exit={{ opacity: 0 }}
+                    className="whitespace-nowrap"
+                  >
+                    {item.label}
+                  </motion.span>
+                )}
+              </AnimatePresence>
+            </NavLink>
+          ))}
         </div>
       </nav>
 
