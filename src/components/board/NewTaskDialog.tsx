@@ -8,7 +8,7 @@ import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { useToast } from "@/hooks/use-toast";
-import { mockTasks, type Task, type TaskStatus } from "@/data/mockTasks";
+import { type Task, type TaskStatus, allAssignees } from "@/data/mockTasks";
 
 interface NewTaskDialogProps {
   open: boolean;
@@ -17,15 +17,7 @@ interface NewTaskDialogProps {
   existingTasks: Task[];
 }
 
-type Mode = "select" | "manual" | "ai-select" | "ai-voice" | "ai-text";
-
-const assigneeRoles = [
-  { id: "1", name: "Beatriz F.", role: "Frontend Developer" },
-  { id: "2", name: "João S.", role: "Backend Developer" },
-  { id: "3", name: "Rafael M.", role: "Tech Lead" },
-  { id: "4", name: "Amanda L.", role: "Product Manager" },
-  { id: "5", name: "Thiago M.", role: "Junior Developer" },
-];
+type Mode = "select" | "manual" | "ai-modal";
 
 export default function NewTaskDialog({ open, onOpenChange, onCreateTask, existingTasks }: NewTaskDialogProps) {
   const { toast } = useToast();
@@ -59,14 +51,14 @@ export default function NewTaskDialog({ open, onOpenChange, onCreateTask, existi
       toast({ title: "Erro", description: "Nome da tarefa é obrigatório.", variant: "destructive" });
       return;
     }
-    const assignee = assigneeRoles.find((a) => a.id === formData.assigneeId);
+    const assignee = allAssignees.find((a) => a.id === formData.assigneeId);
     onCreateTask({
       title: formData.title,
       description: formData.objective,
       status: formData.status,
-      assignee: assignee ? { id: assignee.id, name: assignee.name } : { id: "1", name: "Beatriz F." },
+      assignees: assignee ? [{ id: assignee.id, name: assignee.name }] : [{ id: "1", name: "Beatriz F." }],
     });
-    toast({ title: "Tarefa criada", description: `${formData.title} adicionada à gerenciamento.` });
+    toast({ title: "Tarefa criada", description: `${formData.title} adicionada à Central de Tarefas.` });
     resetAndClose();
   };
 
@@ -119,7 +111,7 @@ export default function NewTaskDialog({ open, onOpenChange, onCreateTask, existi
             </button>
 
             <button
-              onClick={() => setMode("ai-select")}
+              onClick={() => setMode("ai-modal")}
               className="flex items-center gap-4 p-4 rounded-xl border border-primary/30 bg-primary/5 hover:bg-primary/10 transition-colors text-left"
             >
               <div className="w-10 h-10 rounded-lg bg-primary/20 flex items-center justify-center shrink-0">
@@ -136,41 +128,40 @@ export default function NewTaskDialog({ open, onOpenChange, onCreateTask, existi
     );
   }
 
-  if (mode === "ai-select") {
+  if (mode === "ai-modal") {
     return (
       <Dialog open={open} onOpenChange={onOpenChange}>
-        <DialogContent className="sm:max-w-[400px]">
-          <DialogHeader>
-            <DialogTitle>Assistência de IA</DialogTitle>
-          </DialogHeader>
-          <p className="text-sm text-muted-foreground">Escolha como deseja interagir com o agente de IA:</p>
-          <div className="grid gap-3 py-2">
-            <button
-              onClick={() => handleAIStart("voice")}
-              className="flex items-center gap-4 p-4 rounded-xl border border-border bg-card hover:bg-surface-hover transition-colors text-left"
-            >
-              <div className="w-10 h-10 rounded-lg bg-primary/20 flex items-center justify-center shrink-0">
-                <Phone className="w-5 h-5 text-primary" />
-              </div>
-              <div>
-                <p className="text-sm font-medium text-foreground">Agente de Voz</p>
-                <p className="text-xs text-muted-foreground">Descreva a tarefa por voz</p>
-              </div>
-            </button>
-            <button
-              onClick={() => handleAIStart("text")}
-              className="flex items-center gap-4 p-4 rounded-xl border border-border bg-card hover:bg-surface-hover transition-colors text-left"
-            >
-              <div className="w-10 h-10 rounded-lg bg-muted flex items-center justify-center shrink-0">
-                <MessageSquare className="w-5 h-5 text-foreground" />
-              </div>
-              <div>
-                <p className="text-sm font-medium text-foreground">Agente de Texto</p>
-                <p className="text-xs text-muted-foreground">Converse com a IA por chat</p>
-              </div>
-            </button>
+        <DialogContent className="sm:max-w-[420px] bg-card border-border">
+          <div className="flex flex-col items-center py-8 space-y-6">
+            {/* Large mic icon */}
+            <div className="w-20 h-20 rounded-full bg-primary/10 border-2 border-primary/30 flex items-center justify-center">
+              <Mic className="w-8 h-8 text-primary" />
+            </div>
+
+            <div className="text-center space-y-1">
+              <h2 className="text-lg font-semibold text-foreground">Conversar com IA</h2>
+              <p className="text-sm text-muted-foreground">Clique para falar ou digite sua mensagem</p>
+            </div>
+
+            <div className="flex gap-3 w-full max-w-xs">
+              <Button
+                className="flex-1 gap-2"
+                variant="outline"
+                onClick={() => handleAIStart("text")}
+              >
+                <MessageSquare className="w-4 h-4" />
+                Via texto
+              </Button>
+              <Button
+                className="flex-1 gap-2 btn-gradient"
+                onClick={() => handleAIStart("voice")}
+              >
+                <Phone className="w-4 h-4" />
+                Via voz
+              </Button>
+            </div>
           </div>
-          <Button variant="ghost" size="sm" onClick={() => setMode("select")}>
+          <Button variant="ghost" size="sm" onClick={() => setMode("select")} className="mt-2">
             ← Voltar
           </Button>
         </DialogContent>
@@ -228,9 +219,9 @@ export default function NewTaskDialog({ open, onOpenChange, onCreateTask, existi
                   <SelectValue placeholder="Selecionar" />
                 </SelectTrigger>
                 <SelectContent>
-                  {assigneeRoles.map((a) => (
+                  {allAssignees.map((a) => (
                     <SelectItem key={a.id} value={a.id}>
-                      {a.name} — {a.role}
+                      {a.name}
                     </SelectItem>
                   ))}
                 </SelectContent>

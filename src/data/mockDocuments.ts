@@ -10,7 +10,8 @@ export type BlockType =
   | "quote"
   | "callout"
   | "divider"
-  | "toggle";
+  | "toggle"
+  | "image";
 
 export interface Block {
   id: string;
