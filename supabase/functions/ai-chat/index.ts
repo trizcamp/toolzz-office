@@ -10,7 +10,7 @@ serve(async (req) => {
   if (req.method === "OPTIONS") return new Response(null, { headers: corsHeaders });
 
   try {
-    const { messages, boardId } = await req.json();
+    const { messages, boardId, markdownContent } = await req.json();
     const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY");
     if (!LOVABLE_API_KEY) throw new Error("LOVABLE_API_KEY is not configured");
 
@@ -116,7 +116,7 @@ Responda sempre em português brasileiro. Seja conciso e profissional.`;
             .single();
 
           if (!taskError && task) {
-            // Trigger task-created event to generate document
+            // Trigger task-created event to generate document with markdown content
             const taskCreatedUrl = `${supabaseUrl}/functions/v1/task-created`;
             await fetch(taskCreatedUrl, {
               method: "POST",
@@ -124,7 +124,7 @@ Responda sempre em português brasileiro. Seja conciso e profissional.`;
                 Authorization: `Bearer ${serviceKey}`,
                 "Content-Type": "application/json",
               },
-              body: JSON.stringify({ taskId: task.id, boardId: targetBoardId }),
+              body: JSON.stringify({ taskId: task.id, boardId: targetBoardId, markdownContent }),
             });
             createdTasks.push(task);
           }

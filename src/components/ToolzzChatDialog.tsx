@@ -128,6 +128,7 @@ export default function ToolzzChatDialog({ open, onOpenChange, boardId }: Toolzz
               },
             ],
             boardId,
+            markdownContent: toolzzReply,
           },
         });
 
