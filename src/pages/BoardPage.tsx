@@ -382,7 +382,9 @@ export default function BoardPage() {
                   onMoveTask={moveTaskDirection}
                   onDropTask={moveTask}
                   onSelectTask={setSelectedTask}
+                  onDeleteTask={handleDeleteTask}
                   allStatuses={allStatuses}
+                  isAdmin={isAdmin}
                   typeLabels={typeLabelsState}
                   typeColors={typeColorsState}
                 />
