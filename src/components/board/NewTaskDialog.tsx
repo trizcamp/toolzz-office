@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { Mic, MessageSquare, FileText, Sparkles, Phone } from "lucide-react";
+import { FileText, Sparkles } from "lucide-react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -8,7 +8,7 @@ import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { useToast } from "@/hooks/use-toast";
 import { useMembers } from "@/hooks/useMembers";
-import { supabase } from "@/integrations/supabase/client";
+import ToolzzChatDialog from "@/components/ToolzzChatDialog";
 import type { TaskStatus } from "@/hooks/useTasks";
 
 interface NewTaskDialogProps {
@@ -20,11 +20,6 @@ interface NewTaskDialogProps {
 }
 
 type Mode = "select" | "manual" | "ai-chat";
-
-interface AiMessage {
-  role: "user" | "assistant";
-  content: string;
-}
 
 export default function NewTaskDialog({ open, onOpenChange, onCreateTask, existingTasks, boardId }: NewTaskDialogProps) {
   const { toast } = useToast();
@@ -39,16 +34,10 @@ export default function NewTaskDialog({ open, onOpenChange, onCreateTask, existi
     parentId: "",
   });
 
-  // AI chat state
-  const [aiMessages, setAiMessages] = useState<AiMessage[]>([]);
-  const [aiDraft, setAiDraft] = useState("");
-  const [aiLoading, setAiLoading] = useState(false);
 
   const resetAndClose = () => {
     setMode("select");
     setFormData({ title: "", objective: "", status: "todo", assigneeId: "", deliveryDate: "", parentId: "" });
-    setAiMessages([]);
-    setAiDraft("");
     onOpenChange(false);
   };
 
@@ -64,41 +53,6 @@ export default function NewTaskDialog({ open, onOpenChange, onCreateTask, existi
     });
     toast({ title: "Tarefa criada", description: `${formData.title} adicionada à Central de Tarefas.` });
     resetAndClose();
-  };
-
-  const handleAiSend = async () => {
-    if (!aiDraft.trim() || aiLoading) return;
-    const userMsg: AiMessage = { role: "user", content: aiDraft.trim() };
-    const newMessages = [...aiMessages, userMsg];
-    setAiMessages(newMessages);
-    setAiDraft("");
-    setAiLoading(true);
-
-    try {
-      const { data, error } = await supabase.functions.invoke("ai-chat", {
-        body: {
-          messages: newMessages.map((m) => ({ role: m.role, content: m.content })),
-          boardId,
-        },
-      });
-
-      if (error) throw error;
-
-      const assistantMsg: AiMessage = { role: "assistant", content: data.message };
-      setAiMessages([...newMessages, assistantMsg]);
-
-      if (data.createdTasks?.length > 0) {
-        toast({
-          title: "Tarefa(s) criada(s) pela IA",
-          description: data.createdTasks.map((t: any) => `${t.display_id}: ${t.title}`).join(", "),
-        });
-      }
-    } catch (e: any) {
-      toast({ title: "Erro", description: e.message || "Erro ao processar com IA", variant: "destructive" });
-      setAiMessages([...newMessages, { role: "assistant", content: "Desculpe, ocorreu um erro. Tente novamente." }]);
-    } finally {
-      setAiLoading(false);
-    }
   };
 
   if (mode === "select") {
@@ -133,51 +87,15 @@ export default function NewTaskDialog({ open, onOpenChange, onCreateTask, existi
 
   if (mode === "ai-chat") {
     return (
-      <Dialog open={open} onOpenChange={onOpenChange}>
-        <DialogContent className="sm:max-w-[520px] h-[500px] flex flex-col">
-          <DialogHeader>
-            <DialogTitle className="flex items-center gap-2">
-              <Sparkles className="w-4 h-4 text-primary" /> Chat com IA
-            </DialogTitle>
-          </DialogHeader>
-          <div className="flex-1 overflow-y-auto space-y-3 py-2">
-            {aiMessages.length === 0 && (
-              <p className="text-xs text-muted-foreground text-center py-4">
-                Descreva a tarefa que precisa criar. A IA irá criá-la automaticamente com documento.
-              </p>
-            )}
-            {aiMessages.map((msg, i) => (
-              <div key={i} className={`flex ${msg.role === "user" ? "justify-end" : "justify-start"}`}>
-                <div className={`max-w-[80%] rounded-lg px-3 py-2 text-sm ${
-                  msg.role === "user" ? "bg-primary text-primary-foreground" : "bg-muted text-foreground"
-                }`}>
-                  {msg.content}
-                </div>
-              </div>
-            ))}
-            {aiLoading && (
-              <div className="flex justify-start">
-                <div className="bg-muted rounded-lg px-3 py-2 text-sm text-muted-foreground animate-pulse">
-                  Pensando...
-                </div>
-              </div>
-            )}
-          </div>
-          <form onSubmit={(e) => { e.preventDefault(); handleAiSend(); }} className="flex gap-2 pt-2 border-t border-border">
-            <Input
-              value={aiDraft}
-              onChange={(e) => setAiDraft(e.target.value)}
-              placeholder="Descreva a tarefa..."
-              className="flex-1"
-              disabled={aiLoading}
-            />
-            <Button type="submit" size="icon" disabled={!aiDraft.trim() || aiLoading}>
-              <MessageSquare className="w-4 h-4" />
-            </Button>
-          </form>
-          <Button variant="ghost" size="sm" onClick={() => setMode("select")} className="mt-1">← Voltar</Button>
-        </DialogContent>
-      </Dialog>
+      <>
+        <ToolzzChatDialog
+          open={true}
+          onOpenChange={(v) => {
+            if (!v) setMode("select");
+          }}
+          boardId={boardId}
+        />
+      </>
     );
   }
 
