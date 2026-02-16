@@ -164,7 +164,7 @@ export default function BlockEditor({ blocks, onChange, readOnly = false }: Bloc
 
   const renderBlock = (block: Block, index: number) => {
   const baseClasses = "outline-none w-full";
-  const ltrStyle = { textAlign: "left" as const, direction: "ltr" as const, unicodeBidi: "plaintext" as const };
+  const ltrStyle = { textAlign: "left" as const, direction: "ltr" as const, unicodeBidi: "bidi-override" as const };
 
     const typeClasses: Record<string, string> = {
       heading1: "text-2xl font-bold text-foreground",
