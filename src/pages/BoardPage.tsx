@@ -40,9 +40,9 @@ const sectorIcons: Record<string, any> = {
 };
 
 const sectorTemplates = [
-  { sector: "Produto", description: "Kanban para equipes de produto com foco em features e bugs." },
-  { sector: "Departamento", description: "Gestão de tarefas e demandas por departamento." },
-  { sector: "Serviço", description: "Acompanhamento de entregas e prestação de serviços." },
+  { sector: "Produto", description: "Kanban para equipes de produto com foco em features e bugs.", comingSoon: false },
+  { sector: "Departamento", description: "Gestão de tarefas e demandas por departamento.", comingSoon: true },
+  { sector: "Serviço", description: "Acompanhamento de entregas e prestação de serviços.", comingSoon: true },
 ];
 
 export default function BoardPage() {
@@ -262,9 +262,11 @@ export default function BoardPage() {
                   {sectorTemplates.map((t) => (
                     <button
                       key={t.sector}
-                      onClick={() => setNewBoardSector(t.sector)}
+                      onClick={() => !t.comingSoon && setNewBoardSector(t.sector)}
+                      disabled={t.comingSoon}
                       className={cn(
                         "flex items-center gap-3 p-3 rounded-lg border transition-colors text-left",
+                        t.comingSoon ? "border-border opacity-50 cursor-not-allowed" :
                         newBoardSector === t.sector ? "border-primary bg-primary/5" : "border-border hover:bg-surface-hover"
                       )}
                     >
@@ -272,8 +274,11 @@ export default function BoardPage() {
                         const Icon = sectorIcons[t.sector] || Package;
                         return <Icon className="w-5 h-5 text-foreground" />;
                       })()}
-                      <div>
-                        <p className="text-sm font-medium text-foreground">{t.sector}</p>
+                      <div className="flex-1">
+                        <div className="flex items-center gap-2">
+                          <p className="text-sm font-medium text-foreground">{t.sector}</p>
+                          {t.comingSoon && <Badge variant="outline" className="text-[9px] px-1.5 py-0">Em breve</Badge>}
+                        </div>
                         <p className="text-[10px] text-muted-foreground">{t.description}</p>
                       </div>
                     </button>
