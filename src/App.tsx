@@ -8,7 +8,7 @@ import { useAuth } from "./hooks/useAuth";
 import AppLayout from "./components/AppLayout";
 import Home from "./pages/Home";
 import ComingSoonPage from "./pages/ComingSoonPage";
-import AutomationsPage from "./pages/AutomationsPage";
+
 import BoardPage from "./pages/BoardPage";
 import CalendarPage from "./pages/CalendarPage";
 import IntegrationsPage from "./pages/IntegrationsPage";
@@ -43,7 +43,7 @@ const AppRoutes = () => (
       <Route path="/board" element={<BoardPage />} />
       <Route path="/docs" element={<DocumentsPage />} />
       <Route path="/meetings" element={<ComingSoonPage variant="meetings" title="Reuniões em breve" description="Em breve você poderá acessar o histórico e a transcrição completa das reuniões realizadas no escritório." />} />
-      <Route path="/automations" element={<AutomationsPage />} />
+      <Route path="/automations" element={<ComingSoonPage variant="automations" title="Automações em breve" description="Configure como suas tarefas serão movidas de forma automatizada." />} />
       <Route path="/calendar" element={<CalendarPage />} />
       <Route path="/integrations" element={<IntegrationsPage />} />
     </Route>
