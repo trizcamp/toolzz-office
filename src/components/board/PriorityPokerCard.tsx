@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { Trash2, Pencil, Check } from "lucide-react";
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -76,9 +77,12 @@ export default function PriorityPokerCard({ task, onDelete, onUpdate, onSelect, 
           <div className="flex gap-2 flex-wrap">
             {votes.map((vote) => (
               <div key={vote.user_id} className="flex items-center gap-1.5 bg-muted rounded-md px-2 py-1">
-                <div className="w-4 h-4 rounded-full bg-surface-hover flex items-center justify-center text-[8px] text-muted-foreground">
-                  {(vote.member_name || "?").charAt(0)}
-                </div>
+                <Avatar className="w-5 h-5">
+                  <AvatarImage src={vote.member_avatar} />
+                  <AvatarFallback className="text-[8px] bg-surface-hover text-muted-foreground">
+                    {(vote.member_name || "?").charAt(0).toUpperCase()}
+                  </AvatarFallback>
+                </Avatar>
                 <span className="text-[10px] text-secondary-foreground">{vote.member_name || vote.user_id.slice(0, 6)}</span>
                 <Badge variant="secondary" className="text-[9px] px-1 py-0 ml-1">{vote.points}</Badge>
               </div>

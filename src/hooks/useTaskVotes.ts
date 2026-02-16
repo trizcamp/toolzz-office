@@ -10,6 +10,7 @@ export interface TaskVote {
   points: number;
   created_at: string;
   member_name?: string;
+  member_avatar?: string;
 }
 
 export function useTaskVotes(boardId: string | null) {
@@ -30,7 +31,7 @@ export function useTaskVotes(boardId: string | null) {
       const taskIds = tasks.map((t) => t.id);
       const { data, error } = await supabase
         .from("task_votes")
-        .select("*, members!task_votes_user_id_fkey(name, surname)")
+        .select("*, members!task_votes_user_id_fkey(name, surname, avatar_url)")
         .in("task_id", taskIds);
 
       if (error) {
@@ -48,6 +49,7 @@ export function useTaskVotes(boardId: string | null) {
         member_name: v.members
           ? `${v.members.name}${v.members.surname ? ` ${v.members.surname.charAt(0)}.` : ""}`
           : undefined,
+        member_avatar: v.members?.avatar_url || undefined,
       })) as TaskVote[];
     },
     enabled: !!user && !!boardId,
