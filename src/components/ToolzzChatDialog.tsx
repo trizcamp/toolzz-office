@@ -201,9 +201,10 @@ export default function ToolzzChatDialog({ open, onOpenChange, boardId }: Toolzz
       if (looksLikeTaskResponse(toolzzReply) && boardId) {
         // Check if it's a bug and user has GitHub connected → show repo selector
         if (looksLikeBugResponse(toolzzReply) && ghConnected) {
-          setMessages((prev) => [...prev, { role: "assistant", content: toolzzReply }]);
+          // Don't show the full response - just indicate bug detected
           setPendingBugReply(toolzzReply);
         } else {
+          // Don't show the documentation response - go straight to task creation
           await processTaskCreation(toolzzReply);
         }
       } else {
