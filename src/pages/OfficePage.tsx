@@ -92,7 +92,7 @@ export default function OfficePage() {
     // Skip transcription while AI is speaking or within 2s buffer after
     if (aiSpeakingRef.current) return;
     if (aiStoppedSpeakingAtRef.current > 0 && (Date.now() - aiStoppedSpeakingAtRef.current) < 2000) return;
-    if (blob.size < 5000) return; // skip small chunks (likely silence/noise)
+    if (blob.size < 8000) return; // skip small chunks (likely silence/noise)
     try {
       const arrayBuffer = await blob.arrayBuffer();
       const uint8 = new Uint8Array(arrayBuffer);
@@ -114,10 +114,35 @@ export default function OfficePage() {
       const text = data?.transcript?.trim();
       // Reject silence markers
       if (!text || text.includes("__SILENCE__") || text.includes("SILENCE")) return;
-      // Must be a real sentence: 15+ chars with spaces
-      if (text.length < 15 || !text.includes(" ")) return;
+      // Must be a real sentence: 20+ chars with spaces
+      if (text.length < 20 || !text.includes(" ")) return;
       // Reject punctuation-only
       if (/^[.\s,…!?;:\-—–]+$/.test(text)) return;
+      
+      // ANTI-HALLUCINATION: reject common Gemini hallucination patterns
+      const hallucPatterns = [
+        /este é o som/i,
+        /essa é a minha/i,
+        /esta é a minha/i,
+        /este é um/i,
+        /isso é um/i,
+        /som de uma frase/i,
+        /frase em portugu/i,
+        /texto em portugu/i,
+        /áudio cont/i,
+        /não há fala/i,
+        /não consigo/i,
+        /não há nenhum/i,
+        /silêncio/i,
+        /silence/i,
+        /última chance/i,
+        /transcrição/i,
+        /não é possível/i,
+        /inaudível/i,
+        /incompreensível/i,
+      ];
+      if (hallucPatterns.some(p => p.test(text))) return;
+      
       // Reject English (2+ common English words = likely not PT-BR)
       const englishWords = text.match(/\b(the|is|it's|of|and|that|this|with|for|are|was|were|have|has|not|but|what|all|can|from|they|been|will|would|there|their|about|right|now|just|kind|want|more|you|your|my|like|it|do|don't|I'm|we|how|very|much)\b/gi);
       if (englishWords && englishWords.length >= 2) return;
@@ -126,14 +151,12 @@ export default function OfficePage() {
       const hasPtWord = /\b(que|não|com|uma|para|está|isso|mas|como|mais|tem|são|foi|ser|ter|fazer|aqui|muito|bem|sim|então|porque|quando|ainda|pode|também|ele|ela|esse|essa|você|vocês|nosso|nossa|nós|agora|vamos|quero|preciso|olha|gente|tudo|nada|cada|outro|outra)\b/i.test(text);
       if (!hasPtChar && !hasPtWord) return;
 
-      if (true) {
-        const now = new Date();
-        const time = now.toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" });
-        setTranscriptionEntries((prev) => [
-          ...prev,
-          { id: `t-${Date.now()}`, speaker: "Você", text, time, created_at: now.toISOString() },
-        ]);
-      }
+      const now = new Date();
+      const time = now.toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" });
+      setTranscriptionEntries((prev) => [
+        ...prev,
+        { id: `t-${Date.now()}`, speaker: "Você", text, time, created_at: now.toISOString() },
+      ]);
     } catch (e) {
       console.error("Failed to transcribe chunk:", e);
     }
@@ -182,7 +205,7 @@ export default function OfficePage() {
             }
           }, 100);
         }
-      }, 5000);
+      }, 8000);
 
     } catch (e) {
       console.error("Failed to access microphone:", e);
