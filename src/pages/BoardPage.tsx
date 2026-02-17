@@ -50,8 +50,9 @@ const sectorTemplates = [
 
 export default function BoardPage() {
   const [searchParams, setSearchParams] = useSearchParams();
+  const boardParamInit = searchParams.get("board");
   const { boards, isLoading: boardsLoading, createBoard, updateBoard, deleteBoard } = useBoards();
-  const [selectedBoard, setSelectedBoard] = useState<string | null>(null);
+  const [selectedBoard, setSelectedBoard] = useState<string | null>(boardParamInit);
   const { tasks, isLoading: tasksLoading, createTask, updateTask, deleteTask: deleteTaskMut } = useTasks(selectedBoard);
   const { members } = useMembers();
   const { isAdmin } = useUserRoles();
