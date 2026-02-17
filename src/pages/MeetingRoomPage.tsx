@@ -90,14 +90,17 @@ export default function MeetingRoomPage() {
       if (localVideoRef.current) {
         localVideoRef.current.srcObject = stream;
       }
-      const audioTracks = stream.getAudioTracks();
-      console.log("[Meeting] Audio tracks:", audioTracks.length, audioTracks.map(t => ({ label: t.label, enabled: t.enabled, muted: t.muted, readyState: t.readyState })));
-      // Also use this stream for transcription
-      streamRef.current = stream;
-      startTranscription(stream);
     } catch (err) {
       console.error("[Meeting] getUserMedia error:", err);
       toast.error("Não foi possível acessar câmera/microfone. Verifique as permissões do navegador.");
+    }
+    // Start a SEPARATE audio-only stream for transcription (like Office page)
+    try {
+      const audioStream = await navigator.mediaDevices.getUserMedia({ audio: true });
+      streamRef.current = audioStream;
+      startTranscription(audioStream);
+    } catch (err) {
+      console.error("[Meeting] Audio-only stream error:", err);
     }
   };
 
@@ -142,6 +145,11 @@ export default function MeetingRoomPage() {
   const stopAllMedia = () => {
     localStreamRef.current?.getTracks().forEach(t => t.stop());
     screenStreamRef.current?.getTracks().forEach(t => t.stop());
+    // Stop the dedicated audio stream for transcription
+    if (streamRef.current) {
+      streamRef.current.getTracks().forEach(t => t.stop());
+      streamRef.current = null;
+    }
     stopTranscription();
   };
 
@@ -162,7 +170,7 @@ export default function MeetingRoomPage() {
     if (!speechDetectedInChunkRef.current) return;
     speechDetectedInChunkRef.current = false;
     if (aiSpeakingRef.current) return;
-    if (blob.size < 500) return;
+    if (blob.size < 2000) return;
     try {
       const arrayBuffer = await blob.arrayBuffer();
       const uint8 = new Uint8Array(arrayBuffer);
@@ -216,7 +224,7 @@ export default function MeetingRoomPage() {
         sum += val * val;
       }
       const rms = Math.sqrt(sum / dataArray.length) * 100;
-      const detected = rms > 2;
+      const detected = rms > 8;
       setIsSpeechDetected(detected);
       if (detected) speechDetectedInChunkRef.current = true;
       // Log every 30 ticks (~3s) for debugging
