@@ -28,6 +28,7 @@ interface ChatAreaProps {
   transcriptionEntries?: TranscriptionEntry[];
   onAiSpeakingChange?: (speaking: boolean) => void;
   onClearHistory?: () => void;
+  onAiResponse?: (text: string) => void;
 }
 
 type AiMessage = {
@@ -39,7 +40,7 @@ type AiMessage = {
 
 type CreatedTask = { title: string; display_id: string };
 
-export default function ChatArea({ roomId, roomName, aiEnabled, boardId, isListening, isSpeechDetected, transcriptionEntries = [], onAiSpeakingChange, onClearHistory }: ChatAreaProps) {
+export default function ChatArea({ roomId, roomName, aiEnabled, boardId, isListening, isSpeechDetected, transcriptionEntries = [], onAiSpeakingChange, onClearHistory, onAiResponse }: ChatAreaProps) {
   const { messages, sendMessage } = useMessages(roomId);
   const { members } = useMembers();
   const { user } = useAuth();
@@ -117,6 +118,7 @@ export default function ChatArea({ roomId, roomName, aiEnabled, boardId, isListe
       const assistantEntry = { role: "assistant" as const, content: greeting };
       setAiConversationHistory([assistantEntry]);
       aiHistoryRef.current = [assistantEntry];
+      onAiResponse?.(greeting);
       setTimeout(() => speakText(greeting.replace(/👋/g, "")), 500);
     }
   }, [aiEnabled, onAiSpeakingChange, speakText]);
@@ -181,6 +183,7 @@ export default function ChatArea({ roomId, roomName, aiEnabled, boardId, isListe
         created_at: new Date().toISOString(),
       };
       setAiMessages((prev) => [...prev, aiMsg]);
+      onAiResponse?.(aiContent);
 
       const assistantEntry = { role: "assistant" as const, content: aiContent };
       setAiConversationHistory((prev) => {
