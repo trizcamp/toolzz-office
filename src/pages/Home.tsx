@@ -1,6 +1,7 @@
 import { motion } from "framer-motion";
 import { CheckCircle2, MessageSquare, Activity, Mic, Plus, ArrowRight, UserPlus, Video, Calendar, Clock } from "lucide-react";
 import { useState } from "react";
+import MemberProfileDialog from "@/components/MemberProfileDialog";
 import { useNavigate } from "react-router-dom";
 import { cn } from "@/lib/utils";
 import { useTasks } from "@/hooks/useTasks";
@@ -75,6 +76,7 @@ function getActionDescription(log: { action: string; metadata: Record<string, an
 export default function HomePage() {
   const [chatOpen, setChatOpen] = useState(false);
   const [voiceOpen, setVoiceOpen] = useState(false);
+  const [profileMemberId, setProfileMemberId] = useState<string | null>(null);
   const navigate = useNavigate();
   const { user } = useAuth();
   const { boards } = useBoards();
@@ -180,14 +182,24 @@ export default function HomePage() {
             )}
             {logs.map((log) => (
               <div key={log.id} className="flex items-start gap-2.5 py-1.5 px-2 rounded-lg hover:bg-muted/50 transition-colors">
-                <Avatar className="w-6 h-6 mt-0.5 shrink-0">
-                  <AvatarImage src={log.member_avatar || undefined} />
-                  <AvatarFallback className="text-[10px]">{(log.member_name || "S")[0].toUpperCase()}</AvatarFallback>
-                </Avatar>
+                <button
+                  onClick={() => log.user_id && setProfileMemberId(log.user_id)}
+                  className="shrink-0 mt-0.5 cursor-pointer"
+                >
+                  <Avatar className="w-6 h-6">
+                    <AvatarImage src={log.member_avatar || undefined} />
+                    <AvatarFallback className="text-[10px]">{(log.member_name || "S")[0].toUpperCase()}</AvatarFallback>
+                  </Avatar>
+                </button>
                 <div className="flex-1 min-w-0">
                   <div className="flex items-center gap-1.5">
                     {getActionIcon(log.action)}
-                    <span className="text-xs text-foreground font-medium truncate">{log.member_name}</span>
+                    <button
+                      onClick={() => log.user_id && setProfileMemberId(log.user_id)}
+                      className="text-xs text-foreground font-medium truncate hover:underline cursor-pointer"
+                    >
+                      {log.member_name}
+                    </button>
                   </div>
                   <p className="text-[11px] text-muted-foreground truncate">{getActionDescription(log)}</p>
                 </div>
@@ -236,6 +248,7 @@ export default function HomePage() {
 
       <ToolzzChatDialog open={chatOpen} onOpenChange={setChatOpen} boardId={boardId} />
       <VoiceAgentDialog open={voiceOpen} onOpenChange={setVoiceOpen} boardId={boardId} />
+      <MemberProfileDialog memberId={profileMemberId} open={!!profileMemberId} onOpenChange={(o) => !o && setProfileMemberId(null)} />
     </div>
   );
 }
