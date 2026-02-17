@@ -19,9 +19,9 @@ function parseMarkdownToBlocks(markdown: string, docId: string) {
     // Skip empty lines
     if (!trimmed) continue;
 
-    // Heading 1: # or bold **text** at start that looks like a title
+    // Heading 1: # → use heading2 for doc titles
     if (/^# (.+)/.test(trimmed)) {
-      blocks.push({ document_id: docId, type: "heading1", content: trimmed.replace(/^# /, ""), position: position++ });
+      blocks.push({ document_id: docId, type: "heading2", content: trimmed.replace(/^# /, ""), position: position++ });
       continue;
     }
 
@@ -192,7 +192,7 @@ serve(async (req) => {
 
 function getDefaultBlocks(docId: string, task: any) {
   return [
-    { document_id: docId, type: "heading1", content: task.title, position: 0 },
+    { document_id: docId, type: "heading2", content: task.title, position: 0 },
     { document_id: docId, type: "paragraph", content: task.description || "Descreva o objetivo desta tarefa...", position: 1 },
     { document_id: docId, type: "heading2", content: "Critérios de Aceite", position: 2 },
     { document_id: docId, type: "todoList", content: "Critério 1", position: 3, checked: false },

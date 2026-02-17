@@ -1,5 +1,5 @@
 import { useState, useMemo, useCallback, useRef } from "react";
-import { Plus, FileText, Link2, MessageSquare, X, Maximize2, Minimize2 } from "lucide-react";
+import { Plus, FileText, Link2, Maximize2, Minimize2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
@@ -10,8 +10,7 @@ import { cn } from "@/lib/utils";
 import { typeLabelsDoc } from "@/data/mockDocuments";
 import type { Block } from "@/data/mockDocuments";
 import BlockEditor from "@/components/documents/BlockEditor";
-import { AnimatePresence, motion } from "framer-motion";
-import { useDocuments, useDocumentBlocks, useDocumentComments } from "@/hooks/useDocuments";
+import { useDocuments, useDocumentBlocks } from "@/hooks/useDocuments";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useTasks } from "@/hooks/useTasks";
 import { useBoards } from "@/hooks/useBoards";
@@ -21,7 +20,6 @@ export default function DocumentsPage() {
   const { boards } = useBoards();
   const { tasks: allTasks } = useTasks(null);
   const [selectedDocId, setSelectedDocId] = useState<string | null>(null);
-  const [showComments, setShowComments] = useState(false);
   const [fullscreen, setFullscreen] = useState(false);
   const [newDocOpen, setNewDocOpen] = useState(false);
   const [newDocTitle, setNewDocTitle] = useState("");
@@ -29,16 +27,14 @@ export default function DocumentsPage() {
 
   const selectedDoc = documents.find((d: any) => d.id === selectedDocId) || null;
   const { blocks: dbBlocks, saveBlocks } = useDocumentBlocks(selectedDocId);
-  const { comments } = useDocumentComments(selectedDocId);
 
-  // Available tasks that don't already have a document
   const tasksWithoutDoc = useMemo(() => {
     const docTaskIds = new Set(documents.filter((d: any) => d.task_id).map((d: any) => d.task_id));
     return allTasks.filter((t) => !docTaskIds.has(t.id));
   }, [allTasks, documents]);
 
   const editorBlocks: Block[] = useMemo(() => {
-    if (dbBlocks.length === 0) return [{ id: "new_b1", type: "heading1" as const, content: "" }];
+    if (dbBlocks.length === 0) return [{ id: "new_b1", type: "heading2" as const, content: "" }];
     return dbBlocks.map((b) => ({
       id: b.id,
       type: b.type as Block["type"],
@@ -66,7 +62,7 @@ export default function DocumentsPage() {
           metadata: b.metadata || {},
         })),
       });
-    }, 1000);
+    }, 800);
   }, [selectedDocId, saveBlocks]);
 
   const handleCreateDocument = () => {
@@ -78,7 +74,6 @@ export default function DocumentsPage() {
       { title, icon: taskId ? "📋" : "📄", type: taskId ? "spec" : "doc", task_id: taskId },
       {
         onSuccess: (data) => {
-          // If linked to task, also update task.document_id
           if (taskId) {
             import("@/integrations/supabase/client").then(({ supabase }) => {
               supabase.from("tasks").update({ document_id: data.id }).eq("id", taskId);
@@ -114,45 +109,13 @@ export default function DocumentsPage() {
             )}
           </div>
           <div className="flex items-center gap-2">
-            <Button size="sm" variant="ghost" className="gap-1.5 text-xs" onClick={() => setShowComments(!showComments)}>
-              <MessageSquare className="w-3.5 h-3.5" /> Comentários ({comments.length})
-            </Button>
             <Button size="icon" variant="ghost" className="h-8 w-8" onClick={() => setFullscreen(false)}>
               <Minimize2 className="w-4 h-4" />
             </Button>
           </div>
         </div>
-        <div className="flex-1 flex overflow-hidden">
-          <div className="flex-1 overflow-y-auto px-8 py-6 max-w-4xl mx-auto w-full">
-            <BlockEditor blocks={editorBlocks} onChange={handleBlocksChange} />
-          </div>
-          <AnimatePresence>
-            {showComments && (
-              <motion.div initial={{ width: 0, opacity: 0 }} animate={{ width: 320, opacity: 1 }} exit={{ width: 0, opacity: 0 }} className="border-l border-border bg-sidebar overflow-y-auto shrink-0">
-                <div className="p-4 space-y-4">
-                  <div className="flex items-center justify-between">
-                    <h3 className="text-sm font-semibold text-foreground">Comentários</h3>
-                    <Button size="icon" variant="ghost" className="h-6 w-6" onClick={() => setShowComments(false)}><X className="w-3.5 h-3.5" /></Button>
-                  </div>
-                  {comments.length === 0 ? (
-                    <p className="text-xs text-muted-foreground">Nenhum comentário ainda.</p>
-                  ) : (
-                    <div className="space-y-3">
-                      {comments.map((c: any) => (
-                        <div key={c.id} className="space-y-1">
-                          <div className="flex items-baseline gap-2">
-                            <span className="text-xs font-medium text-foreground">{c.members?.name || "Anônimo"}</span>
-                            <span className="text-[10px] text-muted-foreground">{new Date(c.created_at).toLocaleDateString("pt-BR")}</span>
-                          </div>
-                          <p className="text-sm text-secondary-foreground">{c.text}</p>
-                        </div>
-                      ))}
-                    </div>
-                  )}
-                </div>
-              </motion.div>
-            )}
-          </AnimatePresence>
+        <div className="flex-1 overflow-y-auto px-8 py-6 max-w-4xl mx-auto w-full">
+          <BlockEditor blocks={editorBlocks} onChange={handleBlocksChange} />
         </div>
       </div>
     );
@@ -216,39 +179,13 @@ export default function DocumentsPage() {
                 )}
               </div>
               <div className="flex items-center gap-2 shrink-0">
-                <Button size="sm" variant="ghost" className="gap-1.5 text-xs" onClick={() => setShowComments(!showComments)}>
-                  <MessageSquare className="w-3.5 h-3.5" /> {comments.length}
-                </Button>
                 <Button size="icon" variant="ghost" className="h-8 w-8" onClick={() => setFullscreen(true)}>
                   <Maximize2 className="w-4 h-4" />
                 </Button>
               </div>
             </div>
-            <div className="flex-1 flex overflow-hidden">
-              <div className="flex-1 overflow-y-auto px-8 py-6">
-                <BlockEditor blocks={editorBlocks} onChange={handleBlocksChange} />
-              </div>
-              <AnimatePresence>
-                {showComments && (
-                  <motion.div initial={{ width: 0, opacity: 0 }} animate={{ width: 300, opacity: 1 }} exit={{ width: 0, opacity: 0 }} className="border-l border-border bg-sidebar overflow-y-auto shrink-0">
-                    <div className="p-4 space-y-4">
-                      <div className="flex items-center justify-between">
-                        <h3 className="text-sm font-semibold text-foreground">Comentários</h3>
-                        <Button size="icon" variant="ghost" className="h-6 w-6" onClick={() => setShowComments(false)}><X className="w-3.5 h-3.5" /></Button>
-                      </div>
-                      {comments.map((c: any) => (
-                        <div key={c.id} className="space-y-1">
-                          <div className="flex items-baseline gap-2">
-                            <span className="text-xs font-medium text-foreground">{c.members?.name || "Anônimo"}</span>
-                            <span className="text-[10px] text-muted-foreground">{new Date(c.created_at).toLocaleDateString("pt-BR")}</span>
-                          </div>
-                          <p className="text-sm text-secondary-foreground">{c.text}</p>
-                        </div>
-                      ))}
-                    </div>
-                  </motion.div>
-                )}
-              </AnimatePresence>
+            <div className="flex-1 overflow-y-auto px-8 py-6">
+              <BlockEditor blocks={editorBlocks} onChange={handleBlocksChange} />
             </div>
           </>
         ) : (

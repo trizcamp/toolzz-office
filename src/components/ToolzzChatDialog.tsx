@@ -9,6 +9,8 @@ import ReactMarkdown from "react-markdown";
 import { supabase } from "@/integrations/supabase/client";
 import { useQueryClient } from "@tanstack/react-query";
 import { useToast } from "@/hooks/use-toast";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { useGithubIntegration } from "@/hooks/useGithubIntegration";
 
 interface Message {
   role: "user" | "assistant";
@@ -26,12 +28,17 @@ interface ToolzzChatDialogProps {
 const BOT_API_URL = "https://kratos.api.toolzz.com.br/api/v1/chat/send-message/";
 const BOT_ID = "c46f095b-4520-4319-b4a0-882abde69ddc";
 const ACCEPTED_TYPES = "image/png,image/jpeg,image/webp,image/gif,application/pdf,text/plain";
-const MAX_FILE_SIZE = 10 * 1024 * 1024; // 10MB
+const MAX_FILE_SIZE = 10 * 1024 * 1024;
 
 const TASK_INDICATORS = ["User Story", "Critérios de Aceite", "Dados da Tarefa", "Prioridade"];
+const BUG_INDICATORS = ["bug", "Bug", "BUG", "erro", "defeito", "correção", "fix", "corrigir"];
 
 function looksLikeTaskResponse(text: string): boolean {
   return TASK_INDICATORS.filter((kw) => text.includes(kw)).length >= 2;
+}
+
+function looksLikeBugResponse(text: string): boolean {
+  return BUG_INDICATORS.some((kw) => text.toLowerCase().includes(kw.toLowerCase()));
 }
 
 function isImageFile(name: string) {
@@ -44,16 +51,36 @@ export default function ToolzzChatDialog({ open, onOpenChange, boardId }: Toolzz
   const [loading, setLoading] = useState(false);
   const [attachedFile, setAttachedFile] = useState<File | null>(null);
   const [uploading, setUploading] = useState(false);
+  const [pendingBugReply, setPendingBugReply] = useState<string | null>(null);
+  const [selectedRepo, setSelectedRepo] = useState<string>("");
   const scrollRef = useRef<HTMLDivElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const queryClient = useQueryClient();
   const { toast } = useToast();
+  const { connected: ghConnected, repos, fetchRepos, loadingRepos } = useGithubIntegration();
 
   useEffect(() => {
     if (scrollRef.current) {
       scrollRef.current.scrollTop = scrollRef.current.scrollHeight;
     }
   }, [messages]);
+
+  // Fetch repos when bug detected and connected
+  useEffect(() => {
+    if (pendingBugReply && ghConnected && repos.length === 0) {
+      fetchRepos();
+    }
+  }, [pendingBugReply, ghConnected, repos.length, fetchRepos]);
+
+  // Auto-proceed when bug detected but no GitHub connected
+  useEffect(() => {
+    if (pendingBugReply && !ghConnected) {
+      const reply = pendingBugReply;
+      setPendingBugReply(null);
+      processTaskCreation(reply);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [pendingBugReply, ghConnected]);
 
   const uploadFile = async (file: File): Promise<string | null> => {
     const ext = file.name.split(".").pop();
@@ -76,6 +103,64 @@ export default function ToolzzChatDialog({ open, onOpenChange, boardId }: Toolzz
     }
     setAttachedFile(file);
     if (fileInputRef.current) fileInputRef.current.value = "";
+  };
+
+  const processTaskCreation = async (toolzzReply: string, repo?: string) => {
+    setMessages((prev) => [
+      ...prev,
+      { role: "assistant", content: "⏳ Criando tarefa a partir da resposta do agente..." },
+    ]);
+
+    const { data: aiData, error: aiError } = await supabase.functions.invoke("ai-chat", {
+      body: {
+        messages: [
+          {
+            role: "user",
+            content: `Com base no conteúdo abaixo, crie a tarefa no board. Extraia título, descrição, prioridade e tipo:\n\n${toolzzReply}`,
+          },
+        ],
+        boardId,
+        markdownContent: toolzzReply,
+        githubRepo: repo || undefined,
+      },
+    });
+
+    if (aiError) {
+      setMessages((prev) => {
+        const updated = [...prev];
+        updated[updated.length - 1] = { role: "assistant", content: "❌ Erro ao criar a tarefa. Tente novamente." };
+        return updated;
+      });
+    } else {
+      const createdTasks = aiData?.createdTasks || [];
+      const confirmationMsg =
+        createdTasks.length > 0
+          ? `✅ Tarefa criada com sucesso!\n\n**${createdTasks[0].title}** — ${createdTasks[0].display_id}`
+          : aiData?.message || "✅ Tarefa processada com sucesso!";
+      setMessages((prev) => {
+        const updated = [...prev];
+        updated[updated.length - 1] = { role: "assistant", content: confirmationMsg };
+        return updated;
+      });
+      queryClient.invalidateQueries({ queryKey: ["tasks"] });
+      queryClient.invalidateQueries({ queryKey: ["documents"] });
+    }
+  };
+
+  const handleConfirmBugRepo = async () => {
+    if (!pendingBugReply) return;
+    const reply = pendingBugReply;
+    setPendingBugReply(null);
+    await processTaskCreation(reply, selectedRepo || undefined);
+    setSelectedRepo("");
+  };
+
+  const handleSkipRepo = async () => {
+    if (!pendingBugReply) return;
+    const reply = pendingBugReply;
+    setPendingBugReply(null);
+    await processTaskCreation(reply);
+    setSelectedRepo("");
   };
 
   const sendMessage = async () => {
@@ -114,42 +199,12 @@ export default function ToolzzChatDialog({ open, onOpenChange, boardId }: Toolzz
         (typeof data?.message === "string" ? data.message : "Sem resposta do agente.");
 
       if (looksLikeTaskResponse(toolzzReply) && boardId) {
-        setMessages((prev) => [
-          ...prev,
-          { role: "assistant", content: "⏳ Criando tarefa a partir da resposta do agente..." },
-        ]);
-
-        const { data: aiData, error: aiError } = await supabase.functions.invoke("ai-chat", {
-          body: {
-            messages: [
-              {
-                role: "user",
-                content: `Com base no conteúdo abaixo, crie a tarefa no board. Extraia título, descrição, prioridade e tipo:\n\n${toolzzReply}`,
-              },
-            ],
-            boardId,
-            markdownContent: toolzzReply,
-          },
-        });
-
-        if (aiError) {
-          setMessages((prev) => {
-            const updated = [...prev];
-            updated[updated.length - 1] = { role: "assistant", content: "❌ Erro ao criar a tarefa. Tente novamente." };
-            return updated;
-          });
+        // Check if it's a bug and user has GitHub connected → show repo selector
+        if (looksLikeBugResponse(toolzzReply) && ghConnected) {
+          setMessages((prev) => [...prev, { role: "assistant", content: toolzzReply }]);
+          setPendingBugReply(toolzzReply);
         } else {
-          const createdTasks = aiData?.createdTasks || [];
-          const confirmationMsg =
-            createdTasks.length > 0
-              ? `✅ Tarefa criada com sucesso!\n\n**${createdTasks[0].title}** — ${createdTasks[0].display_id}`
-              : aiData?.message || "✅ Tarefa processada com sucesso!";
-          setMessages((prev) => {
-            const updated = [...prev];
-            updated[updated.length - 1] = { role: "assistant", content: confirmationMsg };
-            return updated;
-          });
-          queryClient.invalidateQueries({ queryKey: ["tasks"] });
+          await processTaskCreation(toolzzReply);
         }
       } else {
         setMessages((prev) => [...prev, { role: "assistant", content: toolzzReply }]);
@@ -187,7 +242,6 @@ export default function ToolzzChatDialog({ open, onOpenChange, boardId }: Toolzz
                       : "bg-muted text-foreground prose prose-sm prose-invert max-w-none [&_h1]:text-base [&_h1]:font-bold [&_h1]:mt-2 [&_h1]:mb-1 [&_h2]:text-sm [&_h2]:font-semibold [&_h2]:mt-2 [&_h2]:mb-1 [&_h3]:text-sm [&_h3]:font-semibold [&_h3]:mt-1.5 [&_h3]:mb-1 [&_p]:my-1 [&_ul]:my-1 [&_ol]:my-1 [&_li]:my-0.5"
                   )}
                 >
-                  {/* Show attached file preview */}
                   {msg.fileUrl && msg.fileName && isImageFile(msg.fileName) && (
                     <img src={msg.fileUrl} alt={msg.fileName} className="rounded-md max-h-40 mb-1" />
                   )}
@@ -214,7 +268,34 @@ export default function ToolzzChatDialog({ open, onOpenChange, boardId }: Toolzz
           </div>
         </ScrollArea>
 
-        {/* Attached file preview bar */}
+        {/* Bug repo selector */}
+        {pendingBugReply && ghConnected && (
+          <div className="px-4 py-3 border-t border-border bg-muted/30 space-y-2">
+            <p className="text-xs font-medium text-foreground">🐛 Bug detectado — selecione o repositório para criar a issue:</p>
+            <Select value={selectedRepo} onValueChange={setSelectedRepo}>
+              <SelectTrigger className="h-8 text-xs">
+                <SelectValue placeholder={loadingRepos ? "Carregando..." : "Selecionar repositório"} />
+              </SelectTrigger>
+              <SelectContent>
+                {repos.map((r) => (
+                  <SelectItem key={r.full_name} value={r.full_name}>
+                    {r.full_name}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+            <div className="flex gap-2">
+              <Button size="sm" className="flex-1 btn-gradient text-xs" onClick={handleConfirmBugRepo} disabled={!selectedRepo}>
+                Criar com Issue
+              </Button>
+              <Button size="sm" variant="outline" className="text-xs" onClick={handleSkipRepo}>
+                Pular
+              </Button>
+            </div>
+          </div>
+        )}
+
+
         {attachedFile && (
           <div className="px-3 py-1.5 border-t border-border flex items-center gap-2 bg-muted/50">
             {isImageFile(attachedFile.name) ? (
