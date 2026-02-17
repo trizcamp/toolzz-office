@@ -99,9 +99,10 @@ export default function MeetingRoomPage() {
   };
 
   const toggleMic = () => {
+    const newState = !micOn;
+    setMicOn(newState);
     if (localStreamRef.current) {
-      localStreamRef.current.getAudioTracks().forEach(t => { t.enabled = !t.enabled; });
-      setMicOn(prev => !prev);
+      localStreamRef.current.getAudioTracks().forEach(t => { t.enabled = newState; });
     }
   };
 
