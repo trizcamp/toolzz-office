@@ -34,7 +34,7 @@ serve(async (req) => {
 
 Quando o usuário pedir para criar uma tarefa, use a ferramenta create_task. Extraia título, descrição, prioridade e status da conversa.
 
-Responda sempre em português brasileiro. Seja conciso e profissional.`;
+Responda sempre em português brasileiro. Seja conciso, natural e conversacional. Evite usar formatação markdown como asteriscos, hashtags ou listas — responda em texto corrido e fluido, como se estivesse falando com a pessoa.`;
 
     const tools = [
       {
@@ -65,7 +65,7 @@ Responda sempre em português brasileiro. Seja conciso e profissional.`;
         "Content-Type": "application/json",
       },
       body: JSON.stringify({
-        model: "google/gemini-3-flash-preview",
+        model: "google/gemini-2.5-pro",
         messages: [{ role: "system", content: systemPrompt }, ...messages],
         tools,
         tool_choice: "auto",
@@ -197,7 +197,7 @@ Responda sempre em português brasileiro. Seja conciso e profissional.`;
           "Content-Type": "application/json",
         },
         body: JSON.stringify({
-          model: "google/gemini-3-flash-preview",
+          model: "google/gemini-2.5-pro",
           messages: [{ role: "system", content: systemPrompt }, ...followUpMessages],
         }),
       });
