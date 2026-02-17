@@ -21,6 +21,7 @@ export default function OfficePage() {
   const [aiEnabled, setAiEnabled] = useState(false);
   const [aiSpeaking, setAiSpeaking] = useState(false);
   const [isListening, setIsListening] = useState(false);
+  const [isSpeechDetected, setIsSpeechDetected] = useState(false);
   const [transcriptionEntries, setTranscriptionEntries] = useState<{ id: string; speaker: string; text: string; time: string; created_at: string }[]>([]);
 
   const mediaRecorderRef = useRef<MediaRecorder | null>(null);
@@ -30,6 +31,10 @@ export default function OfficePage() {
   const isVoiceActiveRef = useRef(false);
   const aiSpeakingRef = useRef(false);
   const aiStoppedSpeakingAtRef = useRef(0);
+  const audioContextRef = useRef<AudioContext | null>(null);
+  const analyserRef = useRef<AnalyserNode | null>(null);
+  const vadIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  const speechDetectedInChunkRef = useRef(false);
 
   const selectedRoom = rooms.find((r) => r.id === selectedRoomId) || rooms[0] || null;
   const boardId = boards?.[0]?.id || null;
@@ -76,23 +81,35 @@ export default function OfficePage() {
       clearInterval(intervalRef.current);
       intervalRef.current = null;
     }
+    if (vadIntervalRef.current) {
+      clearInterval(vadIntervalRef.current);
+      vadIntervalRef.current = null;
+    }
     if (mediaRecorderRef.current && mediaRecorderRef.current.state !== "inactive") {
       try { mediaRecorderRef.current.stop(); } catch {}
     }
     mediaRecorderRef.current = null;
+    if (audioContextRef.current) {
+      try { audioContextRef.current.close(); } catch {}
+      audioContextRef.current = null;
+    }
+    analyserRef.current = null;
     if (streamRef.current) {
       streamRef.current.getTracks().forEach(t => t.stop());
       streamRef.current = null;
     }
     chunksRef.current = [];
     setIsListening(false);
+    setIsSpeechDetected(false);
   }, []);
 
   const transcribeChunk = useCallback(async (blob: Blob) => {
-    // Skip transcription while AI is speaking or within 2s buffer after
+    // Only transcribe if speech was actually detected via VAD
+    if (!speechDetectedInChunkRef.current) return;
+    speechDetectedInChunkRef.current = false;
     if (aiSpeakingRef.current) return;
     if (aiStoppedSpeakingAtRef.current > 0 && (Date.now() - aiStoppedSpeakingAtRef.current) < 2000) return;
-    if (blob.size < 8000) return; // skip small chunks (likely silence/noise)
+    if (blob.size < 5000) return;
     try {
       const arrayBuffer = await blob.arrayBuffer();
       const uint8 = new Uint8Array(arrayBuffer);
@@ -168,6 +185,36 @@ export default function OfficePage() {
       const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
       streamRef.current = stream;
 
+      // Set up Web Audio API for Voice Activity Detection
+      const audioContext = new AudioContext();
+      audioContextRef.current = audioContext;
+      const source = audioContext.createMediaStreamSource(stream);
+      const analyser = audioContext.createAnalyser();
+      analyser.fftSize = 512;
+      analyser.smoothingTimeConstant = 0.3;
+      source.connect(analyser);
+      analyserRef.current = analyser;
+
+      // VAD: check audio level every 100ms
+      const dataArray = new Uint8Array(analyser.frequencyBinCount);
+      const SPEECH_THRESHOLD = 25; // RMS level that indicates real speech
+      vadIntervalRef.current = setInterval(() => {
+        if (!analyserRef.current) return;
+        analyserRef.current.getByteTimeDomainData(dataArray);
+        // Calculate RMS
+        let sum = 0;
+        for (let i = 0; i < dataArray.length; i++) {
+          const val = (dataArray[i] - 128) / 128;
+          sum += val * val;
+        }
+        const rms = Math.sqrt(sum / dataArray.length) * 100;
+        const detected = rms > SPEECH_THRESHOLD;
+        setIsSpeechDetected(detected);
+        if (detected) {
+          speechDetectedInChunkRef.current = true;
+        }
+      }, 100);
+
       const mimeType = MediaRecorder.isTypeSupported("audio/webm;codecs=opus")
         ? "audio/webm;codecs=opus"
         : MediaRecorder.isTypeSupported("audio/webm") ? "audio/webm" : "audio/mp4";
@@ -190,6 +237,7 @@ export default function OfficePage() {
 
       mediaRecorderRef.current = createRecorder();
       mediaRecorderRef.current.start();
+      speechDetectedInChunkRef.current = false;
       setIsListening(true);
 
       intervalRef.current = setInterval(() => {
@@ -199,6 +247,7 @@ export default function OfficePage() {
           setTimeout(() => {
             if (streamRef.current && streamRef.current.active) {
               try {
+                speechDetectedInChunkRef.current = false;
                 mediaRecorderRef.current = createRecorder();
                 mediaRecorderRef.current.start();
               } catch {}
@@ -278,6 +327,7 @@ export default function OfficePage() {
             aiEnabled={aiEnabled}
             boardId={boardId}
             isListening={isListening}
+            isSpeechDetected={isSpeechDetected}
             transcriptionEntries={transcriptionEntries}
             onAiSpeakingChange={setAiSpeaking}
             onClearHistory={handleClearHistory}

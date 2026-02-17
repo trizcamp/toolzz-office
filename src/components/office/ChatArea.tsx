@@ -24,6 +24,7 @@ interface ChatAreaProps {
   aiEnabled?: boolean;
   boardId?: string | null;
   isListening?: boolean;
+  isSpeechDetected?: boolean;
   transcriptionEntries?: TranscriptionEntry[];
   onAiSpeakingChange?: (speaking: boolean) => void;
   onClearHistory?: () => void;
@@ -38,7 +39,7 @@ type AiMessage = {
 
 type CreatedTask = { title: string; display_id: string };
 
-export default function ChatArea({ roomId, roomName, aiEnabled, boardId, isListening, transcriptionEntries = [], onAiSpeakingChange, onClearHistory }: ChatAreaProps) {
+export default function ChatArea({ roomId, roomName, aiEnabled, boardId, isListening, isSpeechDetected, transcriptionEntries = [], onAiSpeakingChange, onClearHistory }: ChatAreaProps) {
   const { messages, sendMessage } = useMessages(roomId);
   const { members } = useMembers();
   const { user } = useAuth();
@@ -258,9 +259,11 @@ export default function ChatArea({ roomId, roomName, aiEnabled, boardId, isListe
         <div className="flex items-center gap-1.5">
           {isListening && (
             <div className="flex items-center gap-1.5 mr-2">
-              <Mic className="w-3 h-3 text-[hsl(var(--success))]" />
-              <span className="text-[10px] text-[hsl(var(--success))] font-medium">Ouvindo</span>
-              <span className="w-1.5 h-1.5 rounded-full bg-[hsl(var(--success))] animate-pulse" />
+              <Mic className={cn("w-3 h-3", isSpeechDetected ? "text-[hsl(var(--success))]" : "text-muted-foreground")} />
+              <span className={cn("text-[10px] font-medium", isSpeechDetected ? "text-[hsl(var(--success))]" : "text-muted-foreground")}>
+                {isSpeechDetected ? "Captando" : "Mic ligado"}
+              </span>
+              {isSpeechDetected && <span className="w-1.5 h-1.5 rounded-full bg-[hsl(var(--success))] animate-pulse" />}
             </div>
           )}
           {aiEnabled && (
