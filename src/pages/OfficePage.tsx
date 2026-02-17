@@ -125,6 +125,7 @@ export default function OfficePage() {
                   <VoiceAgentPanel
                     boardId={boardId}
                     onSpeakingChange={setAiSpeaking}
+                    onClose={handleToggleAI}
                   />
                 </div>
               )}

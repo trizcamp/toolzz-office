@@ -1,5 +1,5 @@
 import { useState, useRef, useCallback, useEffect } from "react";
-import { Mic, MicOff, Send, Square, Volume2, CheckCircle2, RotateCcw, Bot } from "lucide-react";
+import { Mic, MicOff, Send, Square, Volume2, CheckCircle2, RotateCcw, Bot, X } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
@@ -10,12 +10,13 @@ import { Button } from "@/components/ui/button";
 interface VoiceAgentPanelProps {
   boardId: string | null;
   onSpeakingChange?: (speaking: boolean) => void;
+  onClose?: () => void;
 }
 
 type Message = { role: "user" | "assistant"; content: string };
 type Status = "idle" | "listening" | "processing" | "speaking";
 
-export default function VoiceAgentPanel({ boardId, onSpeakingChange }: VoiceAgentPanelProps) {
+export default function VoiceAgentPanel({ boardId, onSpeakingChange, onClose }: VoiceAgentPanelProps) {
   const [messages, setMessages] = useState<Message[]>([]);
   const [status, setStatus] = useState<Status>("idle");
   const [createdTasks, setCreatedTasks] = useState<{ title: string; display_id: string }[]>([]);
@@ -241,6 +242,11 @@ export default function VoiceAgentPanel({ boardId, onSpeakingChange }: VoiceAgen
             <RotateCcw className="w-3 h-3" />
             Limpar
           </button>
+        )}
+        {onClose && (
+          <Button variant="ghost" size="icon" className="h-7 w-7" onClick={onClose}>
+            <X className="w-3.5 h-3.5" />
+          </Button>
         )}
       </div>
 
