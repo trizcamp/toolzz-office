@@ -1,0 +1,1 @@
+ALTER TABLE public.task_assignees ADD CONSTRAINT task_assignees_user_id_members_fkey FOREIGN KEY (user_id) REFERENCES public.members(id) ON DELETE CASCADE;
