@@ -34,7 +34,7 @@ export default function DocumentsPage() {
   }, [allTasks, documents]);
 
   const editorBlocks: Block[] = useMemo(() => {
-    if (dbBlocks.length === 0) return [{ id: "new_b1", type: "heading2" as const, content: "" }];
+    if (dbBlocks.length === 0) return [{ id: crypto.randomUUID(), type: "heading2" as const, content: "" }];
     return dbBlocks.map((b) => ({
       id: b.id,
       type: b.type as Block["type"],
