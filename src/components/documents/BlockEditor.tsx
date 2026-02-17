@@ -95,7 +95,7 @@ const LANG_COLORS: Record<string, string> = {
 };
 
 function generateId() {
-  return "bl_" + Math.random().toString(36).substring(2, 9);
+  return crypto.randomUUID();
 }
 
 export default function BlockEditor({ blocks, onChange, readOnly = false }: BlockEditorProps) {
