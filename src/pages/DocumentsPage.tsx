@@ -357,7 +357,7 @@ export default function DocumentsPage() {
                   className="pl-9 text-sm"
                 />
               </div>
-              <div className="max-h-48 overflow-y-auto border border-border rounded-lg">
+              <div className="max-h-48 overflow-y-auto border border-border rounded-lg bg-popover">
                 <button
                   type="button"
                   onClick={() => setNewDocTaskId("none")}
