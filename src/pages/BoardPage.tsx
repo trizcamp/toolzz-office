@@ -228,7 +228,7 @@ export default function BoardPage() {
               {boards.map((board) => (
                 <div
                   key={board.id}
-                  className="bg-card border border-border rounded-xl p-5 space-y-3 text-left hover:border-muted-foreground/30 transition-all relative group/card"
+                  className="bg-card border border-border rounded-xl p-5 pb-6 space-y-3 text-left hover:border-muted-foreground/30 transition-all relative group/card"
                 >
                   {isAdmin && (
                     <div className="absolute top-2 right-2 flex gap-1 opacity-0 group-hover/card:opacity-100 transition-opacity">
