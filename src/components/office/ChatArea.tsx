@@ -218,16 +218,17 @@ export default function ChatArea({ roomId, roomName, aiEnabled, boardId, isListe
 
     if (roomId) {
       sendMessage.mutate({ roomId, text });
-    }
-
-    if (aiEnabled) {
-      // Show user message in AI chat directly (always, for immediate feedback)
+    } else if (aiEnabled) {
+      // Only add user message to aiMessages when there's no room to avoid duplicates
       setAiMessages((prev) => [...prev, {
         id: `user-input-${Date.now()}`,
         role: "user",
         content: text,
         created_at: new Date().toISOString(),
       }]);
+    }
+
+    if (aiEnabled) {
       sendToAI(text);
     }
   };
