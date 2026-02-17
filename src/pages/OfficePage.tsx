@@ -160,8 +160,8 @@ export default function OfficePage() {
     if (!speechDetectedInChunkRef.current) return;
     speechDetectedInChunkRef.current = false;
     if (aiSpeakingRef.current) return;
-    if (aiStoppedSpeakingAtRef.current > 0 && (Date.now() - aiStoppedSpeakingAtRef.current) < 3000) return;
-    if (blob.size < 5000) return;
+    if (aiStoppedSpeakingAtRef.current > 0 && (Date.now() - aiStoppedSpeakingAtRef.current) < 1500) return;
+    if (blob.size < 2000) return;
     try {
       const arrayBuffer = await blob.arrayBuffer();
       const uint8 = new Uint8Array(arrayBuffer);
@@ -183,55 +183,25 @@ export default function OfficePage() {
       const text = data?.transcript?.trim();
       // Reject silence markers
       if (!text || text.includes("__SILENCE__") || text.includes("SILENCE")) return;
-      // Must be a real sentence: 20+ chars with spaces
-      if (text.length < 20 || !text.includes(" ")) return;
+      // Must have at least 3 chars with a space
+      if (text.length < 3) return;
       // Reject punctuation-only
       if (/^[.\s,…!?;:\-—–]+$/.test(text)) return;
       
-      // ANTI-HALLUCINATION: reject common Gemini hallucination patterns
+      // ANTI-HALLUCINATION: reject common patterns
       const hallucPatterns = [
-        /este é o som/i,
-        /essa é a minha/i,
-        /esta é a minha/i,
-        /este é um/i,
-        /isso é um/i,
-        /som de uma frase/i,
-        /frase em portugu/i,
-        /texto em portugu/i,
-        /áudio cont/i,
-        /não há fala/i,
-        /não consigo/i,
-        /não há nenhum/i,
-        /silêncio/i,
-        /silence/i,
-        /última chance/i,
-        /transcrição/i,
-        /não é possível/i,
-        /inaudível/i,
-        /incompreensível/i,
+        /silêncio/i, /silence/i, /não há fala/i, /não consigo/i,
+        /inaudível/i, /incompreensível/i, /transcrição/i,
       ];
       if (hallucPatterns.some(p => p.test(text))) return;
-      
-      // Reject English (2+ common English words = likely not PT-BR)
-      const englishWords = text.match(/\b(the|is|it's|of|and|that|this|with|for|are|was|were|have|has|not|but|what|all|can|from|they|been|will|would|there|their|about|right|now|just|kind|want|more|you|your|my|like|it|do|don't|I'm|we|how|very|much)\b/gi);
-      if (englishWords && englishWords.length >= 2) return;
-      // Must contain PT-BR characters or common PT words
-      const hasPtChar = /[àáâãéêíóôõúçÀÁÂÃÉÊÍÓÔÕÚÇ]/.test(text);
-      const hasPtWord = /\b(que|não|com|uma|para|está|isso|mas|como|mais|tem|são|foi|ser|ter|fazer|aqui|muito|bem|sim|então|porque|quando|ainda|pode|também|ele|ela|esse|essa|você|vocês|nosso|nossa|nós|agora|vamos|quero|preciso|olha|gente|tudo|nada|cada|outro|outra)\b/i.test(text);
-      if (!hasPtChar && !hasPtWord) return;
 
-      // ANTI-ECHO: only reject if transcription is nearly identical to an AI response
+      // ANTI-ECHO: only reject if nearly identical to AI response
       const normalize = (s: string) => s.toLowerCase().replace(/[^\w\sàáâãéêíóôõúç]/gi, "").replace(/\s+/g, " ").trim();
       const normalizedText = normalize(text);
       for (const aiResp of lastAiResponsesRef.current) {
         const normalizedAi = normalize(aiResp);
-        // Only reject if transcription IS the AI response (exact or near-exact match)
-        if (normalizedText.length > 10 && normalizedAi.length > 10) {
-          if (normalizedAi === normalizedText) return;
-          // Reject if transcription is a large portion (80%+) of the AI response verbatim
-          if (normalizedText.length >= normalizedAi.length * 0.7 && normalizedAi.includes(normalizedText)) return;
-          if (normalizedAi.length >= normalizedText.length * 0.7 && normalizedText.includes(normalizedAi)) return;
-        }
+        if (normalizedAi === normalizedText) return;
+        if (normalizedText.length > 15 && normalizedAi.includes(normalizedText)) return;
       }
 
       const now = new Date();
@@ -320,9 +290,9 @@ export default function OfficePage() {
                 mediaRecorderRef.current.start();
               } catch {}
             }
-          }, 100);
+          }, 50);
         }
-      }, 8000);
+      }, 4000);
 
     } catch (e) {
       console.error("Failed to access microphone:", e);
