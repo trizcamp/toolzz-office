@@ -17,6 +17,7 @@ import IntegrationsPage from "./pages/IntegrationsPage";
 import OfficePage from "./pages/OfficePage";
 import DocumentsPage from "./pages/DocumentsPage";
 import AutomationsPage from "./pages/AutomationsPage";
+import MessagesPage from "./pages/MessagesPage";
 import AuthPage from "./pages/AuthPage";
 import ResetPasswordPage from "./pages/ResetPasswordPage";
 import NotFound from "./pages/NotFound";
@@ -49,6 +50,7 @@ const AppRoutes = () => (
       <Route path="/meetings" element={<MeetingsPage />} />
       <Route path="/meetings/:code" element={<MeetingRoomPage />} />
       <Route path="/automations" element={<AutomationsPage />} />
+      <Route path="/messages" element={<MessagesPage />} />
       <Route path="/calendar" element={<CalendarPage />} />
       <Route path="/integrations" element={<IntegrationsPage />} />
     </Route>
