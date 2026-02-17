@@ -59,6 +59,16 @@ export default function OfficePage() {
     }
   }, [aiSpeaking]);
 
+  // Safety timeout: auto-reset aiSpeaking after 12 seconds to prevent stuck state
+  useEffect(() => {
+    if (!aiSpeaking) return;
+    const timeout = setTimeout(() => {
+      console.warn("aiSpeaking safety timeout triggered — resetting");
+      setAiSpeaking(false);
+    }, 12000);
+    return () => clearTimeout(timeout);
+  }, [aiSpeaking]);
+
   // Reset when room changes
   useEffect(() => {
     stopTranscription();
