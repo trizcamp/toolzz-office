@@ -3,6 +3,8 @@ import { Plus, FileText, Link2, Maximize2, Minimize2, Folder, ChevronLeft, FileI
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
+import { ContextMenu, ContextMenuContent, ContextMenuItem, ContextMenuTrigger } from "@/components/ui/context-menu";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
@@ -14,9 +16,11 @@ import { useDocuments, useDocumentBlocks } from "@/hooks/useDocuments";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useTasks } from "@/hooks/useTasks";
 import { useBoards } from "@/hooks/useBoards";
+import { Trash2 } from "lucide-react";
+import { toast } from "sonner";
 
 export default function DocumentsPage() {
-  const { documents, isLoading, createDocument, updateDocument } = useDocuments();
+  const { documents, isLoading, createDocument, updateDocument, deleteDocument } = useDocuments();
   const { boards } = useBoards();
   const { tasks: allTasks } = useTasks(null);
   const [selectedDocId, setSelectedDocId] = useState<string | null>(null);
@@ -26,6 +30,9 @@ export default function DocumentsPage() {
   const [newDocTaskId, setNewDocTaskId] = useState<string>("none");
   const [taskSearch, setTaskSearch] = useState("");
   const [activeFolderId, setActiveFolderId] = useState<string | null>(null);
+  const [deleteDocId, setDeleteDocId] = useState<string | null>(null);
+
+  const deleteDocData = deleteDocId ? documents.find((d: any) => d.id === deleteDocId) : null;
 
   const selectedDoc = documents.find((d: any) => d.id === selectedDocId) || null;
   const { blocks: dbBlocks, saveBlocks } = useDocumentBlocks(selectedDocId);
@@ -160,6 +167,18 @@ export default function DocumentsPage() {
     updateDocument.mutate({ id: selectedDocId, title });
   };
 
+  const handleDeleteDocument = () => {
+    if (!deleteDocId) return;
+    const hasTask = deleteDocData?.task_id;
+    deleteDocument.mutate(deleteDocId, {
+      onSuccess: () => {
+        if (selectedDocId === deleteDocId) setSelectedDocId(null);
+        setDeleteDocId(null);
+        toast.success(hasTask ? "Documento apagado e desvinculado da tarefa" : "Documento apagado");
+      },
+    });
+  };
+
   // Fullscreen view
   if (fullscreen && selectedDoc) {
     return (
@@ -188,27 +207,35 @@ export default function DocumentsPage() {
   }
 
   const renderDocItem = (doc: any) => (
-    <button
-      key={doc.id}
-      onClick={() => { setSelectedDocId(doc.id); setFullscreen(false); }}
-      className={cn(
-        "w-full text-left px-3 py-2 rounded-lg transition-colors text-sm",
-        selectedDocId === doc.id ? "bg-surface-hover text-foreground" : "text-muted-foreground hover:text-foreground hover:bg-surface-hover"
-      )}
-    >
-      <div className="flex items-center gap-2">
-        <span className="text-sm">{doc.icon}</span>
-        <span className="truncate flex-1">{doc.title}</span>
-      </div>
-      <div className="flex items-center gap-2 mt-0.5 ml-6">
-        <Badge variant="secondary" className="text-[9px] px-1 py-0">{typeLabelsDoc[doc.type]}</Badge>
-        {doc.tasks && (
-          <span className="text-[9px] text-muted-foreground flex items-center gap-0.5">
-            <Link2 className="w-2.5 h-2.5" />{doc.tasks?.display_id}
-          </span>
-        )}
-      </div>
-    </button>
+    <ContextMenu key={doc.id}>
+      <ContextMenuTrigger asChild>
+        <button
+          onClick={() => { setSelectedDocId(doc.id); setFullscreen(false); }}
+          className={cn(
+            "w-full text-left px-3 py-2 rounded-lg transition-colors text-sm",
+            selectedDocId === doc.id ? "bg-surface-hover text-foreground" : "text-muted-foreground hover:text-foreground hover:bg-surface-hover"
+          )}
+        >
+          <div className="flex items-center gap-2">
+            <span className="text-sm">{doc.icon}</span>
+            <span className="truncate flex-1">{doc.title}</span>
+          </div>
+          <div className="flex items-center gap-2 mt-0.5 ml-6">
+            <Badge variant="secondary" className="text-[9px] px-1 py-0">{typeLabelsDoc[doc.type]}</Badge>
+            {doc.tasks && (
+              <span className="text-[9px] text-muted-foreground flex items-center gap-0.5">
+                <Link2 className="w-2.5 h-2.5" />{doc.tasks?.display_id}
+              </span>
+            )}
+          </div>
+        </button>
+      </ContextMenuTrigger>
+      <ContextMenuContent>
+        <ContextMenuItem className="text-destructive focus:text-destructive" onClick={() => setDeleteDocId(doc.id)}>
+          <Trash2 className="w-3.5 h-3.5 mr-2" /> Apagar documento
+        </ContextMenuItem>
+      </ContextMenuContent>
+    </ContextMenu>
   );
 
   return (
@@ -371,6 +398,26 @@ export default function DocumentsPage() {
           </div>
         </DialogContent>
       </Dialog>
+
+      {/* Delete Document Confirmation */}
+      <AlertDialog open={!!deleteDocId} onOpenChange={(open) => { if (!open) setDeleteDocId(null); }}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Apagar documento?</AlertDialogTitle>
+            <AlertDialogDescription>
+              {deleteDocData?.task_id
+                ? "Este documento será apagado permanentemente. A tarefa vinculada será mantida, mas perderá o documento associado."
+                : "Este documento será apagado permanentemente. Esta ação não pode ser desfeita."}
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancelar</AlertDialogCancel>
+            <AlertDialogAction onClick={handleDeleteDocument} className="bg-destructive text-destructive-foreground hover:bg-destructive/90">
+              Apagar
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }
