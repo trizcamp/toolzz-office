@@ -57,10 +57,29 @@ export default function VoiceAgentDialog({ open, onOpenChange, boardId }: VoiceA
     mediaRecorderRef.current = null;
   }, []);
 
+  const stripMarkdown = (text: string): string => {
+    return text
+      .replace(/#{1,6}\s?/g, "")           // headings
+      .replace(/\*\*\*(.*?)\*\*\*/g, "$1") // bold+italic
+      .replace(/\*\*(.*?)\*\*/g, "$1")     // bold
+      .replace(/\*(.*?)\*/g, "$1")         // italic
+      .replace(/~~(.*?)~~/g, "$1")         // strikethrough
+      .replace(/`{1,3}[^`]*`{1,3}/g, "")  // inline/block code
+      .replace(/\[([^\]]+)\]\([^)]+\)/g, "$1") // links
+      .replace(/^[-*+]\s/gm, "")           // list bullets
+      .replace(/^\d+\.\s/gm, "")           // numbered lists
+      .replace(/^>\s?/gm, "")              // blockquotes
+      .replace(/---+/g, "")                // horizontal rules
+      .replace(/\n{2,}/g, ". ")            // double newlines to pause
+      .replace(/\n/g, " ")                 // single newlines
+      .trim();
+  };
+
   const speakText = useCallback((text: string) => {
     if (!window.speechSynthesis) return;
     window.speechSynthesis.cancel();
-    const utterance = new SpeechSynthesisUtterance(text);
+    const cleanText = stripMarkdown(text);
+    const utterance = new SpeechSynthesisUtterance(cleanText);
     utterance.lang = "pt-BR";
     const voices = window.speechSynthesis.getVoices();
     const ptVoice = voices.find((v) => v.lang.startsWith("pt"));
