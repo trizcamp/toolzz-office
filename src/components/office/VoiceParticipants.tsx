@@ -1,4 +1,4 @@
-import { Bot, Sparkles, MicOff, Mic, Volume2, VolumeX, PhoneOff, Settings } from "lucide-react";
+import { Bot, Sparkles, FileText, MicOff, Mic, Volume2, VolumeX, PhoneOff, Settings } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -13,10 +13,12 @@ interface VoiceParticipantsProps {
   room: Room;
   aiEnabled: boolean;
   aiSpeaking?: boolean;
+  transcriptionEnabled: boolean;
   onToggleAI: () => void;
+  onToggleTranscription: () => void;
 }
 
-export default function VoiceParticipants({ room, aiEnabled, aiSpeaking, onToggleAI }: VoiceParticipantsProps) {
+export default function VoiceParticipants({ room, aiEnabled, aiSpeaking, transcriptionEnabled, onToggleAI, onToggleTranscription }: VoiceParticipantsProps) {
   const { connectedRoom, currentUser, isMuted, isDeafened, toggleMute, toggleDeafen, disconnect } = useVoiceConnection();
   const [inputDevice, setInputDevice] = useState("default");
   const [outputDevice, setOutputDevice] = useState("default");
@@ -35,8 +37,20 @@ export default function VoiceParticipants({ room, aiEnabled, aiSpeaking, onToggl
 
   return (
     <div className="flex-1 bg-surface/50 flex flex-col items-center justify-center relative min-h-[300px]">
-      {/* AI Button - top right */}
-      <div className="absolute top-4 right-4">
+      {/* Top right buttons */}
+      <div className="absolute top-4 right-4 flex items-center gap-2">
+        <Tooltip>
+          <TooltipTrigger asChild>
+            <Button size="sm" variant={transcriptionEnabled ? "default" : "outline"} className="h-8 gap-1.5 text-xs" onClick={onToggleTranscription}>
+              <FileText className="w-3.5 h-3.5" />
+              {transcriptionEnabled ? "Parar Transcrição" : "Transcrição"}
+              {transcriptionEnabled && <Badge variant="secondary" className="ml-1 text-[9px] px-1 py-0">Ativa</Badge>}
+            </Button>
+          </TooltipTrigger>
+          <TooltipContent>
+            {transcriptionEnabled ? "Parar a transcrição da reunião" : "Transcrever o áudio da reunião em tempo real"}
+          </TooltipContent>
+        </Tooltip>
         <Tooltip>
           <TooltipTrigger asChild>
             <Button size="sm" variant={aiEnabled ? "default" : "outline"} className="h-8 gap-1.5 text-xs" onClick={onToggleAI}>
