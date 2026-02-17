@@ -1,4 +1,4 @@
-import { useState, useCallback } from "react";
+import { useState, useCallback, useEffect, useRef } from "react";
 import { Users, ChevronRight } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import RoomList from "@/components/office/RoomList";
@@ -21,10 +21,100 @@ export default function OfficePage() {
   const [aiEnabled, setAiEnabled] = useState(false);
   const [aiSpeaking, setAiSpeaking] = useState(false);
   const [transcriptionEnabled, setTranscriptionEnabled] = useState(false);
+  const [isListening, setIsListening] = useState(false);
   const [transcriptionEntries, setTranscriptionEntries] = useState<{ id: string; speaker: string; text: string; time: string }[]>([]);
+  const recognitionRef = useRef<any>(null);
 
   const selectedRoom = rooms.find((r) => r.id === selectedRoomId) || rooms[0] || null;
   const boardId = boards?.[0]?.id || null;
+
+  // Reset transcription when room changes
+  useEffect(() => {
+    setTranscriptionEnabled(false);
+    setTranscriptionEntries([]);
+    setIsListening(false);
+    if (recognitionRef.current) {
+      try { recognitionRef.current.stop(); } catch {}
+      recognitionRef.current = null;
+    }
+  }, [selectedRoomId]);
+
+  // Manage speech recognition when transcription toggles
+  useEffect(() => {
+    if (!transcriptionEnabled) {
+      if (recognitionRef.current) {
+        try { recognitionRef.current.stop(); } catch {}
+        recognitionRef.current = null;
+      }
+      setIsListening(false);
+      return;
+    }
+
+    const SpeechRecognition = (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
+    if (!SpeechRecognition) {
+      toast({ title: "Navegador não suporta transcrição", description: "Use Chrome ou Edge para transcrição em tempo real.", variant: "destructive" });
+      setTranscriptionEnabled(false);
+      return;
+    }
+
+    const recognition = new SpeechRecognition();
+    recognition.lang = "pt-BR";
+    recognition.continuous = true;
+    recognition.interimResults = false;
+
+    recognition.onstart = () => {
+      setIsListening(true);
+    };
+
+    recognition.onresult = (event: any) => {
+      for (let i = event.resultIndex; i < event.results.length; i++) {
+        if (event.results[i].isFinal) {
+          const text = event.results[i][0].transcript.trim();
+          if (text) {
+            const now = new Date();
+            const time = now.toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" });
+            setTranscriptionEntries((prev) => [
+              ...prev,
+              { id: `t-${Date.now()}-${i}`, speaker: "Você", text, time },
+            ]);
+          }
+        }
+      }
+    };
+
+    recognition.onerror = (event: any) => {
+      console.error("Speech recognition error:", event.error);
+      if (event.error === "not-allowed") {
+        toast({ title: "Microfone bloqueado", description: "Permita o acesso ao microfone nas configurações do navegador.", variant: "destructive" });
+        setTranscriptionEnabled(false);
+      }
+      // For "no-speech" or "aborted", just restart
+    };
+
+    recognition.onend = () => {
+      setIsListening(false);
+      // Auto-restart if still enabled
+      if (transcriptionEnabled && recognitionRef.current === recognition) {
+        try {
+          recognition.start();
+        } catch {}
+      }
+    };
+
+    recognitionRef.current = recognition;
+    try {
+      recognition.start();
+    } catch (e) {
+      console.error("Failed to start speech recognition:", e);
+    }
+
+    return () => {
+      try { recognition.stop(); } catch {}
+      if (recognitionRef.current === recognition) {
+        recognitionRef.current = null;
+      }
+    };
+  }, [transcriptionEnabled, toast]);
 
   const handleSelectRoom = (room: DbRoom) => {
     setSelectedRoomId(room.id);
@@ -62,18 +152,8 @@ export default function OfficePage() {
     } else {
       setTranscriptionEnabled(true);
       toast({ title: "Transcrição ativa", description: "O áudio da reunião está sendo transcrito." });
-      if (transcriptionEntries.length === 0) {
-        const now = new Date();
-        const fmt = (d: Date) => d.toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" });
-        setTranscriptionEntries([
-          { id: "t1", speaker: "Beatriz F.", text: "Bom dia pessoal, vamos começar a daily?", time: fmt(new Date(now.getTime() - 120000)) },
-          { id: "t2", speaker: "João S.", text: "Bom dia! Ontem terminei a integração com o GitHub e já está funcionando nos testes.", time: fmt(new Date(now.getTime() - 90000)) },
-          { id: "t3", speaker: "Rafael M.", text: "Ótimo! Eu vou revisar a PR do módulo de relatórios hoje. Tive que ajustar uns componentes de gráfico.", time: fmt(new Date(now.getTime() - 60000)) },
-          { id: "t4", speaker: "Amanda L.", text: "Preciso de ajuda com o layout responsivo da página de documentos, alguém pode dar uma olhada depois?", time: fmt(new Date(now.getTime() - 30000)) },
-        ]);
-      }
     }
-  }, [transcriptionEnabled, toast, transcriptionEntries.length]);
+  }, [transcriptionEnabled, toast]);
 
   const isVoiceRoom = selectedRoom?.type !== "text";
   const showTranscriptionPanel = transcriptionEnabled && isVoiceRoom;
@@ -99,6 +179,7 @@ export default function OfficePage() {
             aiEnabled={aiEnabled}
             aiSpeaking={aiSpeaking}
             transcriptionEnabled={transcriptionEnabled}
+            isListening={isListening}
             onToggleAI={handleToggleAI}
             onToggleTranscription={handleToggleTranscription}
           />
