@@ -27,7 +27,7 @@ O Toolzz Office é um workspace digital completo para equipes de desenvolvimento
 | Banco de Dados | PostgreSQL com Row Level Security (RLS) |
 | Realtime | Supabase Realtime (Postgres Changes) |
 | Serverless | Supabase Edge Functions (Deno) |
-| IA | Lovable AI Gateway (Gemini / GPT) |
+| IA | Lovable AI Gateway (Gemini / GPT) e Toolzz AI|
 
 ## Arquitetura
 
