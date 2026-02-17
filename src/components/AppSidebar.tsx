@@ -13,7 +13,7 @@ const navItems = [
   { icon: Puzzle, label: "Integrações", path: "/integrations", comingSoon: false },
   { icon: Building2, label: "Escritório", path: "/chat", comingSoon: false },
   { icon: Video, label: "Reuniões", path: "/meetings", comingSoon: false },
-  { icon: Zap, label: "Automações", path: "/automations", comingSoon: false },
+  { icon: Zap, label: "Automações", path: "/automations", comingSoon: false, badge: "Beta" },
 ];
 
 export default function AppSidebar() {
@@ -74,6 +74,11 @@ export default function AppSidebar() {
               {!collapsed && item.comingSoon && (
                 <span className="text-[9px] px-1.5 py-0.5 rounded-full bg-muted text-muted-foreground font-medium whitespace-nowrap">
                   Em breve
+                </span>
+              )}
+              {!collapsed && (item as any).badge && (
+                <span className="text-[9px] px-1.5 py-0.5 rounded-full bg-primary/15 text-primary font-medium whitespace-nowrap">
+                  {(item as any).badge}
                 </span>
               )}
             </NavLink>
