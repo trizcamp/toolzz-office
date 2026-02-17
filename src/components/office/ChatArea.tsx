@@ -80,13 +80,14 @@ export default function ChatArea({ roomId, roomName, aiEnabled, boardId, isListe
   const speakText = useCallback((text: string) => {
     if (!window.speechSynthesis) return;
     window.speechSynthesis.cancel();
+    // Signal AI speaking BEFORE synthesis starts to mute mic immediately
+    onAiSpeakingChange?.(true);
     const cleanText = stripMarkdown(text);
     const utterance = new SpeechSynthesisUtterance(cleanText);
     utterance.lang = "pt-BR";
     const voices = window.speechSynthesis.getVoices();
     const ptVoice = voices.find((v) => v.lang.startsWith("pt"));
     if (ptVoice) utterance.voice = ptVoice;
-    utterance.onstart = () => onAiSpeakingChange?.(true);
     utterance.onend = () => onAiSpeakingChange?.(false);
     utterance.onerror = () => onAiSpeakingChange?.(false);
     window.speechSynthesis.speak(utterance);
@@ -105,7 +106,7 @@ export default function ChatArea({ roomId, roomName, aiEnabled, boardId, isListe
       prevAiEnabledRef.current = false;
     } else if (!prevAiEnabledRef.current) {
       prevAiEnabledRef.current = true;
-      const greeting = "Olá! 👋 Sou da Toolzz, sua assistente de tarefas. Qual tarefa você quer criar?";
+      const greeting = "Olá! 👋 Sou o Toolzz AI, seu assistente de tarefas. Qual tarefa você quer criar?";
       const greetMsg: AiMessage = {
         id: `ai-greet-${Date.now()}`,
         role: "assistant",
