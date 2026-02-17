@@ -94,19 +94,29 @@ Responda sempre em português brasileiro. Seja conciso, natural e conversacional
 
     // Handle tool calls
     if (choice?.message?.tool_calls) {
-      // Resolve board ID - use provided or fetch first available
+      // Resolve board ID - use provided, fetch first available, or create one
       let targetBoardId = boardId;
       if (!targetBoardId && userId) {
         const { data: firstBoard } = await supabase
           .from("boards")
           .select("id")
           .limit(1)
-          .single();
-        targetBoardId = firstBoard?.id || null;
+          .maybeSingle();
+        if (firstBoard) {
+          targetBoardId = firstBoard.id;
+        } else {
+          // Auto-create a default board
+          const { data: newBoard } = await supabase
+            .from("boards")
+            .insert({ name: "Meu Board", icon: "📋", created_by: userId })
+            .select("id")
+            .single();
+          targetBoardId = newBoard?.id || null;
+        }
       }
       if (!targetBoardId) {
         return new Response(JSON.stringify({
-          message: "Nenhum board encontrado. Crie um board primeiro para poder adicionar tarefas.",
+          message: "Não foi possível criar o board. Tente novamente.",
           createdTasks: [],
         }), { headers: { ...corsHeaders, "Content-Type": "application/json" } });
       }
