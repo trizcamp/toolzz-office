@@ -14,6 +14,7 @@ import { ptBR } from "date-fns/locale";
 
 const typeIcons: Record<string, React.ReactNode> = {
   task_assigned: <UserPlus className="w-3.5 h-3.5 text-primary" />,
+  task_created: <CheckCheck className="w-3.5 h-3.5 text-[hsl(var(--success))]" />,
   task_status: <ArrowRightLeft className="w-3.5 h-3.5 text-[hsl(var(--warning))]" />,
   info: <Bell className="w-3.5 h-3.5 text-muted-foreground" />,
 };
@@ -85,7 +86,7 @@ export default function TopBar() {
                       key={n.id}
                       className={cn(
                         "flex items-start gap-3 px-4 py-3 border-b border-border/50 cursor-pointer hover:bg-surface-hover transition-colors",
-                        !n.read && "bg-primary/5"
+                        !n.read && "bg-primary/5 border-l-2 border-l-primary"
                       )}
                       onClick={() => handleNotifClick(n)}
                     >
