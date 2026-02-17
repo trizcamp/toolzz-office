@@ -19,35 +19,43 @@ type Status = "idle" | "listening" | "processing" | "speaking";
 export default function VoiceAgentDialog({ open, onOpenChange, boardId }: VoiceAgentDialogProps) {
   const [messages, setMessages] = useState<Message[]>([]);
   const [status, setStatus] = useState<Status>("idle");
-  const [interimText, setInterimText] = useState("");
   const [createdTasks, setCreatedTasks] = useState<{ title: string; display_id: string }[]>([]);
   const [showTextInput, setShowTextInput] = useState(false);
   const [textInput, setTextInput] = useState("");
 
-  const recognitionRef = useRef<any>(null);
+  const mediaRecorderRef = useRef<MediaRecorder | null>(null);
+  const audioChunksRef = useRef<Blob[]>([]);
   const scrollRef = useRef<HTMLDivElement>(null);
   const messagesRef = useRef<Message[]>([]);
   const boardIdRef = useRef(boardId);
+  const streamRef = useRef<MediaStream | null>(null);
 
   useEffect(() => { messagesRef.current = messages; }, [messages]);
   useEffect(() => { boardIdRef.current = boardId; }, [boardId]);
 
   useEffect(() => {
     if (scrollRef.current) scrollRef.current.scrollTop = scrollRef.current.scrollHeight;
-  }, [messages, interimText]);
+  }, [messages]);
 
   // Cleanup on close
   useEffect(() => {
     if (!open) {
-      if (recognitionRef.current) {
-        try { recognitionRef.current.abort(); } catch (e) {}
-        recognitionRef.current = null;
-      }
+      stopRecording();
       window.speechSynthesis?.cancel();
       setStatus("idle");
-      setInterimText("");
     }
   }, [open]);
+
+  const stopRecording = useCallback(() => {
+    if (mediaRecorderRef.current && mediaRecorderRef.current.state !== "inactive") {
+      mediaRecorderRef.current.stop();
+    }
+    if (streamRef.current) {
+      streamRef.current.getTracks().forEach(t => t.stop());
+      streamRef.current = null;
+    }
+    mediaRecorderRef.current = null;
+  }, []);
 
   const speakText = useCallback((text: string) => {
     if (!window.speechSynthesis) return;
@@ -92,7 +100,6 @@ export default function VoiceAgentDialog({ open, onOpenChange, boardId }: VoiceA
         ]);
       }
 
-      // Speak only if not in text mode
       if (!showTextInput) {
         speakText(aiContent);
       } else {
@@ -105,94 +112,100 @@ export default function VoiceAgentDialog({ open, onOpenChange, boardId }: VoiceA
     }
   }, [speakText, showTextInput]);
 
-  const startListening = useCallback(async () => {
-    const SpeechRecognitionAPI = (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
-    if (!SpeechRecognitionAPI) {
-      toast.error("Reconhecimento de voz não suportado neste navegador. Use o modo texto.");
-      setShowTextInput(true);
-      return;
-    }
+  const transcribeAndSend = useCallback(async (audioBlob: Blob) => {
+    setStatus("processing");
 
-    // Request mic permission
     try {
-      const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
-      stream.getTracks().forEach(t => t.stop());
-    } catch (e) {
-      toast.error("Permissão de microfone negada. Use o modo texto.");
-      setShowTextInput(true);
-      return;
-    }
-
-    window.speechSynthesis?.cancel();
-    if (recognitionRef.current) {
-      try { recognitionRef.current.abort(); } catch (e) {}
-      recognitionRef.current = null;
-    }
-
-    const recognition = new SpeechRecognitionAPI();
-    recognition.lang = "pt-BR";
-    recognition.continuous = false;
-    recognition.interimResults = true;
-
-    recognition.onstart = () => setStatus("listening");
-
-    recognition.onresult = (event: any) => {
-      let interim = "";
-      let finalText = "";
-      for (let i = 0; i < event.results.length; i++) {
-        const transcript = event.results[i][0].transcript;
-        if (event.results[i].isFinal) {
-          finalText += transcript;
-        } else {
-          interim += transcript;
-        }
+      // Convert blob to base64
+      const arrayBuffer = await audioBlob.arrayBuffer();
+      const uint8Array = new Uint8Array(arrayBuffer);
+      let binary = "";
+      for (let i = 0; i < uint8Array.length; i++) {
+        binary += String.fromCharCode(uint8Array[i]);
       }
-      setInterimText(interim);
-      if (finalText.trim()) {
-        setInterimText("");
-        sendToAI(finalText.trim());
-      }
-    };
+      const base64 = btoa(binary);
 
-    recognition.onerror = (event: any) => {
-      console.error("Speech recognition error:", event.error);
-      if (event.error === "not-allowed") {
-        toast.error("Microfone bloqueado. Alternando para modo texto.");
-        setShowTextInput(true);
-      } else if (event.error === "network") {
-        toast.error("Reconhecimento de voz indisponível. Use o modo texto.");
-        setShowTextInput(true);
-      } else if (event.error !== "aborted" && event.error !== "no-speech") {
-        toast.error(`Erro no reconhecimento: ${event.error}`);
+      const { data, error } = await supabase.functions.invoke("transcribe-audio", {
+        body: { audioBase64: base64, mimeType: audioBlob.type || "audio/webm" },
+      });
+
+      if (error) throw error;
+
+      const transcript = data?.transcript?.trim();
+      if (!transcript) {
+        toast.error("Não foi possível entender o áudio. Tente novamente.");
+        setStatus("idle");
+        return;
       }
+
+      await sendToAI(transcript);
+    } catch (e: any) {
+      console.error("Transcription error:", e);
+      toast.error("Erro ao transcrever o áudio. Tente novamente.");
       setStatus("idle");
-      setInterimText("");
-    };
-
-    recognition.onend = () => {
-      setInterimText("");
-      setStatus((prev) => prev === "processing" || prev === "speaking" ? prev : "idle");
-    };
-
-    recognitionRef.current = recognition;
-    try {
-      recognition.start();
-    } catch (e) {
-      console.error("Failed to start recognition:", e);
-      toast.error("Não foi possível iniciar o microfone. Use o modo texto.");
-      setShowTextInput(true);
     }
   }, [sendToAI]);
+
+  const startListening = useCallback(async () => {
+    window.speechSynthesis?.cancel();
+    stopRecording();
+
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+      streamRef.current = stream;
+
+      const mimeType = MediaRecorder.isTypeSupported("audio/webm;codecs=opus")
+        ? "audio/webm;codecs=opus"
+        : MediaRecorder.isTypeSupported("audio/webm")
+          ? "audio/webm"
+          : "audio/mp4";
+
+      const recorder = new MediaRecorder(stream, { mimeType });
+      audioChunksRef.current = [];
+
+      recorder.ondataavailable = (event) => {
+        if (event.data.size > 0) {
+          audioChunksRef.current.push(event.data);
+        }
+      };
+
+      recorder.onstop = () => {
+        const audioBlob = new Blob(audioChunksRef.current, { type: mimeType });
+        audioChunksRef.current = [];
+
+        // Stop mic tracks
+        if (streamRef.current) {
+          streamRef.current.getTracks().forEach(t => t.stop());
+          streamRef.current = null;
+        }
+
+        if (audioBlob.size > 0) {
+          transcribeAndSend(audioBlob);
+        } else {
+          setStatus("idle");
+        }
+      };
+
+      mediaRecorderRef.current = recorder;
+      recorder.start();
+      setStatus("listening");
+    } catch (e: any) {
+      console.error("Microphone error:", e);
+      toast.error("Não foi possível acessar o microfone. Use o modo texto.");
+      setShowTextInput(true);
+      setStatus("idle");
+    }
+  }, [stopRecording, transcribeAndSend]);
+
+  const stopListening = useCallback(() => {
+    if (mediaRecorderRef.current && mediaRecorderRef.current.state === "recording") {
+      mediaRecorderRef.current.stop();
+    }
+  }, []);
 
   const stopSpeaking = useCallback(() => {
     window.speechSynthesis?.cancel();
     setStatus("idle");
-  }, []);
-
-  const stopListening = useCallback(() => {
-    if (recognitionRef.current) {
-      try { recognitionRef.current.stop(); } catch (e) {}
-    }
   }, []);
 
   const handleTextSubmit = useCallback((e?: React.FormEvent) => {
@@ -205,7 +218,7 @@ export default function VoiceAgentDialog({ open, onOpenChange, boardId }: VoiceA
 
   const statusLabel: Record<Status, string> = {
     idle: "Toque no microfone para falar",
-    listening: "Ouvindo...",
+    listening: "Ouvindo... toque para parar",
     processing: "Processando...",
     speaking: "Falando...",
   };
@@ -219,7 +232,7 @@ export default function VoiceAgentDialog({ open, onOpenChange, boardId }: VoiceA
 
         {/* Messages */}
         <div ref={scrollRef} className="flex-1 overflow-y-auto space-y-3 min-h-[200px] max-h-[40vh] px-1">
-          {messages.length === 0 && !interimText && (
+          {messages.length === 0 && (
             <p className="text-xs text-muted-foreground text-center py-8">
               {showTextInput
                 ? 'Digite algo como: "Cria uma tarefa para corrigir o bug de login"'
@@ -246,13 +259,6 @@ export default function VoiceAgentDialog({ open, onOpenChange, boardId }: VoiceA
               </div>
             </div>
           ))}
-          {interimText && (
-            <div className="flex justify-end">
-              <div className="max-w-[85%] rounded-xl px-3 py-2 text-sm bg-primary/50 text-primary-foreground italic">
-                {interimText}
-              </div>
-            </div>
-          )}
         </div>
 
         {/* Created tasks */}
