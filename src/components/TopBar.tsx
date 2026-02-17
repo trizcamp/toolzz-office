@@ -3,7 +3,7 @@ import { useAuth } from "@/hooks/useAuth";
 import { useMembers } from "@/hooks/useMembers";
 import { useNotifications } from "@/hooks/useNotifications";
 import { useNavigate } from "react-router-dom";
-import { Search, Bell, Settings, LogOut, Check, CheckCheck, Trash2, UserPlus, ArrowRightLeft, Video } from "lucide-react";
+import { Search, Bell, Settings, LogOut, Check, CheckCheck, Trash2, UserPlus, ArrowRightLeft, Video, CalendarClock } from "lucide-react";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Button } from "@/components/ui/button";
 import { ScrollArea } from "@/components/ui/scroll-area";
@@ -17,6 +17,7 @@ const typeIcons: Record<string, React.ReactNode> = {
   task_created: <CheckCheck className="w-3.5 h-3.5 text-[hsl(var(--success))]" />,
   task_status: <ArrowRightLeft className="w-3.5 h-3.5 text-[hsl(var(--warning))]" />,
   meeting_invite: <Video className="w-3.5 h-3.5 text-primary" />,
+  meeting_reschedule: <CalendarClock className="w-3.5 h-3.5 text-[hsl(var(--warning))]" />,
   info: <Bell className="w-3.5 h-3.5 text-muted-foreground" />,
 };
 
