@@ -91,8 +91,15 @@ export default function OfficePage() {
       }
 
       const text = data?.transcript?.trim();
-      // Filter out silence markers, noise, and very short text
-      if (text && text.length >= 3 && !/^[.\s,…!?-]+$/.test(text) && !text.includes("__SILENCE__") && text !== "..." && text.toLowerCase() !== "silêncio") {
+      // Strict filter: must not be silence marker, must be 10+ chars, must have spaces (real sentence)
+      if (
+        text &&
+        text.length >= 10 &&
+        !text.includes("__SILENCE__") &&
+        !text.includes("SILENCE") &&
+        text.includes(" ") &&
+        !/^[.\s,…!?-]+$/.test(text)
+      ) {
         const now = new Date();
         const time = now.toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" });
         setTranscriptionEntries((prev) => [

@@ -30,7 +30,7 @@ serve(async (req) => {
             content: [
               {
                 type: "text",
-                text: "Listen to this audio. If there is CLEAR human speech directed at the microphone, transcribe ONLY those exact words in Brazilian Portuguese. If the audio contains: silence, background noise, music, TV/radio playing, distant conversations, or any audio that is NOT someone deliberately speaking into the microphone — respond with EXACTLY the single word: __SILENCE__\n\nDo NOT guess, infer, or hallucinate words. Do NOT transcribe background audio. Only transcribe deliberate, clear speech. If in doubt, respond __SILENCE__.",
+                text: "You are a strict speech-to-text filter. Listen to this audio clip. Your job is to determine if someone is INTENTIONALLY speaking directly into a microphone (close-range, clear voice). Rules:\n\n1. If you hear ONLY silence, white noise, hum, or ambient sounds → respond: __SILENCE__\n2. If you hear background audio like TV, radio, music, podcasts, YouTube videos, distant conversations, or any media playing → respond: __SILENCE__\n3. If you hear short utterances like 'um', 'ah', 'não', 'sim', single words, or unclear mumbling → respond: __SILENCE__\n4. ONLY transcribe if you hear a CLEAR, DELIBERATE sentence of 5+ words spoken directly into the microphone in a conversational tone.\n5. If in ANY doubt, respond: __SILENCE__\n\nRespond with either __SILENCE__ or the exact transcription. Nothing else.",
               },
               {
                 type: "image_url",
