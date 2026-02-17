@@ -9,9 +9,18 @@ export interface DbDocument {
   icon: string;
   type: "doc" | "spec" | "note" | "spreadsheet";
   task_id: string | null;
+  folder_id: string | null;
   created_by: string | null;
   created_at: string;
   updated_at: string;
+}
+
+export interface DbFolder {
+  id: string;
+  name: string;
+  icon: string;
+  created_by: string | null;
+  created_at: string;
 }
 
 export interface DbBlock {
@@ -62,7 +71,7 @@ export function useDocuments() {
   }, [user, queryClient]);
 
   const createDocument = useMutation({
-    mutationFn: async (doc: { title: string; icon?: string; type?: "doc" | "spec" | "note" | "spreadsheet"; task_id?: string }) => {
+    mutationFn: async (doc: { title: string; icon?: string; type?: "doc" | "spec" | "note" | "spreadsheet"; task_id?: string; folder_id?: string }) => {
       const { data, error } = await supabase
         .from("documents")
         .insert({ ...doc, created_by: user!.id })
@@ -94,7 +103,7 @@ export function useDocuments() {
   });
 
   const updateDocument = useMutation({
-    mutationFn: async ({ id, ...updates }: { id: string; title?: string; icon?: string }) => {
+    mutationFn: async ({ id, ...updates }: { id: string; title?: string; icon?: string; folder_id?: string | null }) => {
       const { error } = await supabase.from("documents").update(updates).eq("id", id);
       if (error) throw error;
     },
@@ -188,4 +197,45 @@ export function useDocumentComments(documentId: string | null) {
   });
 
   return { comments: query.data || [], addComment };
+}
+
+export function useDocumentFolders() {
+  const { user } = useAuth();
+  const queryClient = useQueryClient();
+
+  const query = useQuery({
+    queryKey: ["document-folders"],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("document_folders")
+        .select("*")
+        .order("created_at");
+      if (error) throw error;
+      return data as DbFolder[];
+    },
+    enabled: !!user,
+  });
+
+  const createFolder = useMutation({
+    mutationFn: async (folder: { name: string; icon?: string }) => {
+      const { data, error } = await supabase
+        .from("document_folders")
+        .insert({ ...folder, created_by: user!.id })
+        .select()
+        .single();
+      if (error) throw error;
+      return data as DbFolder;
+    },
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ["document-folders"] }),
+  });
+
+  const deleteFolder = useMutation({
+    mutationFn: async (id: string) => {
+      const { error } = await supabase.from("document_folders").delete().eq("id", id);
+      if (error) throw error;
+    },
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ["document-folders"] }),
+  });
+
+  return { folders: query.data || [], isLoading: query.isLoading, createFolder, deleteFolder };
 }
