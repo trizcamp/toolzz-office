@@ -159,6 +159,9 @@ export default function VoiceAgentDialog({ open, onOpenChange, boardId }: VoiceA
       if (event.error === "not-allowed") {
         toast.error("Microfone bloqueado. Alternando para modo texto.");
         setShowTextInput(true);
+      } else if (event.error === "network") {
+        toast.error("Reconhecimento de voz indisponível. Use o modo texto.");
+        setShowTextInput(true);
       } else if (event.error !== "aborted" && event.error !== "no-speech") {
         toast.error(`Erro no reconhecimento: ${event.error}`);
       }
