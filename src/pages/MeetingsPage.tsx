@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { supabase } from "@/integrations/supabase/client";
 import { useNavigate } from "react-router-dom";
 import { Video, Plus, Link2, Calendar, Clock, Users, Copy, ArrowRight, Sparkles, ExternalLink, UserPlus, X, Check } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -80,6 +81,16 @@ export default function MeetingsPage() {
         description: scheduleData.description || undefined,
         meeting_code: preGeneratedCode,
       });
+
+      // Insert invited participants (triggers notification automatically)
+      if (selectedMembers.length > 0 && result?.id) {
+        const participants = selectedMembers.map(userId => ({
+          meeting_id: result.id,
+          user_id: userId,
+        }));
+        await supabase.from("meeting_participants").insert(participants as any);
+      }
+
       const link = `${window.location.origin}/meetings/${result?.meeting_code}`;
       setCreatedLink(link);
       toast.success("Reunião agendada!", {
