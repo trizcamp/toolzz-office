@@ -61,17 +61,17 @@ export default function BoardPage() {
   const [activeTab, setActiveTab] = useState("kanban");
 
   // Auto-select board and task from URL query params (notification deep-link)
+  const boardParam = searchParams.get("board");
+  const taskParam = searchParams.get("task");
+
   useEffect(() => {
-    const boardParam = searchParams.get("board");
-    const taskParam = searchParams.get("task");
-    if (boardParam && boards.length > 0) {
+    if (boardParam) {
       setSelectedBoard(boardParam);
-      // Clean params after consuming
       if (!taskParam) {
         setSearchParams({}, { replace: true });
       }
     }
-  }, [searchParams, boards]);
+  }, [boardParam]);
 
   const [newTaskOpen, setNewTaskOpen] = useState(false);
   const [assigneeFilter, setAssigneeFilter] = useState("all");
@@ -113,7 +113,6 @@ export default function BoardPage() {
 
   // Auto-open task from notification deep-link
   useEffect(() => {
-    const taskParam = searchParams.get("task");
     if (taskParam && tasks.length > 0 && selectedBoard) {
       const found = tasks.find((t) => t.id === taskParam);
       if (found) {
@@ -124,7 +123,7 @@ export default function BoardPage() {
         }
       }
     }
-  }, [searchParams, tasks, selectedBoard, mappedTasks]);
+  }, [taskParam, tasks, selectedBoard]);
 
   const assignees = useMemo(() => {
     return members.map((m) => m.name + (m.surname ? ` ${m.surname.charAt(0)}.` : ""));
