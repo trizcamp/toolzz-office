@@ -293,6 +293,16 @@ export default function TaskDetailPanel({
             <p className="text-[10px] uppercase tracking-widest text-muted-foreground">Criado em</p>
             <p className="text-xs text-secondary-foreground pt-1.5">{task.createdAt}</p>
           </div>
+          <div className="space-y-1">
+            <p className="text-[10px] uppercase tracking-widest text-muted-foreground">Data de Entrega</p>
+            <Input
+              type="date"
+              className="h-8 text-xs"
+              value={task.deliveryDate || ""}
+              onChange={(e) => onUpdate({ ...task, deliveryDate: e.target.value || undefined })}
+              disabled={readOnly}
+            />
+          </div>
         </div>
 
         {/* Assignees */}
