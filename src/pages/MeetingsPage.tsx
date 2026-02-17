@@ -261,6 +261,16 @@ export default function MeetingsPage() {
                       </Popover>
                     </div>
 
+                    {/* External share link */}
+                    <div className="space-y-2">
+                      <Label className="flex items-center gap-1.5">
+                        <ExternalLink className="w-3.5 h-3.5" /> Link externo para clientes
+                      </Label>
+                      <p className="text-[10px] text-muted-foreground">
+                        O link será gerado após agendar. Compartilhe com pessoas externas para que entrem na reunião.
+                      </p>
+                    </div>
+
                     <Button onClick={handleSchedule} disabled={createMeeting.isPending} className="w-full">
                       Agendar reunião
                     </Button>
