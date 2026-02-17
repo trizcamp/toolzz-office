@@ -10,7 +10,7 @@ serve(async (req) => {
   if (req.method === "OPTIONS") return new Response(null, { headers: corsHeaders });
 
   try {
-    const { messages, boardId, markdownContent } = await req.json();
+    const { messages, boardId, markdownContent, githubRepo } = await req.json();
     const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY");
     if (!LOVABLE_API_KEY) throw new Error("LOVABLE_API_KEY is not configured");
 
@@ -101,6 +101,7 @@ Responda sempre em português brasileiro. Seja conciso e profissional.`;
           const targetBoardId = boardId;
           if (!targetBoardId) continue;
 
+          const taskType = args.type || "task";
           const { data: task, error: taskError } = await supabase
             .from("tasks")
             .insert({
@@ -108,9 +109,10 @@ Responda sempre em português brasileiro. Seja conciso e profissional.`;
               description: args.description || "",
               priority: args.priority || "medium",
               status: args.status || "backlog",
-              type: args.type || "task",
+              type: taskType,
               board_id: targetBoardId,
               created_by: userId,
+              github_repo: githubRepo || null,
             })
             .select()
             .single();
@@ -126,6 +128,50 @@ Responda sempre em português brasileiro. Seja conciso e profissional.`;
               },
               body: JSON.stringify({ taskId: task.id, boardId: targetBoardId, markdownContent }),
             });
+
+            // Auto-create GitHub issue for bug/improvement types with a repo
+            if (githubRepo && (taskType === "bug" || taskType === "improvement")) {
+              try {
+                const label = taskType === "bug" ? "bug" : "enhancement";
+                const issueBody = `**${task.display_id}** — Criado via Toolzz Office\n\n${args.description || "Sem descrição."}`;
+                const githubApiUrl = `${supabaseUrl}/functions/v1/github-api`;
+                
+                // Get user's GitHub token
+                const { data: ghIntegration } = await supabase
+                  .from("github_integrations")
+                  .select("access_token")
+                  .eq("user_id", userId!)
+                  .maybeSingle();
+
+                if (ghIntegration?.access_token) {
+                  const [owner, repo] = githubRepo.split("/");
+                  const ghRes = await fetch(`https://api.github.com/repos/${owner}/${repo}/issues`, {
+                    method: "POST",
+                    headers: {
+                      Authorization: `Bearer ${ghIntegration.access_token}`,
+                      "User-Agent": "Toolzz-Office",
+                      Accept: "application/vnd.github.v3+json",
+                      "Content-Type": "application/json",
+                    },
+                    body: JSON.stringify({
+                      title: `[${task.display_id}] ${task.title}`,
+                      body: issueBody,
+                      labels: [label],
+                    }),
+                  });
+                  if (ghRes.ok) {
+                    const issue = await ghRes.json();
+                    await supabase.from("tasks").update({
+                      github_issue_url: issue.html_url,
+                      github_issue_number: issue.number,
+                    }).eq("id", task.id);
+                  }
+                }
+              } catch (e) {
+                console.error("Failed to create GitHub issue from AI chat:", e);
+              }
+            }
+
             createdTasks.push(task);
           }
         }
