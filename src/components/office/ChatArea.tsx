@@ -1,5 +1,5 @@
 import { useState, useRef, useEffect, useCallback } from "react";
-import { Send, Bot, CheckCircle2 } from "lucide-react";
+import { Send, Bot, CheckCircle2, RotateCcw, Download, Mic } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { useMessages } from "@/hooks/useMessages";
@@ -10,12 +10,23 @@ import { toast } from "sonner";
 import ReactMarkdown from "react-markdown";
 import { cn } from "@/lib/utils";
 
+interface TranscriptionEntry {
+  id: string;
+  speaker: string;
+  text: string;
+  time: string;
+  created_at: string;
+}
+
 interface ChatAreaProps {
   roomId: string | null;
   roomName: string;
   aiEnabled?: boolean;
   boardId?: string | null;
+  isListening?: boolean;
+  transcriptionEntries?: TranscriptionEntry[];
   onAiSpeakingChange?: (speaking: boolean) => void;
+  onClearHistory?: () => void;
 }
 
 type AiMessage = {
@@ -27,7 +38,7 @@ type AiMessage = {
 
 type CreatedTask = { title: string; display_id: string };
 
-export default function ChatArea({ roomId, roomName, aiEnabled, boardId, onAiSpeakingChange }: ChatAreaProps) {
+export default function ChatArea({ roomId, roomName, aiEnabled, boardId, isListening, transcriptionEntries = [], onAiSpeakingChange, onClearHistory }: ChatAreaProps) {
   const { messages, sendMessage } = useMessages(roomId);
   const { members } = useMembers();
   const { user } = useAuth();
@@ -45,7 +56,7 @@ export default function ChatArea({ roomId, roomName, aiEnabled, boardId, onAiSpe
 
   useEffect(() => {
     bottomRef.current?.scrollIntoView({ behavior: "smooth" });
-  }, [messages, aiMessages]);
+  }, [messages, aiMessages, transcriptionEntries]);
 
   // Reset AI state when disabled
   useEffect(() => {
@@ -144,10 +155,40 @@ export default function ChatArea({ roomId, roomName, aiEnabled, boardId, onAiSpe
     sendMessage.mutate({ roomId, text });
     setDraft("");
 
-    // If AI is enabled, also send to AI
     if (aiEnabled) {
       sendToAI(text);
     }
+  };
+
+  const handleSaveConversation = () => {
+    const lines: string[] = [];
+    lines.push(`Conversa em ${roomName} — ${new Date().toLocaleDateString("pt-BR")}`);
+    lines.push("=".repeat(50));
+    lines.push("");
+
+    allMessages.forEach((msg) => {
+      const name = msg.isAi ? "Toolzz IA" : msg.isTranscription ? `🎙️ ${msg.speaker}` : getMemberName(msg.user_id);
+      const time = formatTime(msg.created_at);
+      lines.push(`[${time}] ${name}: ${msg.text}`);
+    });
+
+    const blob = new Blob([lines.join("\n")], { type: "text/plain;charset=utf-8" });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = `conversa-${roomName.toLowerCase().replace(/\s+/g, "-")}-${new Date().toISOString().slice(0, 10)}.txt`;
+    a.click();
+    URL.revokeObjectURL(url);
+    toast.success("Conversa salva!");
+  };
+
+  const handleClearHistory = () => {
+    setAiMessages([]);
+    setAiConversationHistory([]);
+    aiHistoryRef.current = [];
+    setCreatedTasks([]);
+    onClearHistory?.();
+    toast.success("Histórico limpo!");
   };
 
   const getMemberName = (userId: string) => {
@@ -160,26 +201,48 @@ export default function ChatArea({ roomId, roomName, aiEnabled, boardId, onAiSpe
     return new Date(dateStr).toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" });
   };
 
-  // Merge room messages and AI messages, sorted by time
+  // Merge room messages, AI messages, and transcription entries — sorted by time
   const allMessages = [
-    ...messages.map((m) => ({ ...m, isAi: false })),
-    ...aiMessages.map((m) => ({ id: m.id, user_id: "ai-agent", text: m.content, created_at: m.created_at, room_id: roomId || "", isAi: true })),
+    ...messages.map((m) => ({ ...m, isAi: false, isTranscription: false, speaker: "" })),
+    ...aiMessages.map((m) => ({ id: m.id, user_id: "ai-agent", text: m.content, created_at: m.created_at, room_id: roomId || "", isAi: true, isTranscription: false, speaker: "" })),
+    ...transcriptionEntries.map((t) => ({ id: t.id, user_id: "transcription", text: t.text, created_at: t.created_at, room_id: roomId || "", isAi: false, isTranscription: true, speaker: t.speaker })),
   ].sort((a, b) => new Date(a.created_at).getTime() - new Date(b.created_at).getTime());
+
+  const hasContent = allMessages.length > 0;
 
   return (
     <div className="flex-1 flex flex-col min-w-0">
       {/* Header */}
       <div className="h-12 px-4 flex items-center border-b border-border shrink-0">
-        <h3 className="text-sm font-medium text-foreground">{roomName}</h3>
-        {aiEnabled && (
-          <div className="ml-2 flex items-center gap-1.5">
-            <Bot className="w-3.5 h-3.5 text-primary" />
-            <span className="text-[10px] text-primary font-medium">IA ouvindo</span>
-            {aiProcessing && (
-              <div className="w-3 h-3 border-2 border-primary border-t-transparent rounded-full animate-spin" />
-            )}
-          </div>
-        )}
+        <h3 className="text-sm font-medium text-foreground flex-1">{roomName}</h3>
+        <div className="flex items-center gap-1.5">
+          {isListening && (
+            <div className="flex items-center gap-1.5 mr-2">
+              <Mic className="w-3 h-3 text-[hsl(var(--success))]" />
+              <span className="text-[10px] text-[hsl(var(--success))] font-medium">Ouvindo</span>
+              <span className="w-1.5 h-1.5 rounded-full bg-[hsl(var(--success))] animate-pulse" />
+            </div>
+          )}
+          {aiEnabled && (
+            <div className="flex items-center gap-1.5 mr-2">
+              <Bot className="w-3.5 h-3.5 text-primary" />
+              <span className="text-[10px] text-primary font-medium">IA ativa</span>
+              {aiProcessing && (
+                <div className="w-3 h-3 border-2 border-primary border-t-transparent rounded-full animate-spin" />
+              )}
+            </div>
+          )}
+          {hasContent && (
+            <>
+              <Button variant="ghost" size="icon" className="h-7 w-7" onClick={handleSaveConversation} title="Salvar conversa">
+                <Download className="w-3.5 h-3.5" />
+              </Button>
+              <Button variant="ghost" size="icon" className="h-7 w-7" onClick={handleClearHistory} title="Limpar histórico">
+                <RotateCcw className="w-3.5 h-3.5" />
+              </Button>
+            </>
+          )}
+        </div>
       </div>
 
       {/* Messages */}
@@ -193,19 +256,30 @@ export default function ChatArea({ roomId, roomName, aiEnabled, boardId, onAiSpe
               "w-8 h-8 rounded-full flex items-center justify-center shrink-0 text-xs font-medium",
               msg.isAi
                 ? "bg-primary/15 text-primary"
-                : "bg-muted text-muted-foreground"
+                : msg.isTranscription
+                  ? "bg-[hsl(var(--success))]/15 text-[hsl(var(--success))]"
+                  : "bg-muted text-muted-foreground"
             )}>
-              {msg.isAi ? <Bot className="w-4 h-4" /> : getMemberName(msg.user_id).charAt(0)}
+              {msg.isAi ? (
+                <Bot className="w-4 h-4" />
+              ) : msg.isTranscription ? (
+                <Mic className="w-4 h-4" />
+              ) : (
+                getMemberName(msg.user_id).charAt(0)
+              )}
             </div>
             <div className="min-w-0 flex-1">
               <div className="flex items-baseline gap-2">
                 <span className={cn(
                   "text-sm font-medium",
-                  msg.isAi ? "text-primary" : "text-foreground"
+                  msg.isAi ? "text-primary" : msg.isTranscription ? "text-[hsl(var(--success))]" : "text-foreground"
                 )}>
-                  {msg.isAi ? "Toolzz IA" : getMemberName(msg.user_id)}
+                  {msg.isAi ? "Toolzz IA" : msg.isTranscription ? `🎙️ ${msg.speaker}` : getMemberName(msg.user_id)}
                 </span>
                 <span className="text-[10px] text-muted-foreground">{formatTime(msg.created_at)}</span>
+                {msg.isTranscription && (
+                  <span className="text-[9px] text-muted-foreground/60 bg-muted px-1.5 py-0.5 rounded">transcrição</span>
+                )}
               </div>
               {msg.isAi ? (
                 <div className="prose prose-sm dark:prose-invert max-w-none [&>p]:m-0 text-sm text-secondary-foreground">

@@ -1,7 +1,6 @@
-import { Bot, Sparkles, FileText, MicOff, Mic, Volume2, VolumeX, PhoneOff, Settings } from "lucide-react";
+import { Bot, Sparkles, MicOff, Mic, Volume2, VolumeX, PhoneOff, Settings } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
-import { Badge } from "@/components/ui/badge";
 import { Tooltip, TooltipTrigger, TooltipContent } from "@/components/ui/tooltip";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
@@ -13,13 +12,11 @@ interface VoiceParticipantsProps {
   room: Room;
   aiEnabled: boolean;
   aiSpeaking?: boolean;
-  transcriptionEnabled: boolean;
   isListening?: boolean;
   onToggleAI: () => void;
-  onToggleTranscription: () => void;
 }
 
-export default function VoiceParticipants({ room, aiEnabled, aiSpeaking, transcriptionEnabled, isListening, onToggleAI, onToggleTranscription }: VoiceParticipantsProps) {
+export default function VoiceParticipants({ room, aiEnabled, aiSpeaking, isListening, onToggleAI }: VoiceParticipantsProps) {
   const { connectedRoom, currentUser, isMuted, isDeafened, toggleMute, toggleDeafen, disconnect } = useVoiceConnection();
   const [inputDevice, setInputDevice] = useState("default");
   const [outputDevice, setOutputDevice] = useState("default");
@@ -29,7 +26,6 @@ export default function VoiceParticipants({ room, aiEnabled, aiSpeaking, transcr
     ? [...room.connectedUsers, { ...currentUser, isSpeaking: false }]
     : room.connectedUsers;
 
-  // Add AI as a participant when enabled
   const allParticipants = aiEnabled
     ? [...members, { id: "ai-agent", name: "Toolzz IA", avatar: "", isSpeaking: aiSpeaking }]
     : members;
@@ -38,27 +34,8 @@ export default function VoiceParticipants({ room, aiEnabled, aiSpeaking, transcr
 
   return (
     <div className="flex-1 bg-surface/50 flex flex-col items-center justify-center relative min-h-[300px]">
-      {/* Top right buttons */}
+      {/* Top right button */}
       <div className="absolute top-4 right-4 flex items-center gap-2">
-        <Tooltip>
-          <TooltipTrigger asChild>
-            <Button size="sm" variant={transcriptionEnabled ? "default" : "outline"} className={cn("h-8 gap-1.5 text-xs", transcriptionEnabled && isListening && "ring-2 ring-[hsl(var(--success))]/50")} onClick={onToggleTranscription}>
-              <FileText className={cn("w-3.5 h-3.5", transcriptionEnabled && isListening && "text-[hsl(var(--success))]")} />
-              {transcriptionEnabled ? "Parar Transcrição" : "Transcrição"}
-              {transcriptionEnabled && (
-                <span className={cn(
-                  "ml-1 text-[9px] px-1.5 py-0 rounded-full font-medium",
-                  isListening ? "bg-[hsl(var(--success))]/20 text-[hsl(var(--success))]" : "bg-muted text-muted-foreground"
-                )}>
-                  {isListening ? "🎙️ Ouvindo" : "Ativa"}
-                </span>
-              )}
-            </Button>
-          </TooltipTrigger>
-          <TooltipContent>
-            {transcriptionEnabled ? "Parar a transcrição da reunião" : "Transcrever o áudio da reunião em tempo real"}
-          </TooltipContent>
-        </Tooltip>
         <Tooltip>
           <TooltipTrigger asChild>
             <Button size="sm" variant={aiEnabled ? "default" : "outline"} className="h-8 gap-1.5 text-xs" onClick={onToggleAI}>
@@ -127,17 +104,12 @@ export default function VoiceParticipants({ room, aiEnabled, aiSpeaking, transcr
         <div className="mt-6 flex items-center gap-2">
           <Button variant="ghost" size="icon" className={cn(
             "h-9 w-9 rounded-full",
-            isListening && transcriptionEnabled
-              ? "bg-[hsl(var(--success))]/15 ring-2 ring-[hsl(var(--success))]/40"
-              : "bg-muted"
+            isListening ? "bg-[hsl(var(--success))]/15 ring-2 ring-[hsl(var(--success))]/40" : "bg-muted"
           )} onClick={toggleMute}>
             {isMuted ? (
               <MicOff className="w-4 h-4 text-destructive" />
             ) : (
-              <Mic className={cn(
-                "w-4 h-4",
-                isListening && transcriptionEnabled ? "text-[hsl(var(--success))]" : ""
-              )} />
+              <Mic className={cn("w-4 h-4", isListening && "text-[hsl(var(--success))]")} />
             )}
           </Button>
           <Button variant="ghost" size="icon" className="h-9 w-9 rounded-full bg-muted" onClick={toggleDeafen}>
@@ -147,7 +119,6 @@ export default function VoiceParticipants({ room, aiEnabled, aiSpeaking, transcr
             <PhoneOff className="w-4 h-4" />
           </Button>
 
-          {/* Audio Settings */}
           <Popover>
             <PopoverTrigger asChild>
               <Button variant="ghost" size="icon" className="h-9 w-9 rounded-full bg-muted">
