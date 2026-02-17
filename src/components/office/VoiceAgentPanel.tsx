@@ -39,6 +39,32 @@ export default function VoiceAgentPanel({ boardId, onSpeakingChange, onClose }: 
     onSpeakingChange?.(status === "speaking");
   }, [status, onSpeakingChange]);
 
+  // Proactive greeting when AI panel opens
+  const hasGreetedRef = useRef(false);
+  useEffect(() => {
+    if (hasGreetedRef.current) return;
+    hasGreetedRef.current = true;
+    const greeting = "Olá! 👋 Sou seu assistente de tarefas. Vamos criar algumas tarefas? Me diga o título da primeira!";
+    const aiMsg: Message = { role: "assistant", content: greeting };
+    setMessages([aiMsg]);
+    messagesRef.current = [aiMsg];
+    // Speak the greeting after a short delay
+    const timer = setTimeout(() => {
+      if (!window.speechSynthesis) return;
+      window.speechSynthesis.cancel();
+      const utterance = new SpeechSynthesisUtterance(greeting.replace(/👋/g, ""));
+      utterance.lang = "pt-BR";
+      const voices = window.speechSynthesis.getVoices();
+      const ptVoice = voices.find((v) => v.lang.startsWith("pt"));
+      if (ptVoice) utterance.voice = ptVoice;
+      utterance.onstart = () => setStatus("speaking");
+      utterance.onend = () => setStatus("idle");
+      utterance.onerror = () => setStatus("idle");
+      window.speechSynthesis.speak(utterance);
+    }, 500);
+    return () => clearTimeout(timer);
+  }, []);
+
   // Cleanup on unmount
   useEffect(() => {
     return () => {
