@@ -203,7 +203,7 @@ export default function BoardPage() {
     return (
       <div className="h-full flex flex-col">
         <div className="px-6 py-4 border-b border-border flex items-center justify-between shrink-0">
-          <h1 className="text-lg font-semibold text-foreground">Central de Tarefas</h1>
+          <h1 className="text-lg font-semibold text-foreground">Boards</h1>
           {isAdmin && (
             <Button size="sm" className="gap-1.5 btn-gradient" onClick={() => setNewBoardOpen(true)}>
               <Plus className="w-4 h-4" /> Nova Central
