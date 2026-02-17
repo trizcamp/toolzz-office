@@ -112,10 +112,13 @@ export default function OfficePage() {
       }
 
       const text = data?.transcript?.trim();
-      // Strict filter: must not be silence marker, must be 10+ chars, must have spaces (real sentence)
+      // Reject English text (likely TV/background media)
+      const isEnglish = /\b(the|is|it's|of|on|and|that|this|with|for|are|was|were|have|has|had|not|but|what|all|can|her|his|from|they|been|one|our|will|would|there|their|about|right|now|just|kind|weird|smell|air|want|more|stuff)\b/i.test(text || "");
+      // Strict filter
       if (
         text &&
         text.length >= 10 &&
+        !isEnglish &&
         !text.includes("__SILENCE__") &&
         !text.includes("SILENCE") &&
         text.includes(" ") &&
