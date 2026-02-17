@@ -9,7 +9,7 @@ import { toast } from "sonner";
 import { cn } from "@/lib/utils";
 import { motion, AnimatePresence } from "framer-motion";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
-import makeIcon from "@/assets/make-icon.png";
+
 
 export default function AutomationsPage() {
   const { automations, isLoading, createAutomation, updateAutomation, deleteAutomation } = useAutomations();
@@ -49,7 +49,9 @@ export default function AutomationsPage() {
       <div className="w-[280px] shrink-0 border-r border-border bg-sidebar flex flex-col">
         <div className="p-4 border-b border-border space-y-3">
           <div className="flex items-center gap-2">
-            <img src={makeIcon} alt="" className="w-5 h-5 rounded" />
+            <div className="w-6 h-6 rounded-lg bg-gradient-to-br from-violet-500 to-primary flex items-center justify-center">
+              <Zap className="w-3.5 h-3.5 text-white" />
+            </div>
             <h2 className="text-sm font-semibold text-foreground flex-1">Automações</h2>
           </div>
           <Button onClick={handleCreate} className="w-full gap-2 text-xs" size="sm" disabled={createAutomation.isPending}>
