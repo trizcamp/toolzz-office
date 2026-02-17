@@ -87,7 +87,7 @@ supabase/
 - Análise de reunião com IA (resumo, action items)
 - Vinculação de tarefas a reuniões
 
-### 🤖 Assistente IA (Toolzz Chat)
+### 🤖 Assistente IA (Toolzz AI + Lovable AI)
 - Chat conversacional integrado ao board
 - Criação de tarefas por linguagem natural (tool calling)
 - Geração automática de documentação (User Story, Critérios de Aceite, Notas Técnicas)
