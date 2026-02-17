@@ -5,7 +5,6 @@ import RoomList from "@/components/office/RoomList";
 import ChatArea from "@/components/office/ChatArea";
 import MemberList from "@/components/office/MemberList";
 import VoiceParticipants from "@/components/office/VoiceParticipants";
-import VoiceAgentPanel from "@/components/office/VoiceAgentPanel";
 import TranscriptionPanel from "@/components/office/TranscriptionPanel";
 import { useRooms, type DbRoom } from "@/hooks/useRooms";
 import { useVoiceConnection } from "@/contexts/VoiceConnectionContext";
@@ -63,7 +62,6 @@ export default function OfficePage() {
     } else {
       setTranscriptionEnabled(true);
       toast({ title: "Transcrição ativa", description: "O áudio da reunião está sendo transcrito." });
-      // Add mock entries to demonstrate the feature
       if (transcriptionEntries.length === 0) {
         const now = new Date();
         const fmt = (d: Date) => d.toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" });
@@ -78,7 +76,7 @@ export default function OfficePage() {
   }, [transcriptionEnabled, toast, transcriptionEntries.length]);
 
   const isVoiceRoom = selectedRoom?.type !== "text";
-  const showRightPanel = (aiEnabled && isVoiceRoom) || (transcriptionEnabled && isVoiceRoom);
+  const showTranscriptionPanel = transcriptionEnabled && isVoiceRoom;
 
   if (isLoading || !selectedRoom) {
     return <div className="flex items-center justify-center h-full text-sm text-muted-foreground">Carregando salas...</div>;
@@ -106,29 +104,22 @@ export default function OfficePage() {
           />
         )}
         <div className="flex-1 flex min-w-0">
-          <ChatArea roomId={selectedRoom.id} roomName={selectedRoom.name} />
-          {showRightPanel && (
+          <ChatArea
+            roomId={selectedRoom.id}
+            roomName={selectedRoom.name}
+            aiEnabled={aiEnabled}
+            boardId={boardId}
+            onAiSpeakingChange={setAiSpeaking}
+          />
+          {showTranscriptionPanel && (
             <div className="w-[360px] shrink-0 flex flex-col">
-              {transcriptionEnabled && (
-                <div className={aiEnabled ? "h-1/2 border-b border-border" : "flex-1"}>
-                  <TranscriptionPanel
-                    entries={transcriptionEntries}
-                    onClose={() => {
-                      setTranscriptionEnabled(false);
-                      toast({ title: "Transcrição pausada" });
-                    }}
-                  />
-                </div>
-              )}
-              {aiEnabled && (
-                <div className={transcriptionEnabled ? "h-1/2" : "flex-1"}>
-                  <VoiceAgentPanel
-                    boardId={boardId}
-                    onSpeakingChange={setAiSpeaking}
-                    onClose={handleToggleAI}
-                  />
-                </div>
-              )}
+              <TranscriptionPanel
+                entries={transcriptionEntries}
+                onClose={() => {
+                  setTranscriptionEnabled(false);
+                  toast({ title: "Transcrição pausada" });
+                }}
+              />
             </div>
           )}
         </div>
