@@ -119,6 +119,26 @@ export default function ChatArea({ roomId, roomName, aiEnabled, boardId, isListe
     }
   }, [aiEnabled, onAiSpeakingChange, speakText]);
 
+  // Auto-send new transcriptions to AI when enabled
+  const lastProcessedTranscriptionRef = useRef(0);
+  const sendToAIRef = useRef<((text: string) => void) | null>(null);
+  useEffect(() => {
+    if (!aiEnabled || aiProcessing || transcriptionEntries.length === 0) return;
+    
+    const newEntries = transcriptionEntries.slice(lastProcessedTranscriptionRef.current);
+    if (newEntries.length === 0) return;
+    
+    lastProcessedTranscriptionRef.current = transcriptionEntries.length;
+    const combinedText = newEntries.map(e => e.text).join(" ");
+    if (combinedText.trim() && sendToAIRef.current) {
+      sendToAIRef.current(combinedText.trim());
+    }
+  }, [transcriptionEntries, aiEnabled, aiProcessing]);
+
+  // Reset counter when AI is disabled
+  useEffect(() => {
+    if (!aiEnabled) lastProcessedTranscriptionRef.current = 0;
+  }, [aiEnabled]);
 
   const sendToAI = useCallback(async (userText: string) => {
     const userEntry = { role: "user" as const, content: userText };
@@ -165,6 +185,9 @@ export default function ChatArea({ roomId, roomName, aiEnabled, boardId, isListe
       setAiProcessing(false);
     }
   }, [boardId, speakText]);
+
+  // Keep ref in sync for transcription auto-send
+  useEffect(() => { sendToAIRef.current = sendToAI; }, [sendToAI]);
 
   const handleSend = () => {
     if (!draft.trim() || !roomId) return;
