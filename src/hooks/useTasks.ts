@@ -157,7 +157,7 @@ export function useTaskAssignees(taskId: string | null) {
     queryFn: async () => {
       const { data, error } = await supabase
         .from("task_assignees")
-        .select("*, members(id, name, surname, email, avatar_url)")
+        .select("*, members!task_assignees_user_id_members_fkey(id, name, surname, email, avatar_url)")
         .eq("task_id", taskId!);
       if (error) throw error;
       return data;
