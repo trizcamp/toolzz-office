@@ -337,7 +337,7 @@ export default function DocumentsPage() {
 
       {/* New Document Dialog */}
       <Dialog open={newDocOpen} onOpenChange={setNewDocOpen}>
-        <DialogContent className="sm:max-w-[420px]">
+        <DialogContent className="sm:max-w-[420px] overflow-hidden">
           <DialogHeader>
             <DialogTitle>Novo Documento</DialogTitle>
           </DialogHeader>
