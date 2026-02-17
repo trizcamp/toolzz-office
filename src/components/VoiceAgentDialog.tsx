@@ -103,10 +103,18 @@ export default function VoiceAgentDialog({ open, onOpenChange, boardId }: VoiceA
     }
   }, [speakText]);
 
-  const startListening = useCallback(() => {
+  const startListening = useCallback(async () => {
     const SpeechRecognitionAPI = getSpeechRecognitionAPI();
     if (!SpeechRecognitionAPI) {
       toast.error("Seu navegador não suporta reconhecimento de voz. Use Chrome ou Edge.");
+      return;
+    }
+
+    // Request microphone permission first
+    try {
+      await navigator.mediaDevices.getUserMedia({ audio: true });
+    } catch (e) {
+      toast.error("Permissão de microfone necessária para usar o agente de voz.");
       return;
     }
 
