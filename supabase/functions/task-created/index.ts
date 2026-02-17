@@ -183,12 +183,26 @@ serve(async (req) => {
       console.log("Created new document:", docId);
     }
 
+    // Strip trailing agent questions from markdown before converting to blocks
+    let cleanedMarkdown = markdownContent || "";
+    if (cleanedMarkdown.trim().length > 0) {
+      // Remove trailing lines that are questions (end with ?)
+      const lines = cleanedMarkdown.split("\n");
+      while (lines.length > 0) {
+        const lastLine = lines[lines.length - 1].trim();
+        if (!lastLine) { lines.pop(); continue; }
+        if (lastLine.endsWith("?")) { lines.pop(); continue; }
+        break;
+      }
+      cleanedMarkdown = lines.join("\n");
+    }
+
     // Build blocks
     let blocks: any[];
 
-    if (markdownContent && markdownContent.trim().length > 0) {
-      console.log("Parsing markdown content, length:", markdownContent.length);
-      blocks = parseMarkdownToBlocks(markdownContent, docId);
+    if (cleanedMarkdown.trim().length > 0) {
+      console.log("Parsing markdown content, length:", cleanedMarkdown.length);
+      blocks = parseMarkdownToBlocks(cleanedMarkdown, docId);
       console.log("Parsed blocks count:", blocks.length);
       if (blocks.length === 0) {
         blocks = getDefaultBlocks(docId, task);
