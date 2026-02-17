@@ -1,5 +1,5 @@
 import { motion } from "framer-motion";
-import { CheckCircle2, MessageSquare, Activity, Mic, Plus, ArrowRight, UserPlus } from "lucide-react";
+import { CheckCircle2, MessageSquare, Activity, Mic, Plus, ArrowRight, UserPlus, Video, Calendar, Clock } from "lucide-react";
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { cn } from "@/lib/utils";
@@ -7,6 +7,7 @@ import { useTasks } from "@/hooks/useTasks";
 import { useAuth } from "@/hooks/useAuth";
 import { useBoards } from "@/hooks/useBoards";
 import { useActivityLogs } from "@/hooks/useActivityLogs";
+import { useMeetings } from "@/hooks/useMeetings";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import ToolzzChatDialog from "@/components/ToolzzChatDialog";
 import VoiceAgentDialog from "@/components/VoiceAgentDialog";
@@ -79,10 +80,14 @@ export default function HomePage() {
   const { boards } = useBoards();
   const { tasks } = useTasks(null);
   const { logs } = useActivityLogs();
+  const { meetings } = useMeetings();
 
   const userName = user?.user_metadata?.name || user?.email?.split("@")[0] || "Boss";
   const todayTasks = tasks.filter((t) => t.status === "todo" || t.status === "in_progress").slice(0, 5);
   const boardId = boards?.[0]?.id || null;
+  const upcomingMeetings = meetings
+    .filter((m) => m.status === "scheduled" || !m.end_time)
+    .slice(0, 4);
 
   return (
     <div className="h-full overflow-y-auto p-6 space-y-6">
@@ -192,6 +197,42 @@ export default function HomePage() {
           </div>
         </motion.div>
       </div>
+
+      {/* Upcoming Meetings */}
+      {upcomingMeetings.length > 0 && (
+        <motion.div
+          initial={{ opacity: 0, y: 10 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ delay: 0.25 }}
+          className="bg-card border border-border rounded-xl p-4"
+        >
+          <div className="flex items-center gap-2 mb-3">
+            <Video className="w-4 h-4 text-primary" />
+            <h2 className="text-sm font-semibold text-foreground">Próximas Reuniões</h2>
+            <span className="text-[10px] bg-muted rounded-full px-2 py-0.5 text-muted-foreground ml-auto">{upcomingMeetings.length}</span>
+          </div>
+          <div className="grid sm:grid-cols-2 gap-2">
+            {upcomingMeetings.map((m) => (
+              <div
+                key={m.id}
+                onClick={() => navigate(`/meetings/${m.meeting_code || m.id}`)}
+                className="flex items-center gap-3 py-2 px-3 rounded-lg hover:bg-muted/50 transition-colors cursor-pointer"
+              >
+                <div className="w-8 h-8 rounded-lg bg-primary/10 flex items-center justify-center shrink-0">
+                  <Video className="w-4 h-4 text-primary" />
+                </div>
+                <div className="flex-1 min-w-0">
+                  <p className="text-sm text-foreground truncate">{m.title}</p>
+                  <div className="flex items-center gap-2 text-[10px] text-muted-foreground">
+                    <span className="flex items-center gap-0.5"><Calendar className="w-3 h-3" />{m.date}</span>
+                    {m.start_time && <span className="flex items-center gap-0.5"><Clock className="w-3 h-3" />{m.start_time}</span>}
+                  </div>
+                </div>
+              </div>
+            ))}
+          </div>
+        </motion.div>
+      )}
 
       <ToolzzChatDialog open={chatOpen} onOpenChange={setChatOpen} boardId={boardId} />
       <VoiceAgentDialog open={voiceOpen} onOpenChange={setVoiceOpen} boardId={boardId} />
