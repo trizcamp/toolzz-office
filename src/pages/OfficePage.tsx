@@ -92,7 +92,7 @@ export default function OfficePage() {
     // Skip transcription while AI is speaking or within 2s buffer after
     if (aiSpeakingRef.current) return;
     if (aiStoppedSpeakingAtRef.current > 0 && (Date.now() - aiStoppedSpeakingAtRef.current) < 2000) return;
-    if (blob.size < 2000) return; // skip very small chunks (likely silence)
+    if (blob.size < 5000) return; // skip small chunks (likely silence/noise)
     try {
       const arrayBuffer = await blob.arrayBuffer();
       const uint8 = new Uint8Array(arrayBuffer);
@@ -112,18 +112,21 @@ export default function OfficePage() {
       }
 
       const text = data?.transcript?.trim();
-      // Reject English text (likely TV/background media)
-      const isEnglish = /\b(the|is|it's|of|on|and|that|this|with|for|are|was|were|have|has|had|not|but|what|all|can|her|his|from|they|been|one|our|will|would|there|their|about|right|now|just|kind|weird|smell|air|want|more|stuff)\b/i.test(text || "");
-      // Strict filter
-      if (
-        text &&
-        text.length >= 10 &&
-        !isEnglish &&
-        !text.includes("__SILENCE__") &&
-        !text.includes("SILENCE") &&
-        text.includes(" ") &&
-        !/^[.\s,…!?-]+$/.test(text)
-      ) {
+      // Reject silence markers
+      if (!text || text.includes("__SILENCE__") || text.includes("SILENCE")) return;
+      // Must be a real sentence: 15+ chars with spaces
+      if (text.length < 15 || !text.includes(" ")) return;
+      // Reject punctuation-only
+      if (/^[.\s,…!?;:\-—–]+$/.test(text)) return;
+      // Reject English (2+ common English words = likely not PT-BR)
+      const englishWords = text.match(/\b(the|is|it's|of|and|that|this|with|for|are|was|were|have|has|not|but|what|all|can|from|they|been|will|would|there|their|about|right|now|just|kind|want|more|you|your|my|like|it|do|don't|I'm|we|how|very|much)\b/gi);
+      if (englishWords && englishWords.length >= 2) return;
+      // Must contain PT-BR characters or common PT words
+      const hasPtChar = /[àáâãéêíóôõúçÀÁÂÃÉÊÍÓÔÕÚÇ]/.test(text);
+      const hasPtWord = /\b(que|não|com|uma|para|está|isso|mas|como|mais|tem|são|foi|ser|ter|fazer|aqui|muito|bem|sim|então|porque|quando|ainda|pode|também|ele|ela|esse|essa|você|vocês|nosso|nossa|nós|agora|vamos|quero|preciso|olha|gente|tudo|nada|cada|outro|outra)\b/i.test(text);
+      if (!hasPtChar && !hasPtWord) return;
+
+      if (true) {
         const now = new Date();
         const time = now.toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" });
         setTranscriptionEntries((prev) => [
