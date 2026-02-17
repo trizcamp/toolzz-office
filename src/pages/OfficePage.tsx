@@ -197,7 +197,7 @@ export default function OfficePage() {
 
       // VAD: check audio level every 100ms
       const dataArray = new Uint8Array(analyser.frequencyBinCount);
-      const SPEECH_THRESHOLD = 25; // RMS level that indicates real speech
+      const SPEECH_THRESHOLD = 60; // RMS level that indicates real speech (high to ignore ambient noise)
       vadIntervalRef.current = setInterval(() => {
         if (!analyserRef.current) return;
         analyserRef.current.getByteTimeDomainData(dataArray);
