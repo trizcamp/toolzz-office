@@ -1,5 +1,5 @@
 import { useState, useMemo, useCallback, useRef, useEffect } from "react";
-import { Plus, FileText, Link2, Maximize2, Minimize2, Folder, ChevronLeft, FileIcon } from "lucide-react";
+import { Plus, FileText, Link2, Maximize2, Minimize2, Folder, ChevronLeft, FileIcon, Search } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
@@ -24,6 +24,7 @@ export default function DocumentsPage() {
   const [newDocOpen, setNewDocOpen] = useState(false);
   const [newDocTitle, setNewDocTitle] = useState("");
   const [newDocTaskId, setNewDocTaskId] = useState<string>("none");
+  const [taskSearch, setTaskSearch] = useState("");
   const [activeFolderId, setActiveFolderId] = useState<string | null>(null);
 
   const selectedDoc = documents.find((d: any) => d.id === selectedDocId) || null;
@@ -148,6 +149,7 @@ export default function DocumentsPage() {
           setNewDocOpen(false);
           setNewDocTitle("");
           setNewDocTaskId("none");
+          setTaskSearch("");
         },
       }
     );
@@ -319,22 +321,49 @@ export default function DocumentsPage() {
             </div>
             <div className="space-y-2">
               <Label>Vincular a uma tarefa (opcional)</Label>
-              <Select value={newDocTaskId} onValueChange={setNewDocTaskId}>
-                <SelectTrigger className="text-sm">
-                  <SelectValue placeholder="Nenhuma tarefa" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="none">Nenhuma tarefa</SelectItem>
-                  {tasksWithoutDoc.map((t) => (
-                    <SelectItem key={t.id} value={t.id}>
+              <div className="relative">
+                <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-muted-foreground" />
+                <Input
+                  placeholder="Pesquisar tarefa..."
+                  value={taskSearch}
+                  onChange={(e) => setTaskSearch(e.target.value)}
+                  className="pl-9 text-sm"
+                />
+              </div>
+              <div className="max-h-48 overflow-y-auto border border-border rounded-lg">
+                <button
+                  type="button"
+                  onClick={() => setNewDocTaskId("none")}
+                  className={cn(
+                    "w-full text-left px-3 py-2 text-sm transition-colors",
+                    newDocTaskId === "none" ? "bg-surface-hover text-foreground" : "text-muted-foreground hover:bg-surface-hover hover:text-foreground"
+                  )}
+                >
+                  Nenhuma tarefa
+                </button>
+                {allTasks
+                  .filter((t) => {
+                    if (!taskSearch.trim()) return true;
+                    const q = taskSearch.toLowerCase();
+                    return t.title.toLowerCase().includes(q) || t.display_id.toLowerCase().includes(q);
+                  })
+                  .map((t) => (
+                    <button
+                      type="button"
+                      key={t.id}
+                      onClick={() => setNewDocTaskId(t.id)}
+                      className={cn(
+                        "w-full text-left px-3 py-2 text-sm transition-colors border-t border-border",
+                        newDocTaskId === t.id ? "bg-surface-hover text-foreground" : "text-muted-foreground hover:bg-surface-hover hover:text-foreground"
+                      )}
+                    >
                       <span className="flex items-center gap-2">
-                        <span className="font-mono text-[10px] text-muted-foreground">{t.display_id}</span>
-                        <span>{t.title}</span>
+                        <span className="font-mono text-[10px] text-muted-foreground shrink-0">{t.display_id}</span>
+                        <span className="truncate">{t.title}</span>
                       </span>
-                    </SelectItem>
+                    </button>
                   ))}
-                </SelectContent>
-              </Select>
+              </div>
             </div>
             <Button className="w-full btn-gradient" onClick={handleCreateDocument}>
               Criar Documento
