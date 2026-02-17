@@ -1,11 +1,11 @@
 import { useState, useRef, useCallback, useEffect } from "react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
-import { Mic, MicOff, Volume2, Square, CheckCircle2, Send } from "lucide-react";
+import { Mic, MicOff, Volume2, Square, CheckCircle2 } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
 import ReactMarkdown from "react-markdown";
-import { Input } from "@/components/ui/input";
+
 
 interface VoiceAgentDialogProps {
   open: boolean;
@@ -20,7 +20,6 @@ export default function VoiceAgentDialog({ open, onOpenChange, boardId }: VoiceA
   const [messages, setMessages] = useState<Message[]>([]);
   const [status, setStatus] = useState<Status>("idle");
   const [interimText, setInterimText] = useState("");
-  const [textInput, setTextInput] = useState("");
   const [createdTasks, setCreatedTasks] = useState<{ title: string; display_id: string }[]>([]);
   const [micAvailable, setMicAvailable] = useState<boolean | null>(null);
 
@@ -198,14 +197,6 @@ export default function VoiceAgentDialog({ open, onOpenChange, boardId }: VoiceA
     }
   }, []);
 
-  const handleTextSubmit = useCallback((e?: React.FormEvent) => {
-    e?.preventDefault();
-    const text = textInput.trim();
-    if (!text || status === "processing") return;
-    setTextInput("");
-    sendToAI(text);
-  }, [textInput, status, sendToAI]);
-
   const statusLabel: Record<Status, string> = {
     idle: micAvailable ? "Toque no microfone para falar" : "Digite sua mensagem abaixo",
     listening: "Ouvindo...",
@@ -281,30 +272,7 @@ export default function VoiceAgentDialog({ open, onOpenChange, boardId }: VoiceA
 
         {/* Controls */}
         <div className="flex flex-col items-center gap-3 pb-1">
-          {/* Text input */}
-          <form onSubmit={handleTextSubmit} className="flex w-full gap-2">
-            <Input
-              value={textInput}
-              onChange={(e) => setTextInput(e.target.value)}
-              placeholder="Digite sua mensagem..."
-              disabled={status === "processing"}
-              className="flex-1 text-sm"
-            />
-            <button
-              type="submit"
-              disabled={!textInput.trim() || status === "processing"}
-              className={cn(
-                "w-10 h-10 rounded-lg border flex items-center justify-center transition-all shrink-0",
-                textInput.trim() && status !== "processing"
-                  ? "bg-primary text-primary-foreground hover:bg-primary/90"
-                  : "bg-muted text-muted-foreground border-border"
-              )}
-            >
-              <Send className="w-4 h-4" />
-            </button>
-          </form>
-
-          {/* Mic button - only show if mic is available */}
+          {/* Mic button */}
           {micAvailable && (
             <div className="flex items-center gap-3">
               {status === "speaking" ? (
