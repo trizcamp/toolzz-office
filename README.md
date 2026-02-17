@@ -1,4 +1,13 @@
-# Welcome to your Lovable project
+# Toolzz Office
+
+## Equipe 313
+
+| Integrante | Nome Completo | Função | E-mail | WhatsApp |
+|---|---|---|---|---|
+| 1 | Beatriz Felix Campache | Vibecoder | beatriz.campache@toolzz.me | (11) 93338-3407 |
+| 2 | João Henrique Lebrão Graziotto | Negócios | joaograziotto@gmail.com | (11) 99471-8335 |
+
+---
 
 ## Project info
 
