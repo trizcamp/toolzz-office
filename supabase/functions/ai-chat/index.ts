@@ -80,7 +80,7 @@ Responda SEMPRE em português brasileiro. Seja ULTRA conciso (máximo 2 frases).
         "Content-Type": "application/json",
       },
       body: JSON.stringify({
-        model: "google/gemini-2.5-pro",
+        model: "google/gemini-2.5-flash",
         messages: [{ role: "system", content: systemPrompt }, ...messages],
         tools,
         tool_choice: "auto",
@@ -239,7 +239,7 @@ Responda SEMPRE em português brasileiro. Seja ULTRA conciso (máximo 2 frases).
           "Content-Type": "application/json",
         },
         body: JSON.stringify({
-          model: "google/gemini-2.5-pro",
+          model: "google/gemini-2.5-flash",
           messages: [{ role: "system", content: systemPrompt }, ...followUpMessages],
         }),
       });
