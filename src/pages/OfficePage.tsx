@@ -35,6 +35,7 @@ export default function OfficePage() {
   const analyserRef = useRef<AnalyserNode | null>(null);
   const vadIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const speechDetectedInChunkRef = useRef(false);
+  const transcribeChunkRef = useRef<((blob: Blob) => void) | null>(null);
 
   const selectedRoom = rooms.find((r) => r.id === selectedRoomId) || rooms[0] || null;
   const boardId = boards?.[0]?.id || null;
@@ -44,18 +45,58 @@ export default function OfficePage() {
   useEffect(() => { isVoiceActiveRef.current = isListening; }, [isListening]);
   useEffect(() => {
     aiSpeakingRef.current = aiSpeaking;
-    // Mute mic tracks while AI is speaking to prevent echo capture
-    if (streamRef.current) {
-      streamRef.current.getAudioTracks().forEach(track => {
-        track.enabled = !aiSpeaking;
-      });
-    }
-    // Track when AI stopped speaking to add buffer period
-    if (!aiSpeaking && aiStoppedSpeakingAtRef.current === 0) {
-      aiStoppedSpeakingAtRef.current = Date.now();
-    }
+    // When AI starts speaking: stop recorder immediately and discard buffered audio
     if (aiSpeaking) {
       aiStoppedSpeakingAtRef.current = 0;
+      speechDetectedInChunkRef.current = false;
+      // Mute mic tracks
+      if (streamRef.current) {
+        streamRef.current.getAudioTracks().forEach(track => { track.enabled = false; });
+      }
+      // Stop current recorder without transcribing (discard chunks)
+      if (mediaRecorderRef.current && mediaRecorderRef.current.state === "recording") {
+        const recorder = mediaRecorderRef.current;
+        // Replace onstop to discard instead of transcribe
+        recorder.onstop = () => { chunksRef.current = []; };
+        try { recorder.stop(); } catch {}
+      }
+    } else {
+      // AI stopped speaking
+      aiStoppedSpeakingAtRef.current = Date.now();
+      // Re-enable mic tracks
+      if (streamRef.current) {
+        streamRef.current.getAudioTracks().forEach(track => { track.enabled = true; });
+      }
+      // Restart recorder fresh after a short delay
+      if (streamRef.current && streamRef.current.active && isVoiceActiveRef.current) {
+        setTimeout(() => {
+          if (!streamRef.current?.active || aiSpeakingRef.current) return;
+          try {
+            speechDetectedInChunkRef.current = false;
+            // We need access to createRecorder - trigger via the interval mechanism
+            // by ensuring a new recorder is started
+            if (!mediaRecorderRef.current || mediaRecorderRef.current.state === "inactive") {
+              const mimeType = MediaRecorder.isTypeSupported("audio/webm;codecs=opus")
+                ? "audio/webm;codecs=opus"
+                : MediaRecorder.isTypeSupported("audio/webm") ? "audio/webm" : "audio/mp4";
+              const recorder = new MediaRecorder(streamRef.current!, { mimeType });
+              chunksRef.current = [];
+              recorder.ondataavailable = (e) => {
+                if (e.data.size > 0) chunksRef.current.push(e.data);
+              };
+              recorder.onstop = () => {
+                if (chunksRef.current.length > 0) {
+                  const blob = new Blob(chunksRef.current, { type: mimeType });
+                  chunksRef.current = [];
+                  transcribeChunkRef.current?.(blob);
+                }
+              };
+              mediaRecorderRef.current = recorder;
+              recorder.start();
+            }
+          } catch {}
+        }, 1500);
+      }
     }
   }, [aiSpeaking]);
 
@@ -189,6 +230,8 @@ export default function OfficePage() {
     }
   }, []);
 
+  // Keep ref in sync
+  useEffect(() => { transcribeChunkRef.current = transcribeChunk; }, [transcribeChunk]);
   const startTranscription = useCallback(async () => {
     if (streamRef.current) return; // already started
     try {

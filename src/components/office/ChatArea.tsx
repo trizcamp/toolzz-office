@@ -105,7 +105,7 @@ export default function ChatArea({ roomId, roomName, aiEnabled, boardId, isListe
       prevAiEnabledRef.current = false;
     } else if (!prevAiEnabledRef.current) {
       prevAiEnabledRef.current = true;
-      const greeting = "Olá! 👋 Sou a Toolzz IA, sua assistente de tarefas. Vamos criar algumas tarefas? Me diga o título da primeira!";
+      const greeting = "Olá! 👋 Sou da Toolzz, sua assistente de tarefas. Qual tarefa você quer criar?";
       const greetMsg: AiMessage = {
         id: `ai-greet-${Date.now()}`,
         role: "assistant",
