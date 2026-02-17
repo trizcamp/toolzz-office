@@ -136,7 +136,7 @@ export default function MeetingsPage() {
           </p>
 
           {/* Action cards */}
-          <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 w-full max-w-xl mb-10">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 w-full max-w-md mb-10">
             {/* Instant meeting */}
             <motion.button
               whileHover={{ scale: 1.02 }}
@@ -364,25 +364,6 @@ export default function MeetingsPage() {
               </DialogContent>
             </Dialog>
 
-            {/* Join */}
-            <motion.div
-              whileHover={{ scale: 1.02 }}
-              className="flex flex-col items-center gap-3 p-5 rounded-xl bg-card border border-border text-foreground"
-            >
-              <Link2 className="w-6 h-6 text-muted-foreground" />
-              <div className="flex gap-1.5 w-full">
-                <Input
-                  placeholder="abc-defg-hij"
-                  value={joinCode}
-                  onChange={(e) => setJoinCode(e.target.value)}
-                  onKeyDown={(e) => e.key === "Enter" && handleJoin()}
-                  className="h-8 text-xs text-center bg-muted border-0"
-                />
-                <Button size="sm" variant="ghost" className="h-8 px-2 shrink-0" onClick={handleJoin} disabled={!joinCode.trim()}>
-                  <ArrowRight className="w-4 h-4" />
-                </Button>
-              </div>
-            </motion.div>
           </div>
 
           {/* Upcoming meetings */}
