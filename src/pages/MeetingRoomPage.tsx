@@ -1,7 +1,9 @@
 import { useState, useEffect, useRef, useCallback } from "react";
 import { useParams, useNavigate } from "react-router-dom";
-import { Mic, MicOff, Video, VideoOff, Monitor, MonitorOff, PhoneOff, Bot, Users, Copy, MessageSquare } from "lucide-react";
+import { Mic, MicOff, Video, VideoOff, Monitor, MonitorOff, PhoneOff, Bot, Users, Copy, MessageSquare, Calendar, Clock, Check, X, CalendarClock, ArrowRight } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
 import { useMembers } from "@/hooks/useMembers";
@@ -10,6 +12,8 @@ import ChatArea from "@/components/office/ChatArea";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
 import { motion, AnimatePresence } from "framer-motion";
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 
 export default function MeetingRoomPage() {
   const { code } = useParams<{ code: string }>();
@@ -21,6 +25,13 @@ export default function MeetingRoomPage() {
 
   const [meeting, setMeeting] = useState<any>(null);
   const [loading, setLoading] = useState(true);
+  const [inLobby, setInLobby] = useState(true);
+  const [myParticipant, setMyParticipant] = useState<any>(null);
+  const [participants, setParticipants] = useState<any[]>([]);
+  const [rescheduleOpen, setRescheduleOpen] = useState(false);
+  const [rescheduleDate, setRescheduleDate] = useState("");
+  const [rescheduleTime, setRescheduleTime] = useState("");
+  const [creatorMember, setCreatorMember] = useState<any>(null);
 
   // Media state
   const [micOn, setMicOn] = useState(true);
@@ -72,16 +83,39 @@ export default function MeetingRoomPage() {
         return;
       }
       setMeeting(data);
+
+      // Find creator member
+      if (data.created_by) {
+        const creator = members.find(m => m.id === data.created_by);
+        setCreatorMember(creator || null);
+      }
+
+      // Fetch participants
+      const { data: parts } = await supabase
+        .from("meeting_participants")
+        .select("*")
+        .eq("meeting_id", data.id) as any;
+      setParticipants(parts || []);
+
+      // Check if current user is a participant
+      const myPart = (parts || []).find((p: any) => p.user_id === user?.id);
+      setMyParticipant(myPart || null);
+
+      // If current user is the creator, skip lobby
+      if (data.created_by === user?.id) {
+        setInLobby(false);
+      }
+
       setLoading(false);
     })();
-  }, [code, navigate]);
+  }, [code, navigate, user?.id, members]);
 
-  // Start local camera
+  // Start local camera only when not in lobby
   useEffect(() => {
-    if (loading || !meeting) return;
+    if (loading || !meeting || inLobby) return;
     startCamera();
     return () => stopAllMedia();
-  }, [loading, meeting]);
+  }, [loading, meeting, inLobby]);
 
   const startCamera = async () => {
     try {
@@ -293,10 +327,174 @@ export default function MeetingRoomPage() {
   const currentMember = members.find(m => m.id === user?.id);
   const memberName = currentMember ? `${currentMember.name} ${currentMember.surname?.charAt(0) || ""}.` : "Você";
 
+  const handleAccept = async () => {
+    if (myParticipant) {
+      await supabase.from("meeting_participants").update({ status: "accepted", responded_at: new Date().toISOString() } as any).eq("id", myParticipant.id);
+    } else if (meeting?.id && user?.id) {
+      await supabase.from("meeting_participants").insert({ meeting_id: meeting.id, user_id: user.id, status: "accepted", responded_at: new Date().toISOString() } as any);
+    }
+    toast.success("Convite aceito!");
+    setInLobby(false);
+  };
+
+  const handleDecline = async () => {
+    if (myParticipant) {
+      await supabase.from("meeting_participants").update({ status: "declined", responded_at: new Date().toISOString() } as any).eq("id", myParticipant.id);
+    }
+    toast("Convite recusado");
+    navigate("/meetings");
+  };
+
+  const handleReschedule = async () => {
+    if (!rescheduleDate) { toast.error("Selecione uma data"); return; }
+    if (myParticipant) {
+      await supabase.from("meeting_participants").update({
+        status: "reschedule_requested",
+        responded_at: new Date().toISOString(),
+        suggested_date: rescheduleDate,
+        suggested_time: rescheduleTime || null,
+      } as any).eq("id", myParticipant.id);
+    }
+    // Notify the creator
+    if (meeting?.created_by && currentMember) {
+      await supabase.from("notifications").insert({
+        user_id: meeting.created_by,
+        type: "meeting_reschedule",
+        title: "📅 Solicitação de remarcação",
+        body: `${currentMember.name} pediu para remarcar "${meeting.title}" para ${rescheduleDate}${rescheduleTime ? " às " + rescheduleTime : ""}`,
+        link: `/meetings/${code}`,
+      } as any);
+    }
+    toast.success("Solicitação de remarcação enviada!");
+    setRescheduleOpen(false);
+    navigate("/meetings");
+  };
+
   if (loading) {
     return (
       <div className="h-full flex items-center justify-center">
         <div className="w-8 h-8 border-2 border-primary border-t-transparent rounded-full animate-spin" />
+      </div>
+    );
+  }
+
+  // ---- LOBBY SCREEN ----
+  if (inLobby) {
+    const statusMap: Record<string, { label: string; color: string }> = {
+      pending: { label: "Pendente", color: "text-[hsl(var(--warning))]" },
+      accepted: { label: "Aceito", color: "text-[hsl(var(--success))]" },
+      declined: { label: "Recusado", color: "text-destructive" },
+      reschedule_requested: { label: "Remarcação", color: "text-primary" },
+    };
+
+    return (
+      <div className="h-full flex items-center justify-center bg-background p-6">
+        <motion.div
+          initial={{ opacity: 0, scale: 0.95 }}
+          animate={{ opacity: 1, scale: 1 }}
+          className="w-full max-w-lg"
+        >
+          <div className="bg-card border border-border rounded-2xl overflow-hidden">
+            {/* Header */}
+            <div className="bg-primary/5 border-b border-border px-6 py-5">
+              <div className="flex items-center gap-3 mb-3">
+                <div className="w-12 h-12 rounded-xl bg-primary/15 flex items-center justify-center">
+                  <Video className="w-6 h-6 text-primary" />
+                </div>
+                <div>
+                  <h2 className="text-lg font-semibold text-foreground">{meeting?.title}</h2>
+                  {meeting?.description && (
+                    <p className="text-xs text-muted-foreground mt-0.5">{meeting.description}</p>
+                  )}
+                </div>
+              </div>
+              <div className="flex items-center gap-4 text-xs text-muted-foreground">
+                <span className="flex items-center gap-1"><Calendar className="w-3.5 h-3.5" /> {meeting?.date}</span>
+                {meeting?.start_time && <span className="flex items-center gap-1"><Clock className="w-3.5 h-3.5" /> {meeting.start_time}</span>}
+                {creatorMember && (
+                  <span className="flex items-center gap-1">
+                    Criado por {creatorMember.name}
+                  </span>
+                )}
+              </div>
+            </div>
+
+            {/* Participants */}
+            {participants.length > 0 && (
+              <div className="px-6 py-4 border-b border-border">
+                <h3 className="text-xs font-medium text-muted-foreground uppercase tracking-wider mb-3">Convidados</h3>
+                <div className="space-y-2">
+                  {participants.map((p: any) => {
+                    const member = members.find(m => m.id === p.user_id);
+                    const st = statusMap[p.status] || statusMap.pending;
+                    return (
+                      <div key={p.id} className="flex items-center gap-2.5">
+                        <Avatar className="w-7 h-7">
+                          <AvatarImage src={member?.avatar_url || ""} />
+                          <AvatarFallback className="text-[10px]">{(member?.name || "?")[0]}</AvatarFallback>
+                        </Avatar>
+                        <span className="text-sm text-foreground flex-1">{member?.name} {member?.surname}</span>
+                        <span className={cn("text-[10px] font-medium", st.color)}>{st.label}</span>
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+            )}
+
+            {/* Actions */}
+            <div className="px-6 py-5 space-y-3">
+              <div className="flex gap-2">
+                <Button onClick={handleAccept} className="flex-1 gap-2">
+                  <Check className="w-4 h-4" /> Aceitar e entrar
+                </Button>
+                <Button variant="destructive" onClick={handleDecline} className="gap-2">
+                  <X className="w-4 h-4" /> Recusar
+                </Button>
+              </div>
+              <Button
+                variant="outline"
+                className="w-full gap-2"
+                onClick={() => {
+                  setRescheduleDate(meeting?.date || "");
+                  setRescheduleTime(meeting?.start_time?.slice(0, 5) || "");
+                  setRescheduleOpen(true);
+                }}
+              >
+                <CalendarClock className="w-4 h-4" /> Sugerir remarcação
+              </Button>
+              {meeting?.created_by === user?.id && (
+                <Button
+                  variant="ghost"
+                  className="w-full gap-2 text-muted-foreground"
+                  onClick={() => setInLobby(false)}
+                >
+                  <ArrowRight className="w-4 h-4" /> Entrar direto (criador)
+                </Button>
+              )}
+            </div>
+          </div>
+
+          {/* Reschedule Dialog */}
+          <Dialog open={rescheduleOpen} onOpenChange={setRescheduleOpen}>
+            <DialogContent className="max-w-sm">
+              <DialogHeader>
+                <DialogTitle>Sugerir nova data</DialogTitle>
+              </DialogHeader>
+              <div className="space-y-3 pt-2">
+                <div className="space-y-1.5">
+                  <Label className="text-xs">Data</Label>
+                  <Input type="date" value={rescheduleDate} onChange={e => setRescheduleDate(e.target.value)} />
+                </div>
+                <div className="space-y-1.5">
+                  <Label className="text-xs">Horário (opcional)</Label>
+                  <Input type="time" value={rescheduleTime} onChange={e => setRescheduleTime(e.target.value)} />
+                </div>
+                <Button onClick={handleReschedule} className="w-full">Enviar sugestão</Button>
+              </div>
+            </DialogContent>
+          </Dialog>
+        </motion.div>
       </div>
     );
   }

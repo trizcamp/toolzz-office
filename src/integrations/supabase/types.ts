@@ -288,16 +288,28 @@ export type Database = {
         Row: {
           id: string
           meeting_id: string
+          responded_at: string | null
+          status: string
+          suggested_date: string | null
+          suggested_time: string | null
           user_id: string
         }
         Insert: {
           id?: string
           meeting_id: string
+          responded_at?: string | null
+          status?: string
+          suggested_date?: string | null
+          suggested_time?: string | null
           user_id: string
         }
         Update: {
           id?: string
           meeting_id?: string
+          responded_at?: string | null
+          status?: string
+          suggested_date?: string | null
+          suggested_time?: string | null
           user_id?: string
         }
         Relationships: [
