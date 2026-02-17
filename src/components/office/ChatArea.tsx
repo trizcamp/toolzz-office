@@ -33,7 +33,7 @@ interface ChatAreaProps {
 
 type AiMessage = {
   id: string;
-  role: "assistant";
+  role: "assistant" | "user";
   content: string;
   created_at: string;
 };
@@ -212,12 +212,22 @@ export default function ChatArea({ roomId, roomName, aiEnabled, boardId, isListe
   useEffect(() => { sendToAIRef.current = sendToAI; }, [sendToAI]);
 
   const handleSend = () => {
-    if (!draft.trim() || !roomId) return;
+    if (!draft.trim()) return;
     const text = draft.trim();
-    sendMessage.mutate({ roomId, text });
     setDraft("");
 
+    if (roomId) {
+      sendMessage.mutate({ roomId, text });
+    }
+
     if (aiEnabled) {
+      // Show user message in AI chat directly (always, for immediate feedback)
+      setAiMessages((prev) => [...prev, {
+        id: `user-input-${Date.now()}`,
+        role: "user",
+        content: text,
+        created_at: new Date().toISOString(),
+      }]);
       sendToAI(text);
     }
   };
@@ -265,9 +275,19 @@ export default function ChatArea({ roomId, roomName, aiEnabled, boardId, isListe
 
   // Merge room messages, AI messages, and transcription entries — sorted by time
   const allMessages = [
-    ...messages.map((m) => ({ ...m, isAi: false, isTranscription: false, speaker: "" })),
-    ...aiMessages.map((m) => ({ id: m.id, user_id: "ai-agent", text: m.content, created_at: m.created_at, room_id: roomId || "", isAi: true, isTranscription: false, speaker: "" })),
-    ...transcriptionEntries.map((t) => ({ id: t.id, user_id: "transcription", text: t.text, created_at: t.created_at, room_id: roomId || "", isAi: false, isTranscription: true, speaker: t.speaker })),
+    ...messages.map((m) => ({ ...m, isAi: false, isUserAi: false, isTranscription: false, speaker: "" })),
+    ...aiMessages.map((m) => ({
+      id: m.id,
+      user_id: m.role === "user" ? (user?.id || "user") : "ai-agent",
+      text: m.content,
+      created_at: m.created_at,
+      room_id: roomId || "",
+      isAi: m.role === "assistant",
+      isUserAi: m.role === "user",
+      isTranscription: false,
+      speaker: "",
+    })),
+    ...transcriptionEntries.map((t) => ({ id: t.id, user_id: "transcription", text: t.text, created_at: t.created_at, room_id: roomId || "", isAi: false, isUserAi: false, isTranscription: false, speaker: t.speaker })),
   ].sort((a, b) => new Date(a.created_at).getTime() - new Date(b.created_at).getTime());
 
   const hasContent = allMessages.length > 0;
