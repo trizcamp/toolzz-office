@@ -1,217 +1,271 @@
-import { useState, useMemo } from "react";
-import { Calendar, Clock, Users, Eye, X, Search } from "lucide-react";
-import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
+import { useState } from "react";
+import { useNavigate } from "react-router-dom";
+import { Video, Plus, Link2, Calendar, Clock, Users, Copy, ArrowRight, Sparkles } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Badge } from "@/components/ui/badge";
 import { Textarea } from "@/components/ui/textarea";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { useToast } from "@/hooks/use-toast";
-import { mockMeetings, type Meeting } from "@/data/mockMeetings";
-import { AnimatePresence, motion } from "framer-motion";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
+import { useMeetings } from "@/hooks/useMeetings";
+import { useMembers } from "@/hooks/useMembers";
+import { toast } from "sonner";
+import { format } from "date-fns";
+import { ptBR } from "date-fns/locale";
+import { motion } from "framer-motion";
 
 export default function MeetingsPage() {
-  const { toast } = useToast();
-  const [selectedMeeting, setSelectedMeeting] = useState<Meeting | null>(null);
-  const [filterDate, setFilterDate] = useState("");
+  const navigate = useNavigate();
+  const { meetings, createMeeting } = useMeetings();
+  const { members } = useMembers();
+  const [joinCode, setJoinCode] = useState("");
+  const [scheduleOpen, setScheduleOpen] = useState(false);
+  const [scheduleData, setScheduleData] = useState({ title: "", date: "", time: "", description: "" });
 
-  const filteredMeetings = useMemo(() => {
-    if (!filterDate) return mockMeetings;
-    return mockMeetings.filter((m) => m.date === filterDate);
-  }, [filterDate]);
-
-  const handleSchedule = (e: React.FormEvent) => {
-    e.preventDefault();
-    toast({ title: "Reunião agendada", description: "Sua reunião foi agendada com sucesso." });
+  const handleInstantMeeting = async () => {
+    try {
+      const now = new Date();
+      const result = await createMeeting.mutateAsync({
+        title: `Reunião ${format(now, "dd/MM HH:mm")}`,
+        date: now.toISOString().slice(0, 10),
+        start_time: now.toTimeString().slice(0, 5),
+      });
+      if (result?.meeting_code) {
+        navigate(`/meetings/${result.meeting_code}`);
+      }
+    } catch {
+      toast.error("Erro ao criar reunião");
+    }
   };
 
+  const handleJoin = () => {
+    const code = joinCode.trim().toLowerCase();
+    if (!code) return;
+    navigate(`/meetings/${code}`);
+  };
+
+  const handleSchedule = async () => {
+    if (!scheduleData.title.trim()) {
+      toast.error("Informe o título da reunião");
+      return;
+    }
+    try {
+      const result = await createMeeting.mutateAsync({
+        title: scheduleData.title,
+        date: scheduleData.date || new Date().toISOString().slice(0, 10),
+        start_time: scheduleData.time || undefined,
+      });
+      setScheduleOpen(false);
+      setScheduleData({ title: "", date: "", time: "", description: "" });
+      toast.success("Reunião agendada!", {
+        description: `Código: ${result?.meeting_code}`,
+        action: {
+          label: "Copiar link",
+          onClick: () => {
+            navigator.clipboard.writeText(`${window.location.origin}/meetings/${result?.meeting_code}`);
+            toast.success("Link copiado!");
+          },
+        },
+      });
+    } catch {
+      toast.error("Erro ao agendar reunião");
+    }
+  };
+
+  const upcomingMeetings = meetings
+    .filter((m: any) => m.status === "scheduled" || !m.end_time)
+    .slice(0, 5);
+
+  const pastMeetings = meetings
+    .filter((m: any) => m.status === "ended" || m.end_time)
+    .slice(0, 10);
+
   return (
-    <div className="h-full flex">
-      <div className="flex-1 flex flex-col min-w-0">
-        <div className="px-6 py-4 border-b border-border shrink-0">
-          <h1 className="text-lg font-semibold text-foreground">Reuniões</h1>
-        </div>
-
-        <Tabs defaultValue="history" className="flex-1 flex flex-col min-h-0">
-          <div className="px-6 pt-3 shrink-0">
-            <TabsList>
-              <TabsTrigger value="history">Histórico</TabsTrigger>
-              <TabsTrigger value="schedule">Agendar</TabsTrigger>
-            </TabsList>
-          </div>
-
-          <TabsContent value="history" className="flex-1 overflow-y-auto px-6 py-4">
-            {/* Date filter */}
-            <div className="flex items-center gap-3 mb-4">
-              <div className="flex items-center gap-2 flex-1 max-w-xs">
-                <Search className="w-4 h-4 text-muted-foreground shrink-0" />
-                <Input
-                  type="date"
-                  value={filterDate}
-                  onChange={(e) => setFilterDate(e.target.value)}
-                  className="h-8 text-xs"
-                  placeholder="Filtrar por data"
-                />
-              </div>
-              {filterDate && (
-                <Button variant="ghost" size="sm" className="h-8 text-xs" onClick={() => setFilterDate("")}>
-                  Limpar filtro
-                </Button>
-              )}
-            </div>
-
-            <div className="space-y-3">
-              {filteredMeetings.map((meeting) => (
-                <div key={meeting.id} className="bg-card border border-border rounded-lg p-4 space-y-3">
-                  <div className="flex items-start justify-between">
-                    <div>
-                      <h3 className="text-sm font-medium text-foreground">{meeting.title}</h3>
-                      <p className="text-xs text-muted-foreground mt-0.5">{meeting.summary}</p>
-                    </div>
-                    <Button size="sm" variant="ghost" className="gap-1.5 text-xs shrink-0" onClick={() => setSelectedMeeting(meeting)}>
-                      <Eye className="w-3.5 h-3.5" /> Ver detalhes
-                    </Button>
-                  </div>
-                  <div className="flex items-center gap-4 text-xs text-muted-foreground">
-                    <span className="flex items-center gap-1"><Calendar className="w-3 h-3" /> {meeting.date}</span>
-                    <span className="flex items-center gap-1"><Clock className="w-3 h-3" /> {meeting.startTime} — {meeting.endTime}</span>
-                    <span className="flex items-center gap-1"><Users className="w-3 h-3" /> {meeting.participants.length}</span>
-                    <Badge variant="outline" className="text-[10px]">{meeting.room}</Badge>
-                  </div>
-                  <div className="flex items-center gap-1.5">
-                    {meeting.participants.map((p) => (
-                      <div key={p.id} className="w-6 h-6 rounded-full bg-muted flex items-center justify-center text-[9px] font-medium text-muted-foreground">
-                        {p.name.charAt(0)}
-                      </div>
-                    ))}
-                  </div>
-                  {meeting.tasks.length > 0 && (
-                    <div className="flex gap-2 flex-wrap">
-                      {meeting.tasks.map((t) => (
-                        <Badge key={t.id} variant="secondary" className="text-[10px]">{t.id}: {t.title}</Badge>
-                      ))}
-                    </div>
-                  )}
-                </div>
-              ))}
-              {filteredMeetings.length === 0 && (
-                <p className="text-sm text-muted-foreground text-center py-8">Nenhuma reunião encontrada para esta data</p>
-              )}
-            </div>
-          </TabsContent>
-
-          <TabsContent value="schedule" className="flex-1 overflow-y-auto px-6 py-4">
-            <form onSubmit={handleSchedule} className="max-w-lg space-y-4">
-              <div className="space-y-2">
-                <Label>Título</Label>
-                <Input placeholder="Nome da reunião" />
-              </div>
-              <div className="grid grid-cols-2 gap-3">
-                <div className="space-y-2">
-                  <Label>Data</Label>
-                  <Input type="date" />
-                </div>
-                <div className="space-y-2">
-                  <Label>Horário</Label>
-                  <Input type="time" />
-                </div>
-              </div>
-              <div className="space-y-2">
-                <Label>Sala</Label>
-                <Select>
-                  <SelectTrigger><SelectValue placeholder="Selecione a sala" /></SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="daily">Daily</SelectItem>
-                    <SelectItem value="sprint-review">Sprint Review</SelectItem>
-                    <SelectItem value="sessao-1-1">Sessão 1:1</SelectItem>
-                    <SelectItem value="lobby">Lobby</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
-              <div className="space-y-2">
-                <Label>Descrição</Label>
-                <Textarea placeholder="Pauta da reunião..." rows={3} />
-              </div>
-              <Button type="submit">Agendar Reunião</Button>
-            </form>
-          </TabsContent>
-        </Tabs>
+    <div className="h-full flex flex-col">
+      <div className="px-6 py-4 border-b border-border shrink-0">
+        <h1 className="text-lg font-semibold text-foreground">Reuniões</h1>
       </div>
 
-      {/* Side panel for meeting details */}
-      <AnimatePresence>
-        {selectedMeeting && (
+      <div className="flex-1 overflow-y-auto">
+        {/* Hero section */}
+        <div className="px-6 py-12 flex flex-col items-center text-center max-w-2xl mx-auto">
           <motion.div
-            initial={{ width: 0, opacity: 0 }}
-            animate={{ width: 420, opacity: 1 }}
-            exit={{ width: 0, opacity: 0 }}
-            transition={{ duration: 0.2 }}
-            className="border-l border-border bg-sidebar overflow-y-auto shrink-0"
+            initial={{ scale: 0.9, opacity: 0 }}
+            animate={{ scale: 1, opacity: 1 }}
+            className="w-20 h-20 rounded-2xl bg-primary/15 flex items-center justify-center mb-6"
           >
-            <div className="p-4 space-y-4">
-              <div className="flex items-center justify-between">
-                <h2 className="text-sm font-semibold text-foreground">{selectedMeeting.title}</h2>
-                <Button size="icon" variant="ghost" className="h-7 w-7" onClick={() => setSelectedMeeting(null)}>
-                  <X className="w-4 h-4" />
+            <Video className="w-10 h-10 text-primary" />
+          </motion.div>
+
+          <h2 className="text-2xl font-bold text-foreground mb-2">Reuniões com IA integrada</h2>
+          <p className="text-sm text-muted-foreground mb-8 max-w-md">
+            Crie reuniões instantâneas ou agende para depois. Compartilhe tela e use a IA para criar tarefas durante a call.
+          </p>
+
+          {/* Action cards */}
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 w-full max-w-xl mb-10">
+            {/* Instant meeting */}
+            <motion.button
+              whileHover={{ scale: 1.02 }}
+              whileTap={{ scale: 0.98 }}
+              onClick={handleInstantMeeting}
+              disabled={createMeeting.isPending}
+              className="flex flex-col items-center gap-3 p-5 rounded-xl bg-primary text-primary-foreground hover:bg-primary/90 transition-colors"
+            >
+              <Plus className="w-6 h-6" />
+              <span className="text-sm font-medium">Nova reunião</span>
+            </motion.button>
+
+            {/* Schedule */}
+            <Dialog open={scheduleOpen} onOpenChange={setScheduleOpen}>
+              <DialogTrigger asChild>
+                <motion.button
+                  whileHover={{ scale: 1.02 }}
+                  whileTap={{ scale: 0.98 }}
+                  className="flex flex-col items-center gap-3 p-5 rounded-xl bg-card border border-border hover:bg-muted transition-colors text-foreground"
+                >
+                  <Calendar className="w-6 h-6" />
+                  <span className="text-sm font-medium">Agendar</span>
+                </motion.button>
+              </DialogTrigger>
+              <DialogContent>
+                <DialogHeader>
+                  <DialogTitle>Agendar reunião</DialogTitle>
+                </DialogHeader>
+                <div className="space-y-4 pt-2">
+                  <div className="space-y-2">
+                    <Label>Título</Label>
+                    <Input
+                      placeholder="Ex: Daily standup"
+                      value={scheduleData.title}
+                      onChange={(e) => setScheduleData(prev => ({ ...prev, title: e.target.value }))}
+                    />
+                  </div>
+                  <div className="grid grid-cols-2 gap-3">
+                    <div className="space-y-2">
+                      <Label>Data</Label>
+                      <Input
+                        type="date"
+                        value={scheduleData.date}
+                        onChange={(e) => setScheduleData(prev => ({ ...prev, date: e.target.value }))}
+                      />
+                    </div>
+                    <div className="space-y-2">
+                      <Label>Horário</Label>
+                      <Input
+                        type="time"
+                        value={scheduleData.time}
+                        onChange={(e) => setScheduleData(prev => ({ ...prev, time: e.target.value }))}
+                      />
+                    </div>
+                  </div>
+                  <div className="space-y-2">
+                    <Label>Descrição (opcional)</Label>
+                    <Textarea
+                      placeholder="Pauta da reunião..."
+                      value={scheduleData.description}
+                      onChange={(e) => setScheduleData(prev => ({ ...prev, description: e.target.value }))}
+                      rows={3}
+                    />
+                  </div>
+                  <Button onClick={handleSchedule} disabled={createMeeting.isPending} className="w-full">
+                    Agendar reunião
+                  </Button>
+                </div>
+              </DialogContent>
+            </Dialog>
+
+            {/* Join */}
+            <motion.div
+              whileHover={{ scale: 1.02 }}
+              className="flex flex-col items-center gap-3 p-5 rounded-xl bg-card border border-border text-foreground"
+            >
+              <Link2 className="w-6 h-6 text-muted-foreground" />
+              <div className="flex gap-1.5 w-full">
+                <Input
+                  placeholder="abc-defg-hij"
+                  value={joinCode}
+                  onChange={(e) => setJoinCode(e.target.value)}
+                  onKeyDown={(e) => e.key === "Enter" && handleJoin()}
+                  className="h-8 text-xs text-center bg-muted border-0"
+                />
+                <Button size="sm" variant="ghost" className="h-8 px-2 shrink-0" onClick={handleJoin} disabled={!joinCode.trim()}>
+                  <ArrowRight className="w-4 h-4" />
                 </Button>
               </div>
+            </motion.div>
+          </div>
 
-              <div className="space-y-1 text-xs text-muted-foreground">
-                <p>📅 {selectedMeeting.date} • {selectedMeeting.startTime} — {selectedMeeting.endTime}</p>
-                <p>🏠 Sala: {selectedMeeting.room}</p>
-              </div>
-
-              <div>
-                <p className="text-[10px] uppercase tracking-widest text-muted-foreground mb-2">Participantes</p>
-                <div className="flex flex-wrap gap-2">
-                  {selectedMeeting.participants.map((p) => (
-                    <div key={p.id} className="flex items-center gap-1.5 bg-muted rounded-md px-2 py-1">
-                      <div className="w-4 h-4 rounded-full bg-surface-hover flex items-center justify-center text-[8px] text-muted-foreground">
-                        {p.name.charAt(0)}
-                      </div>
-                      <span className="text-[10px] text-secondary-foreground">{p.name}</span>
+          {/* Upcoming meetings */}
+          {upcomingMeetings.length > 0 && (
+            <div className="w-full max-w-xl text-left">
+              <h3 className="text-xs uppercase tracking-widest text-muted-foreground mb-3">Próximas reuniões</h3>
+              <div className="space-y-2">
+                {upcomingMeetings.map((m: any) => (
+                  <div
+                    key={m.id}
+                    className="flex items-center gap-3 p-3 rounded-lg bg-card border border-border hover:bg-muted transition-colors cursor-pointer group"
+                    onClick={() => navigate(`/meetings/${m.meeting_code}`)}
+                  >
+                    <div className="w-9 h-9 rounded-lg bg-primary/10 flex items-center justify-center shrink-0">
+                      <Video className="w-4 h-4 text-primary" />
                     </div>
-                  ))}
-                </div>
-              </div>
-
-              {selectedMeeting.tasks.length > 0 && (
-                <div>
-                  <p className="text-[10px] uppercase tracking-widest text-muted-foreground mb-2">Tarefas Geradas</p>
-                  <div className="space-y-1">
-                    {selectedMeeting.tasks.map((t) => (
-                      <div key={t.id} className="text-xs bg-muted rounded-md px-3 py-2">
-                        <span className="font-mono text-muted-foreground">{t.id}</span> — {t.title}
+                    <div className="flex-1 min-w-0">
+                      <p className="text-sm font-medium text-foreground truncate">{m.title}</p>
+                      <div className="flex items-center gap-3 text-[10px] text-muted-foreground mt-0.5">
+                        <span className="flex items-center gap-1"><Calendar className="w-3 h-3" /> {m.date}</span>
+                        {m.start_time && <span className="flex items-center gap-1"><Clock className="w-3 h-3" /> {m.start_time}</span>}
                       </div>
-                    ))}
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        className="h-7 w-7 opacity-0 group-hover:opacity-100 transition-opacity"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          navigator.clipboard.writeText(`${window.location.origin}/meetings/${m.meeting_code}`);
+                          toast.success("Link copiado!");
+                        }}
+                      >
+                        <Copy className="w-3.5 h-3.5" />
+                      </Button>
+                      <ArrowRight className="w-4 h-4 text-muted-foreground opacity-0 group-hover:opacity-100 transition-opacity" />
+                    </div>
                   </div>
-                </div>
-              )}
-
-              <div>
-                <p className="text-[10px] uppercase tracking-widest text-muted-foreground mb-2">Resumo</p>
-                <p className="text-sm text-secondary-foreground leading-relaxed">{selectedMeeting.summary}</p>
-              </div>
-
-              <div>
-                <p className="text-[10px] uppercase tracking-widest text-muted-foreground mb-2">Transcrição</p>
-                <div className="space-y-3">
-                  {selectedMeeting.transcript.map((entry, i) => (
-                    <div key={i} className="space-y-0.5">
-                      <div className="flex items-baseline gap-2">
-                        <span className="text-xs font-medium text-foreground">{entry.speaker}</span>
-                        <span className="text-[10px] text-muted-foreground">{entry.time}</span>
-                      </div>
-                      <p className="text-sm text-secondary-foreground">{entry.text}</p>
-                    </div>
-                  ))}
-                </div>
+                ))}
               </div>
             </div>
-          </motion.div>
-        )}
-      </AnimatePresence>
+          )}
+
+          {/* Past meetings */}
+          {pastMeetings.length > 0 && (
+            <div className="w-full max-w-xl text-left mt-8">
+              <h3 className="text-xs uppercase tracking-widest text-muted-foreground mb-3">Reuniões anteriores</h3>
+              <div className="space-y-2">
+                {pastMeetings.map((m: any) => (
+                  <div
+                    key={m.id}
+                    className="flex items-center gap-3 p-3 rounded-lg bg-card/50 border border-border/50 hover:bg-muted transition-colors cursor-pointer group"
+                    onClick={() => navigate(`/meetings/${m.meeting_code}`)}
+                  >
+                    <div className="w-9 h-9 rounded-lg bg-muted flex items-center justify-center shrink-0">
+                      <Sparkles className="w-4 h-4 text-muted-foreground" />
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <p className="text-sm font-medium text-foreground truncate">{m.title}</p>
+                      <div className="flex items-center gap-3 text-[10px] text-muted-foreground mt-0.5">
+                        <span>{m.date}</span>
+                        {m.start_time && m.end_time && <span>{m.start_time} — {m.end_time}</span>}
+                        {m.summary && <span className="truncate max-w-[200px]">{m.summary}</span>}
+                      </div>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+        </div>
+      </div>
     </div>
   );
 }

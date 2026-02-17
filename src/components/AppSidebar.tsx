@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { NavLink } from "react-router-dom";
 import { motion, AnimatePresence } from "framer-motion";
-import { Home, Building2, Kanban, FileText, ChevronLeft, ChevronRight, Calendar, Puzzle, Zap } from "lucide-react";
+import { Home, Building2, Kanban, FileText, ChevronLeft, ChevronRight, Calendar, Puzzle, Zap, Video } from "lucide-react";
 import VoiceConnectionBar from "./VoiceConnectionBar";
 import toolzzLogo from "@/assets/toolzz-logo.png";
 
@@ -12,7 +12,7 @@ const navItems = [
   { icon: Calendar, label: "Calendário", path: "/calendar", comingSoon: false },
   { icon: Puzzle, label: "Integrações", path: "/integrations", comingSoon: false },
   { icon: Building2, label: "Escritório", path: "/chat", comingSoon: false },
-  { icon: Calendar, label: "Reuniões", path: "/meetings", comingSoon: true },
+  { icon: Video, label: "Reuniões", path: "/meetings", comingSoon: false },
   { icon: Zap, label: "Automações", path: "/automations", comingSoon: true },
 ];
 

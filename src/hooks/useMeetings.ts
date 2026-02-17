@@ -9,9 +9,12 @@ export interface DbMeeting {
   date: string;
   start_time: string | null;
   end_time: string | null;
-  summary: string;
+  summary: string | null;
   created_by: string | null;
   created_at: string;
+  meeting_code: string | null;
+  status: string;
+  description: string | null;
 }
 
 export function useMeetings() {
@@ -23,10 +26,10 @@ export function useMeetings() {
     queryFn: async () => {
       const { data, error } = await supabase
         .from("meetings")
-        .select("*, rooms(name), meeting_participants(user_id, members(name, surname)), meeting_tasks(task_id, tasks(display_id, title))")
+        .select("*")
         .order("date", { ascending: false });
       if (error) throw error;
-      return data;
+      return data as unknown as DbMeeting[];
     },
     enabled: !!user,
   });
@@ -35,11 +38,11 @@ export function useMeetings() {
     mutationFn: async (meeting: { title: string; room_id?: string; date: string; start_time?: string; end_time?: string }) => {
       const { data, error } = await supabase
         .from("meetings")
-        .insert({ ...meeting, created_by: user!.id })
+        .insert({ ...meeting, created_by: user!.id } as any)
         .select()
         .single();
       if (error) throw error;
-      return data;
+      return data as unknown as DbMeeting;
     },
     onSuccess: () => queryClient.invalidateQueries({ queryKey: ["meetings"] }),
   });
