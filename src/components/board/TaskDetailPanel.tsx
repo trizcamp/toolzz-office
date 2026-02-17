@@ -17,7 +17,7 @@ import { useDocumentBlocks, useDocuments } from "@/hooks/useDocuments";
 import { supabase } from "@/integrations/supabase/client";
 
 interface TaskDetailPanelProps {
-  task: Task & { document_id?: string | null };
+  task: Task & { document_id?: string | null; _dbId?: string };
   onClose: () => void;
   onUpdate: (task: Task) => void;
   fullscreenDoc?: boolean;
@@ -68,28 +68,30 @@ export default function TaskDetailPanel({
     creatingRef.current = false;
   }, [task.document_id]);
 
+  const dbId = task._dbId || task.id;
+
   // Check if document already exists for this task (but don't auto-create)
   useEffect(() => {
-    if (localDocId || !task.id) return;
+    if (localDocId || !dbId) return;
 
-    supabase.from("documents").select("id").eq("task_id", task.id).maybeSingle()
+    supabase.from("documents").select("id").eq("task_id", dbId).maybeSingle()
       .then(({ data }) => {
         if (data) {
           setLocalDocId(data.id);
-          supabase.from("tasks").update({ document_id: data.id }).eq("id", task.id);
+          supabase.from("tasks").update({ document_id: data.id }).eq("id", dbId);
         }
       });
-  }, [task.id, localDocId]);
+  }, [dbId, localDocId]);
 
   const handleCreateDocForTask = () => {
     if (creatingRef.current || createDocument.isPending) return;
     creatingRef.current = true;
     createDocument.mutate(
-      { title: task.title, icon: "📋", type: "spec", task_id: task.id },
+      { title: task.title, icon: "📋", type: "spec", task_id: dbId },
       {
         onSuccess: (doc) => {
           setLocalDocId(doc.id);
-          supabase.from("tasks").update({ document_id: doc.id }).eq("id", task.id);
+          supabase.from("tasks").update({ document_id: doc.id }).eq("id", dbId);
         },
         onError: () => { creatingRef.current = false; },
       }
