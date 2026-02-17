@@ -1,11 +1,12 @@
 import { motion } from "framer-motion";
-import { CheckCircle2, MessageSquare, Activity } from "lucide-react";
-import { useState, useEffect, useRef } from "react";
+import { CheckCircle2, MessageSquare, Activity, Mic } from "lucide-react";
+import { useState } from "react";
 import { cn } from "@/lib/utils";
 import { useTasks } from "@/hooks/useTasks";
 import { useAuth } from "@/hooks/useAuth";
 import { useBoards } from "@/hooks/useBoards";
 import ToolzzChatDialog from "@/components/ToolzzChatDialog";
+import VoiceAgentDialog from "@/components/VoiceAgentDialog";
 
 function getGreeting() {
   const h = new Date().getHours();
@@ -33,24 +34,14 @@ const statusLabels: Record<string, string> = {
 
 export default function HomePage() {
   const [chatOpen, setChatOpen] = useState(false);
-  const iframeRef = useRef<HTMLIFrameElement>(null);
+  const [voiceOpen, setVoiceOpen] = useState(false);
   const { user } = useAuth();
   const { boards } = useBoards();
   const { tasks } = useTasks(null);
-  
+
   const userName = user?.user_metadata?.name || user?.email?.split("@")[0] || "Boss";
   const todayTasks = tasks.filter((t) => t.status === "todo" || t.status === "in_progress").slice(0, 5);
-
-  useEffect(() => {
-    const handleMessage = (event: MessageEvent) => {
-      if (event.data?.type === 'VOICE_EMBED_SIZE' && iframeRef.current) {
-        iframeRef.current.style.width = `${event.data.width}px`;
-        iframeRef.current.style.height = `${event.data.height}px`;
-      }
-    };
-    window.addEventListener('message', handleMessage);
-    return () => window.removeEventListener('message', handleMessage);
-  }, []);
+  const boardId = boards?.[0]?.id || null;
 
   return (
     <div className="h-full overflow-y-auto p-6 space-y-6">
@@ -66,23 +57,32 @@ export default function HomePage() {
           initial={{ opacity: 0, y: 10 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ delay: 0.1 }}
-          className="bg-card border border-border rounded-xl p-3 flex flex-col items-center gap-2 lg:col-span-1 self-start"
+          className="bg-card border border-border rounded-xl p-5 flex flex-col items-center gap-3 lg:col-span-1 self-start"
         >
-          <h3 className="text-sm font-semibold text-foreground w-full text-center">Scrum Agent</h3>
-          <div className="flex items-center justify-center w-full overflow-hidden rounded-lg">
-            <iframe
-              ref={iframeRef}
-              src="https://admin.toolzz.ai/emb-voice/c46f095b-4520-4319-b4a0-882abde69ddc"
-              width="100%"
-              height="120"
-              id="chatbotVoiceIframe"
-              allow="microphone"
-              style={{ border: 'none', minHeight: '120px' }}
-            />
+          <button
+            onClick={() => setVoiceOpen(true)}
+            className="w-16 h-16 rounded-full bg-primary/10 border-2 border-primary/30 flex items-center justify-center hover:bg-primary/20 hover:border-primary/50 transition-all group"
+          >
+            <Mic className="w-7 h-7 text-primary group-hover:scale-110 transition-transform" />
+          </button>
+
+          <div className="text-center">
+            <h3 className="text-sm font-semibold text-foreground">Conversar com IA</h3>
+            <p className="text-[11px] text-muted-foreground">Clique para falar ou digite</p>
           </div>
-          <div className="w-full">
-            <button onClick={() => setChatOpen(true)} className="w-full btn-gradient rounded-lg py-2 text-xs font-medium">
+
+          <div className="flex gap-2 w-full">
+            <button
+              onClick={() => setChatOpen(true)}
+              className="flex-1 btn-gradient rounded-lg py-2 text-xs font-medium"
+            >
               <MessageSquare className="w-3.5 h-3.5 inline mr-1.5" />Via texto
+            </button>
+            <button
+              onClick={() => setVoiceOpen(true)}
+              className="flex-1 btn-gradient rounded-lg py-2 text-xs font-medium"
+            >
+              <Mic className="w-3.5 h-3.5 inline mr-1.5" />Via voz
             </button>
           </div>
         </motion.div>
@@ -133,7 +133,9 @@ export default function HomePage() {
           </motion.div>
         </div>
       </div>
-      <ToolzzChatDialog open={chatOpen} onOpenChange={setChatOpen} boardId={boards?.[0]?.id || null} />
+
+      <ToolzzChatDialog open={chatOpen} onOpenChange={setChatOpen} boardId={boardId} />
+      <VoiceAgentDialog open={voiceOpen} onOpenChange={setVoiceOpen} boardId={boardId} />
     </div>
   );
 }
