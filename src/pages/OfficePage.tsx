@@ -6,6 +6,7 @@ import ChatArea from "@/components/office/ChatArea";
 import MemberList from "@/components/office/MemberList";
 import VoiceParticipants from "@/components/office/VoiceParticipants";
 import VoiceAgentPanel from "@/components/office/VoiceAgentPanel";
+import TranscriptionPanel from "@/components/office/TranscriptionPanel";
 import { useRooms, type DbRoom } from "@/hooks/useRooms";
 import { useVoiceConnection } from "@/contexts/VoiceConnectionContext";
 import { useBoards } from "@/hooks/useBoards";
@@ -20,6 +21,8 @@ export default function OfficePage() {
   const [showMembers, setShowMembers] = useState(false);
   const [aiEnabled, setAiEnabled] = useState(false);
   const [aiSpeaking, setAiSpeaking] = useState(false);
+  const [transcriptionEnabled, setTranscriptionEnabled] = useState(false);
+  const [transcriptionEntries, setTranscriptionEntries] = useState<{ id: string; speaker: string; text: string; time: string }[]>([]);
 
   const selectedRoom = rooms.find((r) => r.id === selectedRoomId) || rooms[0] || null;
   const boardId = boards?.[0]?.id || null;
@@ -53,7 +56,29 @@ export default function OfficePage() {
     }
   }, [aiEnabled, toast]);
 
+  const handleToggleTranscription = useCallback(() => {
+    if (transcriptionEnabled) {
+      setTranscriptionEnabled(false);
+      toast({ title: "Transcrição pausada", description: "A transcrição foi salva." });
+    } else {
+      setTranscriptionEnabled(true);
+      toast({ title: "Transcrição ativa", description: "O áudio da reunião está sendo transcrito." });
+      // Add mock entries to demonstrate the feature
+      if (transcriptionEntries.length === 0) {
+        const now = new Date();
+        const fmt = (d: Date) => d.toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" });
+        setTranscriptionEntries([
+          { id: "t1", speaker: "Beatriz F.", text: "Bom dia pessoal, vamos começar a daily?", time: fmt(new Date(now.getTime() - 120000)) },
+          { id: "t2", speaker: "João S.", text: "Bom dia! Ontem terminei a integração com o GitHub e já está funcionando nos testes.", time: fmt(new Date(now.getTime() - 90000)) },
+          { id: "t3", speaker: "Rafael M.", text: "Ótimo! Eu vou revisar a PR do módulo de relatórios hoje. Tive que ajustar uns componentes de gráfico.", time: fmt(new Date(now.getTime() - 60000)) },
+          { id: "t4", speaker: "Amanda L.", text: "Preciso de ajuda com o layout responsivo da página de documentos, alguém pode dar uma olhada depois?", time: fmt(new Date(now.getTime() - 30000)) },
+        ]);
+      }
+    }
+  }, [transcriptionEnabled, toast, transcriptionEntries.length]);
+
   const isVoiceRoom = selectedRoom?.type !== "text";
+  const showRightPanel = (aiEnabled && isVoiceRoom) || (transcriptionEnabled && isVoiceRoom);
 
   if (isLoading || !selectedRoom) {
     return <div className="flex items-center justify-center h-full text-sm text-muted-foreground">Carregando salas...</div>;
@@ -75,17 +100,34 @@ export default function OfficePage() {
             room={{ ...selectedRoom, connectedUsers: [] }}
             aiEnabled={aiEnabled}
             aiSpeaking={aiSpeaking}
+            transcriptionEnabled={transcriptionEnabled}
             onToggleAI={handleToggleAI}
+            onToggleTranscription={handleToggleTranscription}
           />
         )}
         <div className="flex-1 flex min-w-0">
           <ChatArea roomId={selectedRoom.id} roomName={selectedRoom.name} />
-          {aiEnabled && isVoiceRoom && (
-            <div className="w-[360px] shrink-0">
-              <VoiceAgentPanel
-                boardId={boardId}
-                onSpeakingChange={setAiSpeaking}
-              />
+          {showRightPanel && (
+            <div className="w-[360px] shrink-0 flex flex-col">
+              {transcriptionEnabled && (
+                <div className={aiEnabled ? "h-1/2 border-b border-border" : "flex-1"}>
+                  <TranscriptionPanel
+                    entries={transcriptionEntries}
+                    onClose={() => {
+                      setTranscriptionEnabled(false);
+                      toast({ title: "Transcrição pausada" });
+                    }}
+                  />
+                </div>
+              )}
+              {aiEnabled && (
+                <div className={transcriptionEnabled ? "h-1/2" : "flex-1"}>
+                  <VoiceAgentPanel
+                    boardId={boardId}
+                    onSpeakingChange={setAiSpeaking}
+                  />
+                </div>
+              )}
             </div>
           )}
         </div>
