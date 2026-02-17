@@ -1,5 +1,6 @@
-import { useState, useMemo } from "react";
+import { useState, useMemo, useEffect } from "react";
 import { Plus, LayoutGrid, ArrowLeft, Mic, MessageSquare, Sparkles, Pencil, Trash2, Package, Building2, Wrench } from "lucide-react";
+import { useSearchParams } from "react-router-dom";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { Button } from "@/components/ui/button";
 import { Table, TableHeader, TableRow, TableHead, TableBody, TableCell } from "@/components/ui/table";
@@ -48,6 +49,7 @@ const sectorTemplates = [
 ];
 
 export default function BoardPage() {
+  const [searchParams, setSearchParams] = useSearchParams();
   const { boards, isLoading: boardsLoading, createBoard, updateBoard, deleteBoard } = useBoards();
   const [selectedBoard, setSelectedBoard] = useState<string | null>(null);
   const { tasks, isLoading: tasksLoading, createTask, updateTask, deleteTask: deleteTaskMut } = useTasks(selectedBoard);
@@ -56,6 +58,19 @@ export default function BoardPage() {
   const { votes, castVote } = useTaskVotes(selectedBoard);
   const { user } = useAuth();
   const [activeTab, setActiveTab] = useState("kanban");
+
+  // Auto-select board and task from URL query params (notification deep-link)
+  useEffect(() => {
+    const boardParam = searchParams.get("board");
+    const taskParam = searchParams.get("task");
+    if (boardParam && boards.length > 0) {
+      setSelectedBoard(boardParam);
+      // Clean params after consuming
+      if (!taskParam) {
+        setSearchParams({}, { replace: true });
+      }
+    }
+  }, [searchParams, boards]);
 
   const [newTaskOpen, setNewTaskOpen] = useState(false);
   const [assigneeFilter, setAssigneeFilter] = useState("all");
@@ -94,6 +109,21 @@ export default function BoardPage() {
       document_id: t.document_id || null,
     }));
   }, [tasks]);
+
+  // Auto-open task from notification deep-link
+  useEffect(() => {
+    const taskParam = searchParams.get("task");
+    if (taskParam && tasks.length > 0 && selectedBoard) {
+      const found = tasks.find((t) => t.id === taskParam);
+      if (found) {
+        const mapped = mappedTasks.find((m) => (m as any)._dbId === found.id);
+        if (mapped) {
+          setSelectedTask(mapped);
+          setSearchParams({}, { replace: true });
+        }
+      }
+    }
+  }, [searchParams, tasks, selectedBoard, mappedTasks]);
 
   const assignees = useMemo(() => {
     return members.map((m) => m.name + (m.surname ? ` ${m.surname.charAt(0)}.` : ""));
