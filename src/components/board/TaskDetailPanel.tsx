@@ -9,6 +9,7 @@ import { Label } from "@/components/ui/label";
 import type { Task, TaskStatus, TaskPriority, TaskType } from "@/data/mockTasks";
 import { statusLabels, priorityLabels } from "@/data/mockTasks";
 import { useMembers } from "@/hooks/useMembers";
+import { useTaskAssignees } from "@/hooks/useTasks";
 import BlockEditor from "@/components/documents/BlockEditor";
 import type { Block } from "@/data/mockDocuments";
 import { motion } from "framer-motion";
@@ -61,6 +62,8 @@ export default function TaskDetailPanel({
   const [localDocId, setLocalDocId] = useState<string | null>(task.document_id || null);
   const { createDocument } = useDocuments();
   const creatingRef = useRef(false);
+  const { members } = useMembers();
+  const { assignees: dbAssignees, addAssignee, removeAssignee } = useTaskAssignees(task._dbId || task.id);
 
   // Sync localDocId when task changes
   useEffect(() => {
@@ -147,6 +150,30 @@ export default function TaskDetailPanel({
   const [newTypeName, setNewTypeName] = useState("");
   const [newTypeColor, setNewTypeColor] = useState(typeColorOptions[0]);
 
+  const taskAssignees = useMemo(() => {
+    return dbAssignees
+      .filter((a: any) => a.members)
+      .map((a: any) => ({
+        id: a.members.id,
+        name: `${a.members.name}${a.members.surname ? ` ${a.members.surname.charAt(0)}.` : ""}`,
+      }));
+  }, [dbAssignees]);
+
+  const realAssignees = members.map((m) => ({
+    id: m.id,
+    name: `${m.name}${m.surname ? ` ${m.surname.charAt(0)}.` : ""}`,
+  }));
+
+  const handleAddAssignee = (assigneeId: string) => {
+    if (!taskAssignees.some((a: any) => a.id === assigneeId)) {
+      addAssignee.mutate({ taskId: dbId, userId: assigneeId });
+    }
+  };
+
+  const handleRemoveAssignee = (assigneeId: string) => {
+    removeAssignee.mutate({ taskId: dbId, userId: assigneeId });
+  };
+
   // Fullscreen doc overlay
   if (fullscreenDoc) {
     return (
@@ -175,24 +202,6 @@ export default function TaskDetailPanel({
       </div>
     );
   }
-
-  const { members } = useMembers();
-  const realAssignees = members.map((m) => ({
-    id: m.id,
-    name: `${m.name}${m.surname ? ` ${m.surname.charAt(0)}.` : ""}`,
-  }));
-
-  const handleAddAssignee = (assigneeId: string) => {
-    const assignee = realAssignees.find((a) => a.id === assigneeId);
-    if (assignee && !task.assignees.some((a) => a.id === assigneeId)) {
-      onUpdate({ ...task, assignees: [...task.assignees, assignee] });
-    }
-  };
-
-  const handleRemoveAssignee = (assigneeId: string) => {
-    if (task.assignees.length <= 1) return;
-    onUpdate({ ...task, assignees: task.assignees.filter((a) => a.id !== assigneeId) });
-  };
 
   const handleAddNewType = () => {
     if (!newTypeName.trim() || !onAddType) return;
@@ -290,17 +299,15 @@ export default function TaskDetailPanel({
         <div className="space-y-2">
           <p className="text-[10px] uppercase tracking-widest text-muted-foreground">Responsáveis</p>
           <div className="flex flex-wrap gap-1.5">
-            {task.assignees.map((a) => (
+            {taskAssignees.map((a: any) => (
               <div key={a.id} className="flex items-center gap-1 bg-muted rounded-md px-2 py-1">
                 <div className="w-4 h-4 rounded-full bg-surface-hover flex items-center justify-center text-[8px] text-muted-foreground">
                   {a.name.charAt(0)}
                 </div>
                 <span className="text-[10px] text-secondary-foreground">{a.name}</span>
-                {task.assignees.length > 1 && (
-                  <button onClick={() => handleRemoveAssignee(a.id)} className="text-muted-foreground hover:text-destructive ml-0.5">
-                    <X className="w-2.5 h-2.5" />
-                  </button>
-                )}
+                <button onClick={() => handleRemoveAssignee(a.id)} className="text-muted-foreground hover:text-destructive ml-0.5">
+                  <X className="w-2.5 h-2.5" />
+                </button>
               </div>
             ))}
           </div>
@@ -310,7 +317,7 @@ export default function TaskDetailPanel({
                 <SelectValue placeholder="+ Adicionar responsável" />
               </SelectTrigger>
               <SelectContent>
-                {realAssignees.filter((a) => !task.assignees.some((ta) => ta.id === a.id)).map((a) => (
+                {realAssignees.filter((a) => !taskAssignees.some((ta: any) => ta.id === a.id)).map((a) => (
                   <SelectItem key={a.id} value={a.id}>{a.name}</SelectItem>
                 ))}
               </SelectContent>
