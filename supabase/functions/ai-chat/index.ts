@@ -34,7 +34,12 @@ serve(async (req) => {
 
 Quando o usuário pedir para criar uma tarefa, use a ferramenta create_task. Extraia título, descrição, prioridade e status da conversa.
 
-Responda sempre em português brasileiro. Seja conciso, natural e conversacional. Evite usar formatação markdown como asteriscos, hashtags ou listas — responda em texto corrido e fluido, como se estivesse falando com a pessoa.`;
+IMPORTANTE: No campo "documentation", gere um documento completo em markdown com as seguintes seções preenchidas com base na conversa:
+- User Story (no formato "Como [persona], quero [ação], para [benefício]")
+- Critérios de Aceite (lista de checkboxes com critérios específicos e mensuráveis)
+- Notas Técnicas (observações técnicas relevantes extraídas da conversa)
+
+Responda sempre em português brasileiro. Seja conciso, natural e conversacional. Evite usar formatação markdown como asteriscos, hashtags ou listas na sua resposta falada — responda em texto corrido e fluido, como se estivesse falando com a pessoa.`;
 
     const tools = [
       {
@@ -50,8 +55,9 @@ Responda sempre em português brasileiro. Seja conciso, natural e conversacional
               priority: { type: "string", enum: ["critical", "high", "medium", "low"], description: "Prioridade" },
               status: { type: "string", enum: ["backlog", "todo", "in_progress"], description: "Status inicial" },
               type: { type: "string", enum: ["feature", "bug", "improvement", "task"], description: "Tipo da tarefa" },
+              documentation: { type: "string", description: "Documentação completa em markdown com User Story, Critérios de Aceite e Notas Técnicas" },
             },
-            required: ["title"],
+            required: ["title", "documentation"],
             additionalProperties: false,
           },
         },
@@ -142,7 +148,10 @@ Responda sempre em português brasileiro. Seja conciso, natural e conversacional
             .single();
 
           if (!taskError && task) {
-            // Trigger task-created event to generate document with markdown content
+            // Use AI-generated documentation or fallback to markdownContent
+            const docContent = args.documentation || markdownContent || "";
+            
+            // Trigger task-created event to generate document with documentation
             const taskCreatedUrl = `${supabaseUrl}/functions/v1/task-created`;
             await fetch(taskCreatedUrl, {
               method: "POST",
@@ -150,7 +159,7 @@ Responda sempre em português brasileiro. Seja conciso, natural e conversacional
                 Authorization: `Bearer ${serviceKey}`,
                 "Content-Type": "application/json",
               },
-              body: JSON.stringify({ taskId: task.id, boardId: targetBoardId, markdownContent }),
+              body: JSON.stringify({ taskId: task.id, boardId: targetBoardId, markdownContent: docContent }),
             });
 
             // Auto-create GitHub issue for bug/improvement types with a repo
