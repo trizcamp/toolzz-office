@@ -1,5 +1,8 @@
 import { useState, useMemo, useEffect } from "react";
-import { Plus, LayoutGrid, ArrowLeft, Mic, MessageSquare, Sparkles, Pencil, Trash2, Package, Building2, Wrench } from "lucide-react";
+import { Plus, LayoutGrid, ArrowLeft, Mic, MessageSquare, Sparkles, Pencil, Trash2, Package, Building2, Wrench, List } from "lucide-react";
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
+import { useQuery } from "@tanstack/react-query";
+import { supabase } from "@/integrations/supabase/client";
 import { useSearchParams } from "react-router-dom";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { Button } from "@/components/ui/button";
@@ -59,6 +62,22 @@ export default function BoardPage() {
   const { votes, castVote } = useTaskVotes(selectedBoard);
   const { user } = useAuth();
   const [activeTab, setActiveTab] = useState("kanban");
+
+  // Fetch all assignees for the selected board's tasks
+  const { data: allAssignees = [] } = useQuery({
+    queryKey: ["all-task-assignees", selectedBoard],
+    queryFn: async () => {
+      const taskIds = tasks.map((t) => t.id);
+      if (taskIds.length === 0) return [];
+      const { data, error } = await supabase
+        .from("task_assignees")
+        .select("task_id, user_id, members!task_assignees_user_id_members_fkey(name, surname, avatar_url)")
+        .in("task_id", taskIds);
+      if (error) throw error;
+      return data;
+    },
+    enabled: !!selectedBoard && tasks.length > 0,
+  });
 
   // Auto-select board and task from URL query params (notification deep-link)
   const boardParam = searchParams.get("board");
@@ -437,6 +456,7 @@ export default function BoardPage() {
                   <TableRow>
                     <TableHead className="text-xs">ID</TableHead>
                     <TableHead className="text-xs">Título</TableHead>
+                    <TableHead className="text-xs">Responsável</TableHead>
                     <TableHead className="text-xs">Status</TableHead>
                     <TableHead className="text-xs">Prioridade</TableHead>
                     <TableHead className="text-xs">Tipo</TableHead>
@@ -445,21 +465,43 @@ export default function BoardPage() {
                   </TableRow>
                 </TableHeader>
                 <TableBody>
-                  {filteredTasks.map((task) => (
-                    <TableRow key={task.id} className="cursor-pointer hover:bg-surface-hover" onClick={() => setSelectedTask(task)}>
-                      <TableCell className="text-xs font-mono text-muted-foreground">{task.id}</TableCell>
-                      <TableCell className="text-sm">{task.title}</TableCell>
-                      <TableCell><Badge variant="outline" className="text-[10px]">{statusLabels[task.status]}</Badge></TableCell>
-                      <TableCell><Badge variant="outline" className={cn("text-[10px] border-0", priorityColors[task.priority])}>{priorityLabels[task.priority]}</Badge></TableCell>
-                      <TableCell>
-                        <Badge variant="outline" className={cn("text-[10px] border-0", typeColorsState[task.type] || "")}>
-                          {typeLabelsState[task.type] || task.type}
-                        </Badge>
-                      </TableCell>
-                      <TableCell className="text-xs text-muted-foreground">{task.createdAt}</TableCell>
-                      <TableCell className="text-xs text-muted-foreground">{task.deliveryDate || "—"}</TableCell>
-                    </TableRow>
-                  ))}
+                  {filteredTasks.map((task) => {
+                    const taskAssignees = allAssignees.filter((a: any) => a.task_id === (task as any)._dbId);
+                    return (
+                      <TableRow key={task.id} className="cursor-pointer hover:bg-surface-hover" onClick={() => setSelectedTask(task)}>
+                        <TableCell className="text-xs font-mono text-muted-foreground">{task.id}</TableCell>
+                        <TableCell className="text-sm">{task.title}</TableCell>
+                        <TableCell>
+                          <div className="flex -space-x-1.5">
+                            {taskAssignees.length > 0 ? taskAssignees.slice(0, 3).map((a: any) => (
+                              <Avatar key={a.user_id} className="w-6 h-6 border-2 border-background">
+                                <AvatarImage src={a.members?.avatar_url || undefined} />
+                                <AvatarFallback className="text-[9px]">
+                                  {(a.members?.name || "?")[0].toUpperCase()}
+                                </AvatarFallback>
+                              </Avatar>
+                            )) : (
+                              <span className="text-xs text-muted-foreground">—</span>
+                            )}
+                            {taskAssignees.length > 3 && (
+                              <div className="w-6 h-6 rounded-full bg-muted flex items-center justify-center border-2 border-background">
+                                <span className="text-[9px] text-muted-foreground">+{taskAssignees.length - 3}</span>
+                              </div>
+                            )}
+                          </div>
+                        </TableCell>
+                        <TableCell><Badge variant="outline" className="text-[10px]">{statusLabels[task.status]}</Badge></TableCell>
+                        <TableCell><Badge variant="outline" className={cn("text-[10px] border-0", priorityColors[task.priority])}>{priorityLabels[task.priority]}</Badge></TableCell>
+                        <TableCell>
+                          <Badge variant="outline" className={cn("text-[10px] border-0", typeColorsState[task.type] || "")}>
+                            {typeLabelsState[task.type] || task.type}
+                          </Badge>
+                        </TableCell>
+                        <TableCell className="text-xs text-muted-foreground">{task.createdAt}</TableCell>
+                        <TableCell className="text-xs text-muted-foreground">{task.deliveryDate || "—"}</TableCell>
+                      </TableRow>
+                    );
+                  })}
                 </TableBody>
               </Table>
             </div>
