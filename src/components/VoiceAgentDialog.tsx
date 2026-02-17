@@ -278,38 +278,61 @@ export default function VoiceAgentDialog({ open, onOpenChange, boardId }: VoiceA
               {status === "speaking" ? (
                 <button
                   onClick={stopSpeaking}
-                  className="w-12 h-12 rounded-full bg-destructive/10 border-2 border-destructive/30 flex items-center justify-center hover:bg-destructive/20 transition-all"
+                  className="w-14 h-14 rounded-full bg-destructive/10 border-2 border-destructive/30 flex items-center justify-center hover:bg-destructive/20 transition-all"
                 >
                   <Square className="w-5 h-5 text-destructive" />
                 </button>
               ) : status === "listening" ? (
-                <button
-                  onClick={stopListening}
-                  className="w-12 h-12 rounded-full bg-destructive/10 border-2 border-destructive/30 flex items-center justify-center hover:bg-destructive/20 transition-all animate-pulse"
-                >
-                  <MicOff className="w-5 h-5 text-destructive" />
-                </button>
+                <div className="relative flex items-center justify-center">
+                  {/* Pulsing sound wave rings */}
+                  <span className="absolute w-20 h-20 rounded-full border-2 border-primary/40 animate-ping" style={{ animationDuration: "1.5s" }} />
+                  <span className="absolute w-16 h-16 rounded-full border-2 border-primary/30 animate-ping" style={{ animationDuration: "2s", animationDelay: "0.3s" }} />
+                  <span className="absolute w-24 h-24 rounded-full border border-primary/20 animate-ping" style={{ animationDuration: "2.5s", animationDelay: "0.6s" }} />
+                  <span className="absolute w-14 h-14 rounded-full bg-primary/10 animate-pulse" />
+                  <button
+                    onClick={stopListening}
+                    className="relative z-10 w-14 h-14 rounded-full bg-primary border-2 border-primary flex items-center justify-center hover:bg-primary/90 transition-all shadow-lg shadow-primary/30"
+                  >
+                    <MicOff className="w-5 h-5 text-primary-foreground" />
+                  </button>
+                </div>
               ) : (
                 <button
                   onClick={startListening}
                   disabled={status === "processing"}
                   className={cn(
-                    "w-12 h-12 rounded-full border-2 flex items-center justify-center transition-all",
+                    "w-14 h-14 rounded-full border-2 flex items-center justify-center transition-all",
                     status === "processing"
                       ? "bg-muted border-border cursor-wait"
-                      : "bg-primary/10 border-primary/30 hover:bg-primary/20 hover:border-primary/50"
+                      : "bg-primary/10 border-primary/30 hover:bg-primary/20 hover:border-primary/50 hover:scale-105"
                   )}
                 >
                   {status === "processing" ? (
-                    <div className="w-4 h-4 border-2 border-primary border-t-transparent rounded-full animate-spin" />
+                    <div className="w-5 h-5 border-2 border-primary border-t-transparent rounded-full animate-spin" />
                   ) : (
-                    <Mic className="w-5 h-5 text-primary" />
+                    <Mic className="w-6 h-6 text-primary" />
                   )}
                 </button>
               )}
 
               {status === "speaking" && (
-                <Volume2 className="w-4 h-4 text-primary animate-pulse" />
+                <div className="flex items-center gap-1">
+                  <Volume2 className="w-4 h-4 text-primary animate-pulse" />
+                  {/* Sound bars animation */}
+                  <div className="flex items-end gap-0.5 h-4">
+                    {[1, 2, 3, 4].map((i) => (
+                      <div
+                        key={i}
+                        className="w-0.5 bg-primary rounded-full animate-bounce"
+                        style={{
+                          height: `${8 + Math.random() * 8}px`,
+                          animationDelay: `${i * 0.15}s`,
+                          animationDuration: "0.6s",
+                        }}
+                      />
+                    ))}
+                  </div>
+                </div>
               )}
             </div>
           )}
