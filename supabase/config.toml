@@ -2,3 +2,6 @@ project_id = "smtzvxxnajvcnxjbicsa"
 
 [functions.github-callback]
 verify_jwt = false
+
+[functions.ai-chat]
+verify_jwt = false
