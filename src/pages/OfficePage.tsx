@@ -159,7 +159,7 @@ export default function OfficePage() {
     if (!speechDetectedInChunkRef.current) return;
     speechDetectedInChunkRef.current = false;
     if (aiSpeakingRef.current) return;
-    if (aiStoppedSpeakingAtRef.current > 0 && (Date.now() - aiStoppedSpeakingAtRef.current) < 2000) return;
+    if (aiStoppedSpeakingAtRef.current > 0 && (Date.now() - aiStoppedSpeakingAtRef.current) < 3000) return;
     if (blob.size < 5000) return;
     try {
       const arrayBuffer = await blob.arrayBuffer();
