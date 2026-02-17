@@ -71,7 +71,7 @@ export default function OfficePage() {
   }, []);
 
   const transcribeChunk = useCallback(async (blob: Blob) => {
-    if (blob.size < 1000) return;
+    if (blob.size < 2000) return; // skip very small chunks (likely silence)
     try {
       const arrayBuffer = await blob.arrayBuffer();
       const uint8 = new Uint8Array(arrayBuffer);
@@ -91,7 +91,8 @@ export default function OfficePage() {
       }
 
       const text = data?.transcript?.trim();
-      if (text && text.length > 0) {
+      // Filter out noise: must have at least 3 chars, not just punctuation/filler
+      if (text && text.length >= 3 && !/^[.\s,…!?-]+$/.test(text)) {
         const now = new Date();
         const time = now.toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" });
         setTranscriptionEntries((prev) => [
