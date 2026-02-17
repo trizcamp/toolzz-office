@@ -5,7 +5,6 @@ import RoomList from "@/components/office/RoomList";
 import ChatArea from "@/components/office/ChatArea";
 import MemberList from "@/components/office/MemberList";
 import VoiceParticipants from "@/components/office/VoiceParticipants";
-import TranscriptionPanel from "@/components/office/TranscriptionPanel";
 import { useRooms, type DbRoom } from "@/hooks/useRooms";
 import { useVoiceConnection } from "@/contexts/VoiceConnectionContext";
 import { useBoards } from "@/hooks/useBoards";
@@ -21,29 +20,38 @@ export default function OfficePage() {
   const [showMembers, setShowMembers] = useState(false);
   const [aiEnabled, setAiEnabled] = useState(false);
   const [aiSpeaking, setAiSpeaking] = useState(false);
-  const [transcriptionEnabled, setTranscriptionEnabled] = useState(false);
   const [isListening, setIsListening] = useState(false);
-  const [transcriptionEntries, setTranscriptionEntries] = useState<{ id: string; speaker: string; text: string; time: string }[]>([]);
-  
+  const [transcriptionEntries, setTranscriptionEntries] = useState<{ id: string; speaker: string; text: string; time: string; created_at: string }[]>([]);
+
   const mediaRecorderRef = useRef<MediaRecorder | null>(null);
   const streamRef = useRef<MediaStream | null>(null);
   const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const chunksRef = useRef<Blob[]>([]);
-  const transcriptionEnabledRef = useRef(false);
+  const isVoiceActiveRef = useRef(false);
 
   const selectedRoom = rooms.find((r) => r.id === selectedRoomId) || rooms[0] || null;
   const boardId = boards?.[0]?.id || null;
+  const isVoiceRoom = selectedRoom?.type !== "text";
 
   // Keep ref in sync
-  useEffect(() => { transcriptionEnabledRef.current = transcriptionEnabled; }, [transcriptionEnabled]);
+  useEffect(() => { isVoiceActiveRef.current = isListening; }, [isListening]);
 
-  // Reset transcription when room changes
+  // Reset when room changes
   useEffect(() => {
     stopTranscription();
-    setTranscriptionEnabled(false);
     setTranscriptionEntries([]);
     setIsListening(false);
   }, [selectedRoomId]);
+
+  // Auto-start mic when entering a voice room
+  useEffect(() => {
+    if (isVoiceRoom && selectedRoom && connectedRoom?.id === selectedRoom.id) {
+      startTranscription();
+    } else {
+      stopTranscription();
+    }
+    return () => { stopTranscription(); };
+  }, [isVoiceRoom, selectedRoom?.id, connectedRoom?.id]);
 
   const stopTranscription = useCallback(() => {
     if (intervalRef.current) {
@@ -63,7 +71,7 @@ export default function OfficePage() {
   }, []);
 
   const transcribeChunk = useCallback(async (blob: Blob) => {
-    if (blob.size < 1000) return; // skip tiny chunks
+    if (blob.size < 1000) return;
     try {
       const arrayBuffer = await blob.arrayBuffer();
       const uint8 = new Uint8Array(arrayBuffer);
@@ -88,7 +96,7 @@ export default function OfficePage() {
         const time = now.toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" });
         setTranscriptionEntries((prev) => [
           ...prev,
-          { id: `t-${Date.now()}`, speaker: "Você", text, time },
+          { id: `t-${Date.now()}`, speaker: "Você", text, time, created_at: now.toISOString() },
         ]);
       }
     } catch (e) {
@@ -97,6 +105,7 @@ export default function OfficePage() {
   }, []);
 
   const startTranscription = useCallback(async () => {
+    if (streamRef.current) return; // already started
     try {
       const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
       streamRef.current = stream;
@@ -105,50 +114,35 @@ export default function OfficePage() {
         ? "audio/webm;codecs=opus"
         : MediaRecorder.isTypeSupported("audio/webm") ? "audio/webm" : "audio/mp4";
 
-      const recorder = new MediaRecorder(stream, { mimeType });
-      mediaRecorderRef.current = recorder;
-      chunksRef.current = [];
-
-      recorder.ondataavailable = (e) => {
-        if (e.data.size > 0) chunksRef.current.push(e.data);
+      const createRecorder = () => {
+        const recorder = new MediaRecorder(stream, { mimeType });
+        chunksRef.current = [];
+        recorder.ondataavailable = (e) => {
+          if (e.data.size > 0) chunksRef.current.push(e.data);
+        };
+        recorder.onstop = () => {
+          if (chunksRef.current.length > 0) {
+            const blob = new Blob(chunksRef.current, { type: mimeType });
+            chunksRef.current = [];
+            transcribeChunk(blob);
+          }
+        };
+        return recorder;
       };
 
-      recorder.onstop = () => {
-        // Process accumulated chunks
-        if (chunksRef.current.length > 0) {
-          const blob = new Blob(chunksRef.current, { type: mimeType });
-          chunksRef.current = [];
-          transcribeChunk(blob);
-        }
-      };
-
-      // Start recording
-      recorder.start();
+      mediaRecorderRef.current = createRecorder();
+      mediaRecorderRef.current.start();
       setIsListening(true);
 
-      // Every 5 seconds, stop and restart to get a chunk
       intervalRef.current = setInterval(() => {
-        if (!transcriptionEnabledRef.current) return;
+        if (!isVoiceActiveRef.current) return;
         if (mediaRecorderRef.current && mediaRecorderRef.current.state === "recording") {
           mediaRecorderRef.current.stop();
-          // Restart after a small delay
           setTimeout(() => {
-            if (transcriptionEnabledRef.current && streamRef.current && streamRef.current.active) {
+            if (streamRef.current && streamRef.current.active) {
               try {
-                const newRecorder = new MediaRecorder(streamRef.current, { mimeType });
-                chunksRef.current = [];
-                newRecorder.ondataavailable = (e) => {
-                  if (e.data.size > 0) chunksRef.current.push(e.data);
-                };
-                newRecorder.onstop = () => {
-                  if (chunksRef.current.length > 0) {
-                    const blob = new Blob(chunksRef.current, { type: mimeType });
-                    chunksRef.current = [];
-                    transcribeChunk(blob);
-                  }
-                };
-                mediaRecorderRef.current = newRecorder;
-                newRecorder.start();
+                mediaRecorderRef.current = createRecorder();
+                mediaRecorderRef.current.start();
               } catch {}
             }
           }, 100);
@@ -157,21 +151,10 @@ export default function OfficePage() {
 
     } catch (e) {
       console.error("Failed to access microphone:", e);
-      toast({ title: "Microfone bloqueado", description: "Permita o acesso ao microfone nas configurações do navegador.", variant: "destructive" });
-      setTranscriptionEnabled(false);
+      toast({ title: "Microfone bloqueado", description: "Permita o acesso ao microfone.", variant: "destructive" });
       setIsListening(false);
     }
   }, [transcribeChunk, toast]);
-
-  // Manage transcription lifecycle
-  useEffect(() => {
-    if (transcriptionEnabled) {
-      startTranscription();
-    } else {
-      stopTranscription();
-    }
-    return () => { stopTranscription(); };
-  }, [transcriptionEnabled]);
 
   const handleSelectRoom = (room: DbRoom) => {
     setSelectedRoomId(room.id);
@@ -202,23 +185,9 @@ export default function OfficePage() {
     }
   }, [aiEnabled, toast]);
 
-  const handleToggleTranscription = useCallback(() => {
-    if (transcriptionEnabled) {
-      setTranscriptionEnabled(false);
-      toast({ title: "Transcrição pausada", description: "A transcrição foi salva." });
-    } else {
-      setTranscriptionEnabled(true);
-      toast({ title: "Transcrição ativa", description: "O áudio da reunião está sendo transcrito." });
-    }
-  }, [transcriptionEnabled, toast]);
-
-  const handleClearTranscription = useCallback(() => {
+  const handleClearHistory = useCallback(() => {
     setTranscriptionEntries([]);
-    toast({ title: "Transcrição limpa" });
-  }, [toast]);
-
-  const isVoiceRoom = selectedRoom?.type !== "text";
-  const showTranscriptionPanel = transcriptionEnabled && isVoiceRoom;
+  }, []);
 
   if (isLoading || !selectedRoom) {
     return <div className="flex items-center justify-center h-full text-sm text-muted-foreground">Carregando salas...</div>;
@@ -240,10 +209,8 @@ export default function OfficePage() {
             room={{ ...selectedRoom, connectedUsers: [] }}
             aiEnabled={aiEnabled}
             aiSpeaking={aiSpeaking}
-            transcriptionEnabled={transcriptionEnabled}
             isListening={isListening}
             onToggleAI={handleToggleAI}
-            onToggleTranscription={handleToggleTranscription}
           />
         )}
         <div className="flex-1 flex min-w-0">
@@ -252,21 +219,11 @@ export default function OfficePage() {
             roomName={selectedRoom.name}
             aiEnabled={aiEnabled}
             boardId={boardId}
+            isListening={isListening}
+            transcriptionEntries={transcriptionEntries}
             onAiSpeakingChange={setAiSpeaking}
+            onClearHistory={handleClearHistory}
           />
-          {showTranscriptionPanel && (
-            <div className="w-[360px] shrink-0 flex flex-col">
-              <TranscriptionPanel
-                entries={transcriptionEntries}
-                isListening={isListening}
-                onClear={handleClearTranscription}
-                onClose={() => {
-                  setTranscriptionEnabled(false);
-                  toast({ title: "Transcrição pausada" });
-                }}
-              />
-            </div>
-          )}
         </div>
       </div>
       {showMembers && <MemberList room={{ ...selectedRoom, connectedUsers: [] }} />}
