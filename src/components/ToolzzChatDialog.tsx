@@ -2,7 +2,7 @@ import { useState, useRef, useEffect } from "react";
 import { Dialog, DialogContent, DialogTitle } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
-import { Send, Loader2, Bot, User, Paperclip, X, FileText, Image as ImageIcon } from "lucide-react";
+import { Send, Loader2, Bot, User, Paperclip, X, FileText, Image as ImageIcon, ArrowRight } from "lucide-react";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { cn } from "@/lib/utils";
 import ReactMarkdown from "react-markdown";
@@ -11,6 +11,7 @@ import { useQueryClient } from "@tanstack/react-query";
 import { useToast } from "@/hooks/use-toast";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { useGithubIntegration } from "@/hooks/useGithubIntegration";
+import { useNavigate } from "react-router-dom";
 
 interface Message {
   role: "user" | "assistant";
@@ -53,11 +54,13 @@ export default function ToolzzChatDialog({ open, onOpenChange, boardId }: Toolzz
   const [uploading, setUploading] = useState(false);
   const [pendingBugReply, setPendingBugReply] = useState<string | null>(null);
   const [selectedRepo, setSelectedRepo] = useState<string>("");
+  const [hasCreatedTask, setHasCreatedTask] = useState(false);
   const scrollRef = useRef<HTMLDivElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const queryClient = useQueryClient();
   const { toast } = useToast();
   const { connected: ghConnected, repos, fetchRepos, loadingRepos } = useGithubIntegration();
+  const navigate = useNavigate();
 
   useEffect(() => {
     if (scrollRef.current) {
@@ -142,6 +145,7 @@ export default function ToolzzChatDialog({ open, onOpenChange, boardId }: Toolzz
         updated[updated.length - 1] = { role: "assistant", content: confirmationMsg };
         return updated;
       });
+      if (createdTasks.length > 0) setHasCreatedTask(true);
       queryClient.invalidateQueries({ queryKey: ["tasks"] });
       queryClient.invalidateQueries({ queryKey: ["documents"] });
     }
@@ -220,8 +224,27 @@ export default function ToolzzChatDialog({ open, onOpenChange, boardId }: Toolzz
     }
   };
 
+  const handleClose = (v: boolean) => {
+    if (!v) {
+      // Reset chat on close
+      setMessages([]);
+      setInput("");
+      setAttachedFile(null);
+      setPendingBugReply(null);
+      setSelectedRepo("");
+      setHasCreatedTask(false);
+    }
+    onOpenChange(v);
+  };
+
+  const handleContinue = () => {
+    // Keep chat saved (don't reset), close and navigate to board
+    onOpenChange(false);
+    navigate("/board");
+  };
+
   return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
+    <Dialog open={open} onOpenChange={handleClose}>
       <DialogContent className="max-w-lg h-[70vh] flex flex-col p-0 gap-0">
         <DialogTitle className="px-4 pt-4 pb-2 text-sm font-semibold flex items-center gap-2">
           <Bot className="w-4 h-4 text-primary" /> Assistente IA Toolzz
@@ -311,34 +334,45 @@ export default function ToolzzChatDialog({ open, onOpenChange, boardId }: Toolzz
           </div>
         )}
 
-        <div className="p-3 border-t border-border flex gap-2">
-          <input
-            ref={fileInputRef}
-            type="file"
-            accept={ACCEPTED_TYPES}
-            onChange={handleFileSelect}
-            className="hidden"
-          />
-          <Button
-            size="icon"
-            variant="ghost"
-            onClick={() => fileInputRef.current?.click()}
-            disabled={loading || uploading}
-            className="shrink-0"
-          >
-            <Paperclip className="w-4 h-4" />
-          </Button>
-          <Input
-            placeholder="Digite sua mensagem..."
-            value={input}
-            onChange={(e) => setInput(e.target.value)}
-            onKeyDown={(e) => e.key === "Enter" && !e.shiftKey && sendMessage()}
-            disabled={loading || uploading}
-            className="flex-1"
-          />
-          <Button size="icon" onClick={sendMessage} disabled={(loading || uploading) || (!input.trim() && !attachedFile)}>
-            {uploading ? <Loader2 className="w-4 h-4 animate-spin" /> : <Send className="w-4 h-4" />}
-          </Button>
+        <div className="p-3 border-t border-border flex flex-col gap-2">
+          {hasCreatedTask && (
+            <Button
+              onClick={handleContinue}
+              className="w-full btn-gradient text-xs font-medium gap-1.5"
+              size="sm"
+            >
+              Continuar para o Board <ArrowRight className="w-3.5 h-3.5" />
+            </Button>
+          )}
+          <div className="flex gap-2">
+            <input
+              ref={fileInputRef}
+              type="file"
+              accept={ACCEPTED_TYPES}
+              onChange={handleFileSelect}
+              className="hidden"
+            />
+            <Button
+              size="icon"
+              variant="ghost"
+              onClick={() => fileInputRef.current?.click()}
+              disabled={loading || uploading}
+              className="shrink-0"
+            >
+              <Paperclip className="w-4 h-4" />
+            </Button>
+            <Input
+              placeholder="Digite sua mensagem..."
+              value={input}
+              onChange={(e) => setInput(e.target.value)}
+              onKeyDown={(e) => e.key === "Enter" && !e.shiftKey && sendMessage()}
+              disabled={loading || uploading}
+              className="flex-1"
+            />
+            <Button size="icon" onClick={sendMessage} disabled={(loading || uploading) || (!input.trim() && !attachedFile)}>
+              {uploading ? <Loader2 className="w-4 h-4 animate-spin" /> : <Send className="w-4 h-4" />}
+            </Button>
+          </div>
         </div>
       </DialogContent>
     </Dialog>
