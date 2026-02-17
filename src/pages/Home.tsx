@@ -1,6 +1,7 @@
 import { motion } from "framer-motion";
 import { CheckCircle2, MessageSquare, Activity, Mic, Plus, ArrowRight, UserPlus } from "lucide-react";
 import { useState } from "react";
+import { useNavigate } from "react-router-dom";
 import { cn } from "@/lib/utils";
 import { useTasks } from "@/hooks/useTasks";
 import { useAuth } from "@/hooks/useAuth";
@@ -73,6 +74,7 @@ function getActionDescription(log: { action: string; metadata: Record<string, an
 export default function HomePage() {
   const [chatOpen, setChatOpen] = useState(false);
   const [voiceOpen, setVoiceOpen] = useState(false);
+  const navigate = useNavigate();
   const { user } = useAuth();
   const { boards } = useBoards();
   const { tasks } = useTasks(null);
@@ -144,7 +146,7 @@ export default function HomePage() {
               <p className="text-xs text-muted-foreground py-4 text-center">Nenhuma tarefa pendente 🎉</p>
             )}
             {todayTasks.map((task) => (
-              <div key={task.id} className="flex items-center gap-3 py-1.5 px-2 rounded-lg hover:bg-muted/50 transition-colors">
+              <div key={task.id} className="flex items-center gap-3 py-1.5 px-2 rounded-lg hover:bg-muted/50 transition-colors cursor-pointer" onClick={() => navigate(`/board?board=${task.board_id}&task=${task.id}`)}>
                 <div className={cn("w-2 h-2 rounded-full shrink-0", priorityDot[task.priority])} />
                 <div className="flex-1 min-w-0">
                   <p className="text-sm text-foreground truncate">{task.title}</p>
