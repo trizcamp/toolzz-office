@@ -107,6 +107,22 @@ serve(async (req) => {
       }
     }
 
+    // Notify all admins about the invitation
+    const { data: adminRoles } = await supabaseAdmin
+      .from("user_roles")
+      .select("user_id")
+      .eq("role", "admin");
+
+    if (adminRoles && adminRoles.length > 0) {
+      const notifications = adminRoles.map((r: any) => ({
+        user_id: r.user_id,
+        type: "member_invited",
+        title: "Novo membro convidado",
+        body: `${name || email} foi convidado para o time`,
+      }));
+      await supabaseAdmin.from("notifications").insert(notifications);
+    }
+
     return new Response(JSON.stringify({ success: true, userId: inviteData?.user?.id }), {
       headers: { ...corsHeaders, "Content-Type": "application/json" },
     });
