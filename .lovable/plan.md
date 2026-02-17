@@ -1,94 +1,82 @@
 
-# Plano: Agente de voz IA funcional na Home
+# Plano: Card maior, Atividades funcionais e Notificacao de convite
 
-## Resumo
+## 1. Layout da Home -- Card de IA maior
 
-Reverter o card de IA da Home ao layout original (botao de microfone central, titulo "Conversar com IA", botoes "Via texto" e "Via voz") e implementar um agente de voz funcional usando Lovable AI. O agente de voz escuta o usuario via microfone do navegador, transcreve a fala, envia para a edge function `ai-chat` existente e responde por voz sintetizada. Quando o usuario descreve uma tarefa, o agente cria automaticamente no board.
-
-## Layout do Card (como na imagem de referencia)
+O card de IA atualmente ocupa 1 coluna (lg:col-span-1) num grid de 3 colunas. A mudanca faz ele ocupar as 3 colunas (largura total), e as secoes "Tarefas do Dia" e "Atividade Recente" ficam lado a lado abaixo dele em 2 colunas.
 
 ```text
-+---------------------------+
-|                            |
-|      [ Mic Button ]        |
-|   (circulo grande, clicavel)|
-|                            |
-|    Conversar com IA        |
-|  Clique para falar ou digite|
-|                            |
-| [Via texto]   [Via voz]    |
-+---------------------------+
++-------------------------------------------+
+|         Card IA (largura total)            |
+|   [Mic]  Conversar com IA                 |
+|   [Via texto]  [Via voz]                   |
++-------------------------------------------+
+| Tarefas do Dia       | Atividade Recente  |
+|                      |                    |
++-------------------------------------------+
 ```
 
-## Fluxo do Agente de Voz
+### Alteracoes em `src/pages/Home.tsx`:
+- Card IA: `lg:col-span-3` com layout horizontal (flex-row) -- mic a esquerda, botoes a direita
+- Tarefas e Atividades ficam num grid `lg:grid-cols-2` abaixo
 
-1. Usuario clica em "Via voz" -- abre um dialog de conversa por voz
-2. O usuario clica no botao de microfone para falar
-3. A fala e capturada via Web Speech API (SpeechRecognition nativo do navegador)
-4. O texto transcrito e enviado para a edge function `ai-chat` (ja existente, com tool calling para criar tarefas)
-5. A resposta da IA e exibida na tela e falada via Web Speech Synthesis (TTS nativo do navegador)
-6. Se o usuario descrever uma tarefa, o `ai-chat` usa tool calling para criar no board automaticamente
-7. Confirmacao visual e sonora da criacao da tarefa
+## 2. Atividades Recentes funcionais com persistencia
 
-## Alteracoes
+### Banco de dados -- nova tabela `activity_logs`
 
-### 1. `src/pages/Home.tsx`
-- Remover o iframe embed do Toolzz e o listener de postMessage
-- Restaurar o layout original com:
-  - Botao de microfone circular grande no centro do card
-  - Titulo "Conversar com IA" e subtitulo "Clique para falar ou digite"
-  - Dois botoes: "Via texto" (abre ToolzzChatDialog) e "Via voz" (abre novo VoiceAgentDialog)
-- Adicionar estado `voiceOpen` para controlar o dialog de voz
+Criar tabela com:
+- `id` (uuid, PK)
+- `user_id` (uuid) -- quem executou a acao
+- `action` (text) -- tipo: `task_created`, `task_status_changed`, `task_assigned`, `member_invited`
+- `entity_type` (text) -- `task`, `member`, etc.
+- `entity_id` (text) -- ID da entidade
+- `metadata` (jsonb) -- dados extras (titulo da tarefa, status antigo/novo, nome do membro, etc.)
+- `created_at` (timestamptz)
 
-### 2. `src/components/VoiceAgentDialog.tsx` (novo)
-- Dialog modal para conversa por voz com a IA
-- Componentes:
-  - Historico de mensagens (usuario e assistente) com suporte a Markdown
-  - Botao de microfone central com animacao de "ouvindo" (pulse)
-  - Indicador de status: "Ouvindo...", "Processando...", "Falando..."
-- Funcionalidades:
-  - **Captura de voz**: Web Speech API (`webkitSpeechRecognition` / `SpeechRecognition`) com `lang: "pt-BR"`
-  - **Envio para IA**: Chamada a `supabase.functions.invoke("ai-chat")` com o texto transcrito, passando `boardId`
-  - **Resposta por voz**: Web Speech Synthesis (`speechSynthesis.speak()`) com voz em portugues
-  - **Criacao de tarefas**: Funciona identicamente ao chat de texto -- a edge function `ai-chat` ja tem tool calling para `create_task`
-  - Exibicao de confirmacao quando tarefa e criada (titulo + display_id)
-  - Botao para parar de ouvir ou cancelar a fala da IA
+RLS: usuarios autenticados podem ler todos os logs (visibilidade do time).
 
-### 3. `supabase/config.toml`
-- Adicionar entry para `ai-chat` sem verificacao de JWT (ja e publico mas precisa estar no config)
+### Triggers no banco para popular automaticamente
 
-### 4. Edge function `ai-chat` -- sem alteracoes
-- A edge function existente ja suporta:
-  - Receber mensagens e boardId
-  - Tool calling para criar tarefas
-  - Integracao com GitHub para bugs
-  - Retorno de tarefas criadas
+1. **Criacao de tarefa** (`AFTER INSERT ON tasks`): insere log com `task_created`
+2. **Mudanca de status** (`AFTER UPDATE ON tasks` quando `status` muda): insere log com `task_status_changed` incluindo status antigo e novo
+3. **Atribuicao de responsavel** (`AFTER INSERT ON task_assignees`): insere log com `task_assigned`
 
-## Detalhes tecnicos
+### Realtime
 
-### Web Speech API (reconhecimento de voz)
-```text
-- SpeechRecognition nativo do navegador (Chrome, Edge, Safari)
-- Configuracao: lang="pt-BR", continuous=false, interimResults=true
-- Fallback: se nao suportado, exibir toast informando incompatibilidade
-```
+Adicionar `activity_logs` ao `supabase_realtime` publication para atualizacao em tempo real.
 
-### Web Speech Synthesis (TTS)
-```text
-- speechSynthesis.speak() nativo
-- Voz em pt-BR (seleciona automaticamente a melhor disponivel)
-- Cancelavel quando usuario interrompe
-```
+### Hook `useActivityLogs`
 
-### Fluxo de dados
-```text
-Microfone -> SpeechRecognition -> texto -> ai-chat edge function -> resposta + tarefas criadas -> SpeechSynthesis + UI
-```
+Novo hook em `src/hooks/useActivityLogs.ts`:
+- Query dos ultimos 30 logs ordenados por `created_at desc`
+- Subscription realtime para invalidar cache quando novos logs chegam
+- Join com tabela `members` para exibir nome/avatar do autor
+
+### UI na Home
+
+Substituir o placeholder de "Atividade Recente" por uma lista funcional com:
+- Avatar e nome do membro que realizou a acao
+- Descricao da acao (ex: "criou a tarefa TOZ-15", "moveu TOZ-12 para Em Progresso")
+- Tempo relativo (ex: "ha 5 minutos")
+- Icone por tipo de acao
+
+## 3. Notificacao de convite de membro
+
+### Alteracao na edge function `invite-member`
+
+Apos o convite ser realizado com sucesso, inserir uma notificacao na tabela `notifications` para todos os admins informando que um novo membro foi convidado. Utiliza o `supabaseAdmin` (service role) que ja existe na funcao.
+
+Notificacao criada:
+- `type`: `member_invited`
+- `title`: "Novo membro convidado"
+- `body`: nome/email do membro convidado
+- `link`: null
 
 ## Arquivos alterados
 
 | Arquivo | Acao |
 |---|---|
-| `src/pages/Home.tsx` | Reverter layout do card, remover iframe, adicionar botao "Via voz" |
-| `src/components/VoiceAgentDialog.tsx` | Novo -- dialog de conversa por voz com IA |
-| `supabase/config.toml` | Adicionar config da funcao `ai-chat` |
+| `src/pages/Home.tsx` | Expandir card IA, integrar atividades funcionais |
+| `src/hooks/useActivityLogs.ts` | Novo -- hook para buscar/subscrever logs de atividade |
+| `supabase/functions/invite-member/index.ts` | Adicionar notificacao de convite |
+| Migration SQL | Criar tabela `activity_logs`, triggers, realtime |
