@@ -216,20 +216,17 @@ export default function ChatArea({ roomId, roomName, aiEnabled, boardId, isListe
     const text = draft.trim();
     setDraft("");
 
-    if (roomId) {
-      sendMessage.mutate({ roomId, text });
-    } else if (aiEnabled) {
-      // Only add user message to aiMessages when there's no room to avoid duplicates
+    if (aiEnabled) {
+      // When AI is active, only use AI chat (don't save to room to avoid duplicates)
       setAiMessages((prev) => [...prev, {
         id: `user-input-${Date.now()}`,
         role: "user",
         content: text,
         created_at: new Date().toISOString(),
       }]);
-    }
-
-    if (aiEnabled) {
       sendToAI(text);
+    } else if (roomId) {
+      sendMessage.mutate({ roomId, text });
     }
   };
 
