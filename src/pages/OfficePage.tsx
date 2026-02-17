@@ -44,12 +44,6 @@ export default function OfficePage() {
   useEffect(() => { isVoiceActiveRef.current = isListening; }, [isListening]);
   useEffect(() => {
     aiSpeakingRef.current = aiSpeaking;
-    // Mute/unmute mic tracks while AI is speaking to prevent echo capture
-    if (streamRef.current) {
-      streamRef.current.getAudioTracks().forEach(track => {
-        track.enabled = !aiSpeaking;
-      });
-    }
     // Track when AI stopped speaking to add buffer period
     if (!aiSpeaking && aiStoppedSpeakingAtRef.current === 0) {
       aiStoppedSpeakingAtRef.current = Date.now();
@@ -65,7 +59,7 @@ export default function OfficePage() {
     const timeout = setTimeout(() => {
       console.warn("aiSpeaking safety timeout triggered — resetting");
       setAiSpeaking(false);
-    }, 12000);
+    }, 5000);
     return () => clearTimeout(timeout);
   }, [aiSpeaking]);
 

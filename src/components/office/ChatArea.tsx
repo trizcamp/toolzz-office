@@ -123,18 +123,35 @@ export default function ChatArea({ roomId, roomName, aiEnabled, boardId, isListe
   // Auto-send new transcriptions to AI when enabled
   const lastProcessedTranscriptionRef = useRef(0);
   const sendToAIRef = useRef<((text: string) => void) | null>(null);
+  const pendingTextRef = useRef<string | null>(null);
+
+  // When transcription entries arrive, queue them
   useEffect(() => {
-    if (!aiEnabled || aiProcessing || transcriptionEntries.length === 0) return;
+    if (!aiEnabled || transcriptionEntries.length === 0) return;
     
     const newEntries = transcriptionEntries.slice(lastProcessedTranscriptionRef.current);
     if (newEntries.length === 0) return;
     
     lastProcessedTranscriptionRef.current = transcriptionEntries.length;
-    const combinedText = newEntries.map(e => e.text).join(" ");
-    if (combinedText.trim() && sendToAIRef.current) {
-      sendToAIRef.current(combinedText.trim());
+    const combinedText = newEntries.map(e => e.text).join(" ").trim();
+    if (!combinedText) return;
+
+    if (aiProcessing) {
+      // Queue for later
+      pendingTextRef.current = pendingTextRef.current ? `${pendingTextRef.current} ${combinedText}` : combinedText;
+    } else if (sendToAIRef.current) {
+      sendToAIRef.current(combinedText);
     }
   }, [transcriptionEntries, aiEnabled, aiProcessing]);
+
+  // Flush pending text when AI finishes processing
+  useEffect(() => {
+    if (!aiProcessing && pendingTextRef.current && sendToAIRef.current) {
+      const text = pendingTextRef.current;
+      pendingTextRef.current = null;
+      sendToAIRef.current(text);
+    }
+  }, [aiProcessing]);
 
   // Reset counter when AI is disabled
   useEffect(() => {
