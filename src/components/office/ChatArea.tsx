@@ -271,9 +271,8 @@ export default function ChatArea({ roomId, roomName, aiEnabled, boardId, isListe
     return new Date(dateStr).toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" });
   };
 
-  // Merge room messages, AI messages, and transcription entries — sorted by time
+  // Only show messages from current session (AI messages + transcriptions, no persisted room messages)
   const allMessages = [
-    ...messages.map((m) => ({ ...m, isAi: false, isUserAi: false, isTranscription: false, speaker: "" })),
     ...aiMessages.map((m) => ({
       id: m.id,
       user_id: m.role === "user" ? (user?.id || "user") : "ai-agent",
