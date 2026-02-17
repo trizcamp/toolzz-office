@@ -349,10 +349,13 @@ export type Database = {
           created_at: string
           created_by: string | null
           date: string
+          description: string | null
           end_time: string | null
           id: string
+          meeting_code: string | null
           room_id: string | null
           start_time: string | null
+          status: string
           summary: string | null
           title: string
         }
@@ -360,10 +363,13 @@ export type Database = {
           created_at?: string
           created_by?: string | null
           date?: string
+          description?: string | null
           end_time?: string | null
           id?: string
+          meeting_code?: string | null
           room_id?: string | null
           start_time?: string | null
+          status?: string
           summary?: string | null
           title: string
         }
@@ -371,10 +377,13 @@ export type Database = {
           created_at?: string
           created_by?: string | null
           date?: string
+          description?: string | null
           end_time?: string | null
           id?: string
+          meeting_code?: string | null
           room_id?: string | null
           start_time?: string | null
+          status?: string
           summary?: string | null
           title?: string
         }
