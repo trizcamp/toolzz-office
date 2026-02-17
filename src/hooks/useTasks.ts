@@ -130,10 +130,20 @@ export function useTasks(boardId: string | null) {
 
   const deleteTask = useMutation({
     mutationFn: async (id: string) => {
+      // Delete linked document and its blocks first
+      const { data: doc } = await supabase.from("documents").select("id").eq("task_id", id).maybeSingle();
+      if (doc) {
+        await supabase.from("document_blocks").delete().eq("document_id", doc.id);
+        await supabase.from("document_comments").delete().eq("document_id", doc.id);
+        await supabase.from("documents").delete().eq("id", doc.id);
+      }
       const { error } = await supabase.from("tasks").delete().eq("id", id);
       if (error) throw error;
     },
-    onSuccess: () => queryClient.invalidateQueries({ queryKey: ["tasks"] }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["tasks"] });
+      queryClient.invalidateQueries({ queryKey: ["documents"] });
+    },
   });
 
   return { tasks: query.data || [], isLoading: query.isLoading, createTask, updateTask, deleteTask };
