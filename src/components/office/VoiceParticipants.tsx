@@ -1,4 +1,3 @@
-import { useState } from "react";
 import { Bot, Sparkles, MicOff, Mic, Volume2, VolumeX, PhoneOff, Settings } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
@@ -8,41 +7,31 @@ import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Label } from "@/components/ui/label";
 import { useVoiceConnection, type MockUser, type Room } from "@/contexts/VoiceConnectionContext";
-import { useToast } from "@/hooks/use-toast";
-import { useBoards } from "@/hooks/useBoards";
-import VoiceAgentDialog from "@/components/VoiceAgentDialog";
+import { useState } from "react";
 
 interface VoiceParticipantsProps {
   room: Room;
+  aiEnabled: boolean;
+  aiSpeaking?: boolean;
+  onToggleAI: () => void;
 }
 
-export default function VoiceParticipants({ room }: VoiceParticipantsProps) {
+export default function VoiceParticipants({ room, aiEnabled, aiSpeaking, onToggleAI }: VoiceParticipantsProps) {
   const { connectedRoom, currentUser, isMuted, isDeafened, toggleMute, toggleDeafen, disconnect } = useVoiceConnection();
-  const { toast } = useToast();
-  const { boards } = useBoards();
-  const [aiEnabled, setAiEnabled] = useState(false);
-  const [aiDialogOpen, setAiDialogOpen] = useState(false);
   const [inputDevice, setInputDevice] = useState("default");
   const [outputDevice, setOutputDevice] = useState("default");
   const isConnectedHere = connectedRoom?.id === room.id;
-  const boardId = boards?.[0]?.id || null;
-
-  const handleToggleAI = () => {
-    if (aiEnabled) {
-      setAiEnabled(false);
-      setAiDialogOpen(false);
-      toast({ title: "IA desabilitada", description: "Reunião salva em 'Reuniões'" });
-    } else {
-      setAiEnabled(true);
-      setAiDialogOpen(true);
-    }
-  };
 
   const members: MockUser[] = isConnectedHere
     ? [...room.connectedUsers, { ...currentUser, isSpeaking: false }]
     : room.connectedUsers;
 
-  if (members.length === 0 && !isConnectedHere) return null;
+  // Add AI as a participant when enabled
+  const allParticipants = aiEnabled
+    ? [...members, { id: "ai-agent", name: "Toolzz IA", avatar: "", isSpeaking: aiSpeaking }]
+    : members;
+
+  if (allParticipants.length === 0 && !isConnectedHere) return null;
 
   return (
     <div className="flex-1 bg-surface/50 flex flex-col items-center justify-center relative min-h-[300px]">
@@ -50,34 +39,57 @@ export default function VoiceParticipants({ room }: VoiceParticipantsProps) {
       <div className="absolute top-4 right-4">
         <Tooltip>
           <TooltipTrigger asChild>
-            <Button size="sm" variant={aiEnabled ? "default" : "outline"} className="h-8 gap-1.5 text-xs" onClick={handleToggleAI}>
+            <Button size="sm" variant={aiEnabled ? "default" : "outline"} className="h-8 gap-1.5 text-xs" onClick={onToggleAI}>
               {aiEnabled ? <Sparkles className="w-3.5 h-3.5" /> : <Bot className="w-3.5 h-3.5" />}
               {aiEnabled ? "Parar IA" : "Habilitar IA"}
-              {aiEnabled && <Badge variant="secondary" className="ml-1 text-[9px] px-1 py-0">Transcrevendo</Badge>}
+              {aiEnabled && <Badge variant="secondary" className="ml-1 text-[9px] px-1 py-0">Na call</Badge>}
             </Button>
           </TooltipTrigger>
           <TooltipContent>
-            {aiEnabled ? "Clique para parar a transcrição e salvar a reunião" : "Habilite a IA para transcrever automaticamente esta reunião"}
+            {aiEnabled ? "Remover a IA da sala" : "Adicionar agente de IA à sala"}
           </TooltipContent>
         </Tooltip>
       </div>
 
       {/* Large avatars grid */}
       <div className="flex flex-wrap items-center justify-center gap-8 px-8">
-        {members.map((user) => (
+        {allParticipants.map((user) => (
           <div key={user.id} className="flex flex-col items-center gap-2">
             <div className={cn(
-              "w-24 h-24 rounded-full bg-muted flex items-center justify-center text-2xl font-semibold text-muted-foreground transition-all",
-              user.isSpeaking && "ring-4 ring-[hsl(var(--success))]/50 shadow-[0_0_20px_hsl(var(--success)/0.3)]"
+              "w-24 h-24 rounded-full flex items-center justify-center text-2xl font-semibold transition-all",
+              user.id === "ai-agent"
+                ? "bg-primary/15 text-primary border-2 border-primary/30"
+                : "bg-muted text-muted-foreground",
+              user.isSpeaking && user.id === "ai-agent" && "ring-4 ring-primary/40 shadow-[0_0_20px_hsl(var(--primary)/0.3)] animate-pulse",
+              user.isSpeaking && user.id !== "ai-agent" && "ring-4 ring-[hsl(var(--success))]/50 shadow-[0_0_20px_hsl(var(--success)/0.3)]"
             )}>
-              {user.name.charAt(0)}
+              {user.id === "ai-agent" ? (
+                <Bot className="w-10 h-10" />
+              ) : (
+                user.name.charAt(0)
+              )}
             </div>
-            <span className="text-xs text-secondary-foreground">{user.name}</span>
+            <span className={cn(
+              "text-xs",
+              user.id === "ai-agent" ? "text-primary font-medium" : "text-secondary-foreground"
+            )}>
+              {user.name}
+            </span>
             {user.isSpeaking && (
               <div className="flex items-center gap-1">
-                <span className="w-1 h-3 bg-[hsl(var(--success))] rounded-full animate-pulse" />
-                <span className="w-1 h-4 bg-[hsl(var(--success))] rounded-full animate-pulse" style={{ animationDelay: "0.1s" }} />
-                <span className="w-1 h-2 bg-[hsl(var(--success))] rounded-full animate-pulse" style={{ animationDelay: "0.2s" }} />
+                {user.id === "ai-agent" ? (
+                  <>
+                    <span className="w-1 h-3 bg-primary rounded-full animate-pulse" />
+                    <span className="w-1 h-4 bg-primary rounded-full animate-pulse" style={{ animationDelay: "0.1s" }} />
+                    <span className="w-1 h-2 bg-primary rounded-full animate-pulse" style={{ animationDelay: "0.2s" }} />
+                  </>
+                ) : (
+                  <>
+                    <span className="w-1 h-3 bg-[hsl(var(--success))] rounded-full animate-pulse" />
+                    <span className="w-1 h-4 bg-[hsl(var(--success))] rounded-full animate-pulse" style={{ animationDelay: "0.1s" }} />
+                    <span className="w-1 h-2 bg-[hsl(var(--success))] rounded-full animate-pulse" style={{ animationDelay: "0.2s" }} />
+                  </>
+                )}
               </div>
             )}
           </div>
@@ -134,17 +146,6 @@ export default function VoiceParticipants({ room }: VoiceParticipantsProps) {
           </Popover>
         </div>
       )}
-      <VoiceAgentDialog
-        open={aiDialogOpen}
-        onOpenChange={(open) => {
-          setAiDialogOpen(open);
-          if (!open) {
-            setAiEnabled(false);
-            toast({ title: "IA desabilitada", description: "Reunião salva em 'Reuniões'" });
-          }
-        }}
-        boardId={boardId}
-      />
     </div>
   );
 }
