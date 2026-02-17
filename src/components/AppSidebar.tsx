@@ -11,7 +11,7 @@ const navItems = [
   { icon: FileText, label: "Documentos", path: "/docs", comingSoon: false },
   { icon: Calendar, label: "Calendário", path: "/calendar", comingSoon: false },
   { icon: Puzzle, label: "Integrações", path: "/integrations", comingSoon: false },
-  { icon: Building2, label: "Escritório", path: "/chat", comingSoon: true },
+  { icon: Building2, label: "Escritório", path: "/chat", comingSoon: false },
   { icon: Calendar, label: "Reuniões", path: "/meetings", comingSoon: true },
   { icon: Zap, label: "Automações", path: "/automations", comingSoon: true },
 ];

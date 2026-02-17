@@ -12,6 +12,7 @@ import ComingSoonPage from "./pages/ComingSoonPage";
 import BoardPage from "./pages/BoardPage";
 import CalendarPage from "./pages/CalendarPage";
 import IntegrationsPage from "./pages/IntegrationsPage";
+import OfficePage from "./pages/OfficePage";
 import DocumentsPage from "./pages/DocumentsPage";
 import AuthPage from "./pages/AuthPage";
 import ResetPasswordPage from "./pages/ResetPasswordPage";
@@ -39,7 +40,7 @@ const AppRoutes = () => (
     <Route path="/reset-password" element={<ResetPasswordPage />} />
     <Route element={<ProtectedRoute><AppLayout /></ProtectedRoute>}>
       <Route path="/" element={<Home />} />
-      <Route path="/chat" element={<ComingSoonPage variant="office" title="Escritório em breve" description="Em breve sua equipe poderá se reunir em salas de voz e chat e realizar reuniões com agentes de IA." />} />
+      <Route path="/chat" element={<OfficePage />} />
       <Route path="/board" element={<BoardPage />} />
       <Route path="/docs" element={<DocumentsPage />} />
       <Route path="/meetings" element={<ComingSoonPage variant="meetings" title="Reuniões em breve" description="Em breve você poderá acessar o histórico e a transcrição completa das reuniões realizadas no escritório." />} />
