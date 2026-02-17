@@ -6,7 +6,6 @@ const corsHeaders = {
   "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type, x-supabase-client-platform, x-supabase-client-platform-version, x-supabase-client-runtime, x-supabase-client-runtime-version",
 };
 
-// Parse markdown text into document blocks
 function parseMarkdownToBlocks(markdown: string, docId: string) {
   const lines = markdown.split("\n");
   const blocks: any[] = [];
@@ -16,20 +15,7 @@ function parseMarkdownToBlocks(markdown: string, docId: string) {
     const line = lines[i];
     const trimmed = line.trim();
 
-    // Skip empty lines
     if (!trimmed) continue;
-
-    // Heading 1: # → use heading2 for doc titles
-    if (/^# (.+)/.test(trimmed)) {
-      blocks.push({ document_id: docId, type: "heading2", content: trimmed.replace(/^# /, ""), position: position++ });
-      continue;
-    }
-
-    // Heading 2: ##
-    if (/^## (.+)/.test(trimmed)) {
-      blocks.push({ document_id: docId, type: "heading2", content: trimmed.replace(/^## /, ""), position: position++ });
-      continue;
-    }
 
     // Heading 3: ###
     if (/^### (.+)/.test(trimmed)) {
@@ -37,28 +23,32 @@ function parseMarkdownToBlocks(markdown: string, docId: string) {
       continue;
     }
 
-    // Divider: --- or ***
+    // Heading 2: ## or # (all top-level headings become h2)
+    if (/^#{1,2} (.+)/.test(trimmed)) {
+      const content = trimmed.replace(/^#{1,2} /, "");
+      blocks.push({ document_id: docId, type: "heading2", content, position: position++ });
+      continue;
+    }
+
+    // Divider
     if (/^(-{3,}|\*{3,}|_{3,})$/.test(trimmed)) {
       blocks.push({ document_id: docId, type: "divider", content: "", position: position++ });
       continue;
     }
 
-    // Checkbox / todo: - [ ] or - [x]
+    // Checkbox / todo
     if (/^[-*]\s*\[( |x|X)\]\s*(.+)/.test(trimmed)) {
       const match = trimmed.match(/^[-*]\s*\[( |x|X)\]\s*(.+)/);
       if (match) {
         blocks.push({
-          document_id: docId,
-          type: "todoList",
-          content: match[2].trim(),
-          position: position++,
-          checked: match[1] !== " ",
+          document_id: docId, type: "todoList", content: match[2].trim(),
+          position: position++, checked: match[1] !== " ",
         });
       }
       continue;
     }
 
-    // Numbered list: 1. text
+    // Numbered list
     if (/^\d+\.\s+(.+)/.test(trimmed)) {
       const match = trimmed.match(/^\d+\.\s+(.+)/);
       if (match) {
@@ -67,7 +57,7 @@ function parseMarkdownToBlocks(markdown: string, docId: string) {
       continue;
     }
 
-    // Bullet list: - text or * text
+    // Bullet list
     if (/^[-*]\s+(.+)/.test(trimmed)) {
       const match = trimmed.match(/^[-*]\s+(.+)/);
       if (match) {
@@ -76,7 +66,7 @@ function parseMarkdownToBlocks(markdown: string, docId: string) {
       continue;
     }
 
-    // Code block: ```
+    // Code block
     if (trimmed.startsWith("```")) {
       const codeLines: string[] = [];
       i++;
@@ -88,7 +78,7 @@ function parseMarkdownToBlocks(markdown: string, docId: string) {
       continue;
     }
 
-    // Blockquote: > text
+    // Blockquote
     if (/^>\s*(.+)/.test(trimmed)) {
       const match = trimmed.match(/^>\s*(.+)/);
       if (match) {
@@ -97,7 +87,7 @@ function parseMarkdownToBlocks(markdown: string, docId: string) {
       continue;
     }
 
-    // Bold-only lines as heading2 (common in AI responses like **Critérios de Aceite**)
+    // Bold-only lines as heading2
     if (/^\*\*(.+)\*\*$/.test(trimmed)) {
       const match = trimmed.match(/^\*\*(.+)\*\*$/);
       if (match) {
@@ -113,11 +103,29 @@ function parseMarkdownToBlocks(markdown: string, docId: string) {
   return blocks;
 }
 
+function getDefaultBlocks(docId: string, task: any) {
+  return [
+    { document_id: docId, type: "heading2", content: task.title, position: 0 },
+    { document_id: docId, type: "paragraph", content: task.description || "Descreva o objetivo desta tarefa...", position: 1 },
+    { document_id: docId, type: "heading2", content: "Critérios de Aceite", position: 2 },
+    { document_id: docId, type: "todoList", content: "Critério 1", position: 3, checked: false },
+    { document_id: docId, type: "todoList", content: "Critério 2", position: 4, checked: false },
+    { document_id: docId, type: "todoList", content: "Critério 3", position: 5, checked: false },
+    { document_id: docId, type: "divider", content: "", position: 6 },
+    { document_id: docId, type: "heading2", content: "Notas Técnicas", position: 7 },
+    { document_id: docId, type: "paragraph", content: "", position: 8 },
+  ];
+}
+
 serve(async (req) => {
   if (req.method === "OPTIONS") return new Response(null, { headers: corsHeaders });
 
   try {
-    const { taskId, boardId, markdownContent } = await req.json();
+    const body = await req.json();
+    const { taskId, boardId, markdownContent } = body;
+    
+    console.log("task-created called with:", { taskId, boardId, hasMarkdown: !!markdownContent, markdownLength: markdownContent?.length });
+    
     if (!taskId) throw new Error("taskId is required");
 
     const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
@@ -132,53 +140,82 @@ serve(async (req) => {
       .maybeSingle();
 
     if (taskError || !task) {
+      console.error("Task not found:", taskId, taskError);
       return new Response(JSON.stringify({ error: "Task not found" }), {
         status: 404,
         headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
     }
 
-    // Create document linked to task
-    const { data: doc, error: docError } = await supabase
+    // Check if a document already exists for this task
+    const { data: existingDoc } = await supabase
       .from("documents")
-      .insert({
-        title: `Backlog: ${task.title}`,
-        icon: "📋",
-        type: "spec",
-        task_id: taskId,
-        created_by: task.created_by,
-      })
-      .select()
-      .single();
+      .select("id")
+      .eq("task_id", taskId)
+      .maybeSingle();
 
-    if (docError) throw docError;
+    let docId: string;
 
-    // Build blocks: parse markdown if available, otherwise use default template
+    if (existingDoc) {
+      // Update existing document - delete old blocks and re-insert
+      docId = existingDoc.id;
+      console.log("Updating existing document:", docId);
+      await supabase.from("document_blocks").delete().eq("document_id", docId);
+    } else {
+      // Create new document
+      const { data: doc, error: docError } = await supabase
+        .from("documents")
+        .insert({
+          title: `Backlog: ${task.title}`,
+          icon: "📋",
+          type: "spec",
+          task_id: taskId,
+          created_by: task.created_by,
+        })
+        .select()
+        .single();
+
+      if (docError) {
+        console.error("Error creating document:", docError);
+        throw docError;
+      }
+      docId = doc.id;
+      console.log("Created new document:", docId);
+    }
+
+    // Build blocks
     let blocks: any[];
 
     if (markdownContent && markdownContent.trim().length > 0) {
-      blocks = parseMarkdownToBlocks(markdownContent, doc.id);
-      // If parsing produced no blocks, fall back to template
+      console.log("Parsing markdown content, length:", markdownContent.length);
+      blocks = parseMarkdownToBlocks(markdownContent, docId);
+      console.log("Parsed blocks count:", blocks.length);
       if (blocks.length === 0) {
-        blocks = getDefaultBlocks(doc.id, task);
+        blocks = getDefaultBlocks(docId, task);
       }
     } else {
-      blocks = getDefaultBlocks(doc.id, task);
+      console.log("No markdown content, using default blocks");
+      blocks = getDefaultBlocks(docId, task);
     }
 
     const { error: blocksError } = await supabase
       .from("document_blocks")
       .insert(blocks);
 
-    if (blocksError) throw blocksError;
+    if (blocksError) {
+      console.error("Error inserting blocks:", blocksError);
+      throw blocksError;
+    }
+
+    console.log("Successfully inserted", blocks.length, "blocks for document:", docId);
 
     // Link document back to task
     await supabase
       .from("tasks")
-      .update({ document_id: doc.id })
+      .update({ document_id: docId })
       .eq("id", taskId);
 
-    return new Response(JSON.stringify({ documentId: doc.id, taskId }), {
+    return new Response(JSON.stringify({ documentId: docId, taskId }), {
       headers: { ...corsHeaders, "Content-Type": "application/json" },
     });
   } catch (e) {
@@ -189,17 +226,3 @@ serve(async (req) => {
     });
   }
 });
-
-function getDefaultBlocks(docId: string, task: any) {
-  return [
-    { document_id: docId, type: "heading2", content: task.title, position: 0 },
-    { document_id: docId, type: "paragraph", content: task.description || "Descreva o objetivo desta tarefa...", position: 1 },
-    { document_id: docId, type: "heading2", content: "Critérios de Aceite", position: 2 },
-    { document_id: docId, type: "todoList", content: "Critério 1", position: 3, checked: false },
-    { document_id: docId, type: "todoList", content: "Critério 2", position: 4, checked: false },
-    { document_id: docId, type: "todoList", content: "Critério 3", position: 5, checked: false },
-    { document_id: docId, type: "divider", content: "", position: 6 },
-    { document_id: docId, type: "heading2", content: "Notas Técnicas", position: 7 },
-    { document_id: docId, type: "paragraph", content: "", position: 8 },
-  ];
-}
