@@ -1,4 +1,4 @@
-import { useState, useMemo, useCallback, useRef } from "react";
+import { useState, useMemo, useCallback, useRef, useEffect } from "react";
 import { Plus, FileText, Link2, Maximize2, Minimize2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -28,26 +28,57 @@ export default function DocumentsPage() {
   const selectedDoc = documents.find((d: any) => d.id === selectedDocId) || null;
   const { blocks: dbBlocks, saveBlocks } = useDocumentBlocks(selectedDocId);
 
+  // Local block state — initialized from DB, not overwritten on refetch
+  const [localBlocks, setLocalBlocks] = useState<Block[] | null>(null);
+  const initializedDocRef = useRef<string | null>(null);
+
+  // Initialize local blocks when selecting a new document or when DB blocks first load
+  useEffect(() => {
+    if (!selectedDocId) {
+      setLocalBlocks(null);
+      initializedDocRef.current = null;
+      return;
+    }
+    if (selectedDocId !== initializedDocRef.current && dbBlocks.length > 0) {
+      initializedDocRef.current = selectedDocId;
+      setLocalBlocks(
+        dbBlocks.map((b) => ({
+          id: b.id,
+          type: b.type as Block["type"],
+          content: b.content || "",
+          checked: b.checked || undefined,
+          metadata: b.metadata || undefined,
+        }))
+      );
+    }
+  }, [selectedDocId, dbBlocks]);
+
+  const editorBlocks: Block[] = useMemo(() => {
+    if (localBlocks && localBlocks.length > 0) return localBlocks;
+    if (dbBlocks.length > 0) {
+      return dbBlocks.map((b) => ({
+        id: b.id,
+        type: b.type as Block["type"],
+        content: b.content || "",
+        checked: b.checked || undefined,
+        metadata: b.metadata || undefined,
+      }));
+    }
+    return [{ id: crypto.randomUUID(), type: "heading2" as const, content: "" }];
+  }, [localBlocks, dbBlocks]);
+
   const tasksWithoutDoc = useMemo(() => {
     const docTaskIds = new Set(documents.filter((d: any) => d.task_id).map((d: any) => d.task_id));
     return allTasks.filter((t) => !docTaskIds.has(t.id));
   }, [allTasks, documents]);
 
-  const editorBlocks: Block[] = useMemo(() => {
-    if (dbBlocks.length === 0) return [{ id: crypto.randomUUID(), type: "heading2" as const, content: "" }];
-    return dbBlocks.map((b) => ({
-      id: b.id,
-      type: b.type as Block["type"],
-      content: b.content || "",
-      checked: b.checked || undefined,
-      metadata: b.metadata || undefined,
-    }));
-  }, [dbBlocks]);
-
   const saveTimeoutRef = useRef<ReturnType<typeof setTimeout>>();
 
   const handleBlocksChange = useCallback((blocks: Block[]) => {
     if (!selectedDocId) return;
+    // Update local state immediately
+    setLocalBlocks(blocks);
+    // Debounced save to DB
     if (saveTimeoutRef.current) clearTimeout(saveTimeoutRef.current);
     saveTimeoutRef.current = setTimeout(() => {
       saveBlocks.mutate({
