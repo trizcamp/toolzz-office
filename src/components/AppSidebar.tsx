@@ -13,7 +13,7 @@ const navItems = [
   { icon: Puzzle, label: "Integrações", path: "/integrations", comingSoon: false },
   { icon: Building2, label: "Escritório", path: "/chat", comingSoon: false },
   { icon: Video, label: "Reuniões", path: "/meetings", comingSoon: false },
-  { icon: Zap, label: "Automações", path: "/automations", comingSoon: true },
+  { icon: Zap, label: "Automações", path: "/automations", comingSoon: false },
 ];
 
 export default function AppSidebar() {
