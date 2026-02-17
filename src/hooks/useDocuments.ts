@@ -73,7 +73,7 @@ export function useDocuments() {
       // Create initial block
       await supabase.from("document_blocks").insert({
         document_id: data.id,
-        type: "heading1",
+        type: "heading2",
         content: "",
         position: 0,
       });
