@@ -29,6 +29,7 @@ export default function OfficePage() {
   const chunksRef = useRef<Blob[]>([]);
   const isVoiceActiveRef = useRef(false);
   const aiSpeakingRef = useRef(false);
+  const aiStoppedSpeakingAtRef = useRef(0);
 
   const selectedRoom = rooms.find((r) => r.id === selectedRoomId) || rooms[0] || null;
   const boardId = boards?.[0]?.id || null;
@@ -36,7 +37,22 @@ export default function OfficePage() {
 
   // Keep ref in sync
   useEffect(() => { isVoiceActiveRef.current = isListening; }, [isListening]);
-  useEffect(() => { aiSpeakingRef.current = aiSpeaking; }, [aiSpeaking]);
+  useEffect(() => {
+    aiSpeakingRef.current = aiSpeaking;
+    // Mute/unmute mic tracks while AI is speaking to prevent echo capture
+    if (streamRef.current) {
+      streamRef.current.getAudioTracks().forEach(track => {
+        track.enabled = !aiSpeaking;
+      });
+    }
+    // Track when AI stopped speaking to add buffer period
+    if (!aiSpeaking && aiStoppedSpeakingAtRef.current === 0) {
+      aiStoppedSpeakingAtRef.current = Date.now();
+    }
+    if (aiSpeaking) {
+      aiStoppedSpeakingAtRef.current = 0;
+    }
+  }, [aiSpeaking]);
 
   // Reset when room changes
   useEffect(() => {
@@ -73,8 +89,9 @@ export default function OfficePage() {
   }, []);
 
   const transcribeChunk = useCallback(async (blob: Blob) => {
-    // Skip transcription while AI is speaking to avoid echo
+    // Skip transcription while AI is speaking or within 2s buffer after
     if (aiSpeakingRef.current) return;
+    if (aiStoppedSpeakingAtRef.current > 0 && (Date.now() - aiStoppedSpeakingAtRef.current) < 2000) return;
     if (blob.size < 2000) return; // skip very small chunks (likely silence)
     try {
       const arrayBuffer = await blob.arrayBuffer();
