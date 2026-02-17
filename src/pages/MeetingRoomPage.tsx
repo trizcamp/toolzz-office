@@ -101,10 +101,7 @@ export default function MeetingRoomPage() {
       const myPart = (parts || []).find((p: any) => p.user_id === user?.id);
       setMyParticipant(myPart || null);
 
-      // If current user is the creator, skip lobby
-      if (data.created_by === user?.id) {
-        setInLobby(false);
-      }
+      // Creator also sees lobby (dashboard mode)
 
       setLoading(false);
     })();
@@ -380,12 +377,18 @@ export default function MeetingRoomPage() {
 
   // ---- LOBBY SCREEN ----
   if (inLobby) {
-    const statusMap: Record<string, { label: string; color: string }> = {
-      pending: { label: "Pendente", color: "text-[hsl(var(--warning))]" },
-      accepted: { label: "Aceito", color: "text-[hsl(var(--success))]" },
-      declined: { label: "Recusado", color: "text-destructive" },
-      reschedule_requested: { label: "Remarcação", color: "text-primary" },
+    const isCreator = meeting?.created_by === user?.id;
+    const statusMap: Record<string, { label: string; icon: React.ReactNode; color: string }> = {
+      pending: { label: "Pendente", icon: <Clock className="w-3.5 h-3.5" />, color: "text-[hsl(var(--warning,40_96%_53%))]" },
+      accepted: { label: "Aceito", icon: <Check className="w-3.5 h-3.5" />, color: "text-emerald-500" },
+      declined: { label: "Recusado", icon: <X className="w-3.5 h-3.5" />, color: "text-destructive" },
+      reschedule_requested: { label: "Remarcação", icon: <CalendarClock className="w-3.5 h-3.5" />, color: "text-primary" },
     };
+
+    const acceptedCount = participants.filter((p: any) => p.status === "accepted").length;
+    const declinedCount = participants.filter((p: any) => p.status === "declined").length;
+    const pendingCount = participants.filter((p: any) => p.status === "pending").length;
+    const rescheduleCount = participants.filter((p: any) => p.status === "reschedule_requested").length;
 
     return (
       <div className="h-full flex items-center justify-center bg-background p-6">
@@ -419,7 +422,19 @@ export default function MeetingRoomPage() {
               </div>
             </div>
 
-            {/* Participants */}
+            {/* Creator: status summary */}
+            {isCreator && participants.length > 0 && (
+              <div className="px-6 py-3 border-b border-border flex items-center gap-3 flex-wrap">
+                <span className="text-emerald-500 text-xs font-medium flex items-center gap-1"><Check className="w-3 h-3" />{acceptedCount} aceito(s)</span>
+                <span className="text-destructive text-xs font-medium flex items-center gap-1"><X className="w-3 h-3" />{declinedCount} recusado(s)</span>
+                <span className="text-[hsl(var(--warning,40_96%_53%))] text-xs font-medium flex items-center gap-1"><Clock className="w-3 h-3" />{pendingCount} pendente(s)</span>
+                {rescheduleCount > 0 && (
+                  <span className="text-primary text-xs font-medium flex items-center gap-1"><CalendarClock className="w-3 h-3" />{rescheduleCount} remarcação</span>
+                )}
+              </div>
+            )}
+
+            {/* Participants list */}
             {participants.length > 0 && (
               <div className="px-6 py-4 border-b border-border">
                 <h3 className="text-xs font-medium text-muted-foreground uppercase tracking-wider mb-3">Convidados</h3>
@@ -434,7 +449,15 @@ export default function MeetingRoomPage() {
                           <AvatarFallback className="text-[10px]">{(member?.name || "?")[0]}</AvatarFallback>
                         </Avatar>
                         <span className="text-sm text-foreground flex-1">{member?.name} {member?.surname}</span>
-                        <span className={cn("text-[10px] font-medium", st.color)}>{st.label}</span>
+                        <span className={cn("text-[10px] font-medium flex items-center gap-1", st.color)}>
+                          {st.icon} {st.label}
+                        </span>
+                        {/* Show reschedule suggestion to creator */}
+                        {isCreator && p.status === "reschedule_requested" && p.suggested_date && (
+                          <span className="text-[10px] text-muted-foreground ml-1">
+                            → {p.suggested_date}{p.suggested_time ? ` ${p.suggested_time}` : ""}
+                          </span>
+                        )}
                       </div>
                     );
                   })}
@@ -444,56 +467,62 @@ export default function MeetingRoomPage() {
 
             {/* Actions */}
             <div className="px-6 py-5 space-y-3">
-              <div className="flex gap-2">
-                <Button onClick={handleAccept} className="flex-1 gap-2">
-                  <Check className="w-4 h-4" /> Aceitar e entrar
-                </Button>
-                <Button variant="destructive" onClick={handleDecline} className="gap-2">
-                  <X className="w-4 h-4" /> Recusar
-                </Button>
-              </div>
-              <Button
-                variant="outline"
-                className="w-full gap-2"
-                onClick={() => {
-                  setRescheduleDate(meeting?.date || "");
-                  setRescheduleTime(meeting?.start_time?.slice(0, 5) || "");
-                  setRescheduleOpen(true);
-                }}
-              >
-                <CalendarClock className="w-4 h-4" /> Sugerir remarcação
-              </Button>
-              {meeting?.created_by === user?.id && (
-                <Button
-                  variant="ghost"
-                  className="w-full gap-2 text-muted-foreground"
-                  onClick={() => setInLobby(false)}
-                >
-                  <ArrowRight className="w-4 h-4" /> Entrar direto (criador)
-                </Button>
+              {isCreator ? (
+                <>
+                  <Button onClick={() => setInLobby(false)} className="w-full gap-2">
+                    <ArrowRight className="w-4 h-4" /> Iniciar reunião
+                  </Button>
+                  <p className="text-[10px] text-center text-muted-foreground">
+                    {acceptedCount}/{participants.length} confirmado(s)
+                  </p>
+                </>
+              ) : (
+                <>
+                  <div className="flex gap-2">
+                    <Button onClick={handleAccept} className="flex-1 gap-2">
+                      <Check className="w-4 h-4" /> Aceitar e entrar
+                    </Button>
+                    <Button variant="destructive" onClick={handleDecline} className="gap-2">
+                      <X className="w-4 h-4" /> Recusar
+                    </Button>
+                  </div>
+                  <Button
+                    variant="outline"
+                    className="w-full gap-2"
+                    onClick={() => {
+                      setRescheduleDate(meeting?.date || "");
+                      setRescheduleTime(meeting?.start_time?.slice(0, 5) || "");
+                      setRescheduleOpen(true);
+                    }}
+                  >
+                    <CalendarClock className="w-4 h-4" /> Sugerir remarcação
+                  </Button>
+                </>
               )}
             </div>
           </div>
 
-          {/* Reschedule Dialog */}
-          <Dialog open={rescheduleOpen} onOpenChange={setRescheduleOpen}>
-            <DialogContent className="max-w-sm">
-              <DialogHeader>
-                <DialogTitle>Sugerir nova data</DialogTitle>
-              </DialogHeader>
-              <div className="space-y-3 pt-2">
-                <div className="space-y-1.5">
-                  <Label className="text-xs">Data</Label>
-                  <Input type="date" value={rescheduleDate} onChange={e => setRescheduleDate(e.target.value)} />
+          {/* Reschedule Dialog (only for non-creators) */}
+          {!isCreator && (
+            <Dialog open={rescheduleOpen} onOpenChange={setRescheduleOpen}>
+              <DialogContent className="max-w-sm">
+                <DialogHeader>
+                  <DialogTitle>Sugerir nova data</DialogTitle>
+                </DialogHeader>
+                <div className="space-y-3 pt-2">
+                  <div className="space-y-1.5">
+                    <Label className="text-xs">Data</Label>
+                    <Input type="date" value={rescheduleDate} onChange={e => setRescheduleDate(e.target.value)} />
+                  </div>
+                  <div className="space-y-1.5">
+                    <Label className="text-xs">Horário (opcional)</Label>
+                    <Input type="time" value={rescheduleTime} onChange={e => setRescheduleTime(e.target.value)} />
+                  </div>
+                  <Button onClick={handleReschedule} className="w-full">Enviar sugestão</Button>
                 </div>
-                <div className="space-y-1.5">
-                  <Label className="text-xs">Horário (opcional)</Label>
-                  <Input type="time" value={rescheduleTime} onChange={e => setRescheduleTime(e.target.value)} />
-                </div>
-                <Button onClick={handleReschedule} className="w-full">Enviar sugestão</Button>
-              </div>
-            </DialogContent>
-          </Dialog>
+              </DialogContent>
+            </Dialog>
+          )}
         </motion.div>
       </div>
     );
