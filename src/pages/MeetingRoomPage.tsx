@@ -159,7 +159,7 @@ export default function MeetingRoomPage() {
     if (!speechDetectedInChunkRef.current) return;
     speechDetectedInChunkRef.current = false;
     if (aiSpeakingRef.current) return;
-    if (blob.size < 2000) return;
+    if (blob.size < 500) return;
     try {
       const arrayBuffer = await blob.arrayBuffer();
       const uint8 = new Uint8Array(arrayBuffer);
@@ -206,7 +206,7 @@ export default function MeetingRoomPage() {
         sum += val * val;
       }
       const rms = Math.sqrt(sum / dataArray.length) * 100;
-      const detected = rms > 8;
+      const detected = rms > 2;
       setIsSpeechDetected(detected);
       if (detected) speechDetectedInChunkRef.current = true;
     }, 100);
