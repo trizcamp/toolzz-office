@@ -1,54 +1,94 @@
 
-# Plano: Substituir botao de voz pelo embed do agente Toolzz
+# Plano: Agente de voz IA funcional na Home
 
 ## Resumo
 
-Substituir o botao "Via voz" e o botao central de microfone pelo iframe embed do agente de voz Toolzz, mantendo o botao "Via texto" para o chat existente. O embed de voz fica embutido diretamente no card de IA da Home, com redimensionamento automatico via postMessage.
+Reverter o card de IA da Home ao layout original (botao de microfone central, titulo "Conversar com IA", botoes "Via texto" e "Via voz") e implementar um agente de voz funcional usando Lovable AI. O agente de voz escuta o usuario via microfone do navegador, transcreve a fala, envia para a edge function `ai-chat` existente e responde por voz sintetizada. Quando o usuario descreve uma tarefa, o agente cria automaticamente no board.
+
+## Layout do Card (como na imagem de referencia)
+
+```text
++---------------------------+
+|                            |
+|      [ Mic Button ]        |
+|   (circulo grande, clicavel)|
+|                            |
+|    Conversar com IA        |
+|  Clique para falar ou digite|
+|                            |
+| [Via texto]   [Via voz]    |
++---------------------------+
+```
+
+## Fluxo do Agente de Voz
+
+1. Usuario clica em "Via voz" -- abre um dialog de conversa por voz
+2. O usuario clica no botao de microfone para falar
+3. A fala e capturada via Web Speech API (SpeechRecognition nativo do navegador)
+4. O texto transcrito e enviado para a edge function `ai-chat` (ja existente, com tool calling para criar tarefas)
+5. A resposta da IA e exibida na tela e falada via Web Speech Synthesis (TTS nativo do navegador)
+6. Se o usuario descrever uma tarefa, o `ai-chat` usa tool calling para criar no board automaticamente
+7. Confirmacao visual e sonora da criacao da tarefa
 
 ## Alteracoes
 
 ### 1. `src/pages/Home.tsx`
+- Remover o iframe embed do Toolzz e o listener de postMessage
+- Restaurar o layout original com:
+  - Botao de microfone circular grande no centro do card
+  - Titulo "Conversar com IA" e subtitulo "Clique para falar ou digite"
+  - Dois botoes: "Via texto" (abre ToolzzChatDialog) e "Via voz" (abre novo VoiceAgentDialog)
+- Adicionar estado `voiceOpen` para controlar o dialog de voz
 
-- Remover o estado `isListening` e toda a logica do botao de microfone central
-- Remover o botao "Via voz"
-- Substituir a area central (botao de microfone + animacao) pelo iframe embed do agente Toolzz:
-  ```
-  src="https://admin.toolzz.ai/emb-voice/c9214171-8ceb-4f61-9dc1-8e3dffbb21c4"
-  ```
-- Adicionar um `useEffect` para escutar mensagens `window.postMessage` do tipo `VOICE_EMBED_SIZE` e ajustar dinamicamente as dimensoes do iframe
-- Manter o botao "Via texto" funcionando normalmente abrindo o `ToolzzChatDialog`
-- O iframe tera `allow="microphone"` e fundo transparente
-- Manter a prop `boardId` sendo passada ao `ToolzzChatDialog`
+### 2. `src/components/VoiceAgentDialog.tsx` (novo)
+- Dialog modal para conversa por voz com a IA
+- Componentes:
+  - Historico de mensagens (usuario e assistente) com suporte a Markdown
+  - Botao de microfone central com animacao de "ouvindo" (pulse)
+  - Indicador de status: "Ouvindo...", "Processando...", "Falando..."
+- Funcionalidades:
+  - **Captura de voz**: Web Speech API (`webkitSpeechRecognition` / `SpeechRecognition`) com `lang: "pt-BR"`
+  - **Envio para IA**: Chamada a `supabase.functions.invoke("ai-chat")` com o texto transcrito, passando `boardId`
+  - **Resposta por voz**: Web Speech Synthesis (`speechSynthesis.speak()`) com voz em portugues
+  - **Criacao de tarefas**: Funciona identicamente ao chat de texto -- a edge function `ai-chat` ja tem tool calling para `create_task`
+  - Exibicao de confirmacao quando tarefa e criada (titulo + display_id)
+  - Botao para parar de ouvir ou cancelar a fala da IA
 
-### 2. Layout do card
+### 3. `supabase/config.toml`
+- Adicionar entry para `ai-chat` sem verificacao de JWT (ja e publico mas precisa estar no config)
 
-O card de IA ficara com esta estrutura:
-
-```text
-+---------------------------+
-|                           |
-|   [iframe embed voice]    |
-|   (redimensionavel)       |
-|                           |
-+---------------------------+
-|  [Via texto]              |
-+---------------------------+
-```
-
-- O iframe ocupa a area central do card onde antes ficava o botao de microfone
-- Apenas o botao "Via texto" permanece abaixo
-- O card mantem `lg:row-span-2` para manter a altura
+### 4. Edge function `ai-chat` -- sem alteracoes
+- A edge function existente ja suporta:
+  - Receber mensagens e boardId
+  - Tool calling para criar tarefas
+  - Integracao com GitHub para bugs
+  - Retorno de tarefas criadas
 
 ## Detalhes tecnicos
 
-- O iframe usa `id="chatbotVoiceIframe"` para o listener de redimensionamento
-- O `useEffect` com `window.addEventListener('message', ...)` escuta eventos `VOICE_EMBED_SIZE` e atualiza width/height via ref do iframe
-- Cleanup do listener no return do useEffect
-- Nenhuma alteracao em edge functions ou banco de dados
-- O comportamento de criacao de tarefas pelo chat de texto permanece inalterado
+### Web Speech API (reconhecimento de voz)
+```text
+- SpeechRecognition nativo do navegador (Chrome, Edge, Safari)
+- Configuracao: lang="pt-BR", continuous=false, interimResults=true
+- Fallback: se nao suportado, exibir toast informando incompatibilidade
+```
+
+### Web Speech Synthesis (TTS)
+```text
+- speechSynthesis.speak() nativo
+- Voz em pt-BR (seleciona automaticamente a melhor disponivel)
+- Cancelavel quando usuario interrompe
+```
+
+### Fluxo de dados
+```text
+Microfone -> SpeechRecognition -> texto -> ai-chat edge function -> resposta + tarefas criadas -> SpeechSynthesis + UI
+```
 
 ## Arquivos alterados
 
 | Arquivo | Acao |
 |---|---|
-| `src/pages/Home.tsx` | Remover logica de microfone, adicionar iframe embed + listener de resize, manter apenas botao "Via texto" |
+| `src/pages/Home.tsx` | Reverter layout do card, remover iframe, adicionar botao "Via voz" |
+| `src/components/VoiceAgentDialog.tsx` | Novo -- dialog de conversa por voz com IA |
+| `supabase/config.toml` | Adicionar config da funcao `ai-chat` |
