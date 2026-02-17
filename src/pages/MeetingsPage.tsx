@@ -29,6 +29,13 @@ export default function MeetingsPage() {
   const [memberSearchOpen, setMemberSearchOpen] = useState(false);
   const [memberSearch, setMemberSearch] = useState("");
   const [createdLink, setCreatedLink] = useState<string | null>(null);
+  const [preGeneratedCode, setPreGeneratedCode] = useState("");
+
+  // Generate a meeting code when dialog opens
+  const generateCode = () => {
+    const hex = () => Math.random().toString(36).substring(2);
+    return `${hex().substring(0, 3)}-${hex().substring(0, 4)}-${hex().substring(0, 3)}`;
+  };
 
   const toggleMember = (id: string) => {
     setSelectedMembers(prev => prev.includes(id) ? prev.filter(m => m !== id) : [...prev, id]);
@@ -71,6 +78,7 @@ export default function MeetingsPage() {
         date: scheduleData.date || new Date().toISOString().slice(0, 10),
         start_time: scheduleData.time || undefined,
         description: scheduleData.description || undefined,
+        meeting_code: preGeneratedCode,
       });
       const link = `${window.location.origin}/meetings/${result?.meeting_code}`;
       setCreatedLink(link);
@@ -94,6 +102,7 @@ export default function MeetingsPage() {
     setSelectedMembers([]);
     setCreatedLink(null);
     setMemberSearch("");
+    setPreGeneratedCode(generateCode());
   };
 
   const upcomingMeetings = meetings
@@ -141,7 +150,7 @@ export default function MeetingsPage() {
             </motion.button>
 
             {/* Schedule */}
-            <Dialog open={scheduleOpen} onOpenChange={(open) => { setScheduleOpen(open); if (!open) resetScheduleDialog(); }}>
+            <Dialog open={scheduleOpen} onOpenChange={(open) => { setScheduleOpen(open); if (open) { setPreGeneratedCode(generateCode()); } if (!open) resetScheduleDialog(); }}>
               <DialogTrigger asChild>
                 <motion.button
                   whileHover={{ scale: 1.02 }}
@@ -267,8 +276,27 @@ export default function MeetingsPage() {
                         <ExternalLink className="w-3.5 h-3.5" /> Link externo para clientes
                       </Label>
                       <p className="text-[10px] text-muted-foreground">
-                        O link será gerado após agendar. Compartilhe com pessoas externas para que entrem na reunião.
+                        Compartilhe este link com pessoas externas para que entrem na reunião.
                       </p>
+                      <div className="flex gap-2">
+                        <Input
+                          readOnly
+                          value={`${window.location.origin}/meetings/${preGeneratedCode}`}
+                          className="text-xs h-9 bg-muted"
+                        />
+                        <Button
+                          type="button"
+                          size="sm"
+                          variant="secondary"
+                          className="h-9 shrink-0 gap-1.5"
+                          onClick={() => {
+                            navigator.clipboard.writeText(`${window.location.origin}/meetings/${preGeneratedCode}`);
+                            toast.success("Link copiado!");
+                          }}
+                        >
+                          <Copy className="w-3.5 h-3.5" /> Copiar
+                        </Button>
+                      </div>
                     </div>
 
                     <Button onClick={handleSchedule} disabled={createMeeting.isPending} className="w-full">
