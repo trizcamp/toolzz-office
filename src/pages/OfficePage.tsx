@@ -28,6 +28,7 @@ export default function OfficePage() {
   const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const chunksRef = useRef<Blob[]>([]);
   const isVoiceActiveRef = useRef(false);
+  const aiSpeakingRef = useRef(false);
 
   const selectedRoom = rooms.find((r) => r.id === selectedRoomId) || rooms[0] || null;
   const boardId = boards?.[0]?.id || null;
@@ -35,6 +36,7 @@ export default function OfficePage() {
 
   // Keep ref in sync
   useEffect(() => { isVoiceActiveRef.current = isListening; }, [isListening]);
+  useEffect(() => { aiSpeakingRef.current = aiSpeaking; }, [aiSpeaking]);
 
   // Reset when room changes
   useEffect(() => {
@@ -71,6 +73,8 @@ export default function OfficePage() {
   }, []);
 
   const transcribeChunk = useCallback(async (blob: Blob) => {
+    // Skip transcription while AI is speaking to avoid echo
+    if (aiSpeakingRef.current) return;
     if (blob.size < 2000) return; // skip very small chunks (likely silence)
     try {
       const arrayBuffer = await blob.arrayBuffer();
