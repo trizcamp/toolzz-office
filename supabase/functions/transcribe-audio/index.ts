@@ -23,14 +23,14 @@ serve(async (req) => {
         "Content-Type": "application/json",
       },
       body: JSON.stringify({
-        model: "google/gemini-2.5-flash",
+        model: "google/gemini-2.5-flash-lite",
         messages: [
           {
             role: "user",
             content: [
               {
                 type: "text",
-                text: "You are a strict Brazilian Portuguese speech-to-text filter. Listen to this audio clip. Rules:\n\n1. ONLY transcribe speech in BRAZILIAN PORTUGUESE. If the speech is in English or any other language → respond: __SILENCE__\n2. If you hear silence, white noise, hum, ambient sounds → respond: __SILENCE__\n3. If you hear TV, radio, music, podcasts, YouTube, movies, or any media playing → respond: __SILENCE__\n4. If you hear short utterances, single words, or mumbling → respond: __SILENCE__\n5. ONLY transcribe if you hear a CLEAR, DELIBERATE sentence of 5+ words spoken directly into the microphone in Brazilian Portuguese.\n6. If in ANY doubt → respond: __SILENCE__\n7. NEVER invent, fabricate, or hallucinate text. If you cannot clearly hear real speech, respond: __SILENCE__\n8. NEVER describe what you hear (e.g. 'this is silence', 'this is the sound of...'). Only transcribe actual spoken words.\n9. If the audio is mostly noise with faint or unclear speech → respond: __SILENCE__\n\nRespond with either __SILENCE__ or the exact Portuguese transcription. Nothing else.",
+                text: "Transcreva o áudio em português brasileiro. Se não houver fala clara, responda apenas: __SILENCE__. Não invente texto. Responda apenas com a transcrição ou __SILENCE__.",
               },
               {
                 type: "image_url",
