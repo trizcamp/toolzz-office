@@ -182,10 +182,35 @@ export type Database = {
           },
         ]
       }
+      document_folders: {
+        Row: {
+          created_at: string
+          created_by: string | null
+          icon: string | null
+          id: string
+          name: string
+        }
+        Insert: {
+          created_at?: string
+          created_by?: string | null
+          icon?: string | null
+          id?: string
+          name: string
+        }
+        Update: {
+          created_at?: string
+          created_by?: string | null
+          icon?: string | null
+          id?: string
+          name?: string
+        }
+        Relationships: []
+      }
       documents: {
         Row: {
           created_at: string
           created_by: string | null
+          folder_id: string | null
           icon: string | null
           id: string
           task_id: string | null
@@ -196,6 +221,7 @@ export type Database = {
         Insert: {
           created_at?: string
           created_by?: string | null
+          folder_id?: string | null
           icon?: string | null
           id?: string
           task_id?: string | null
@@ -206,6 +232,7 @@ export type Database = {
         Update: {
           created_at?: string
           created_by?: string | null
+          folder_id?: string | null
           icon?: string | null
           id?: string
           task_id?: string | null
@@ -214,6 +241,13 @@ export type Database = {
           updated_at?: string
         }
         Relationships: [
+          {
+            foreignKeyName: "documents_folder_id_fkey"
+            columns: ["folder_id"]
+            isOneToOne: false
+            referencedRelation: "document_folders"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "documents_task_id_fkey"
             columns: ["task_id"]

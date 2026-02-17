@@ -1,5 +1,5 @@
 import { useState, useMemo, useCallback, useRef, useEffect } from "react";
-import { Plus, FileText, Link2, Maximize2, Minimize2, Folder, ChevronLeft, FileIcon, Search, Table2 } from "lucide-react";
+import { Plus, FileText, Link2, Maximize2, Minimize2, Folder, ChevronLeft, FileIcon, Search, Table2, FolderPlus } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
@@ -12,7 +12,7 @@ import { typeLabelsDoc } from "@/data/mockDocuments";
 import type { Block } from "@/data/mockDocuments";
 import BlockEditor from "@/components/documents/BlockEditor";
 import SpreadsheetEditor from "@/components/documents/SpreadsheetEditor";
-import { useDocuments, useDocumentBlocks } from "@/hooks/useDocuments";
+import { useDocuments, useDocumentBlocks, useDocumentFolders } from "@/hooks/useDocuments";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useTasks } from "@/hooks/useTasks";
 import { useBoards } from "@/hooks/useBoards";
@@ -21,6 +21,7 @@ import { toast } from "sonner";
 
 export default function DocumentsPage() {
   const { documents, isLoading, createDocument, updateDocument, deleteDocument } = useDocuments();
+  const { folders, createFolder, deleteFolder } = useDocumentFolders();
   const { boards } = useBoards();
   const { tasks: allTasks } = useTasks(null);
   const [selectedDocId, setSelectedDocId] = useState<string | null>(null);
@@ -29,9 +30,12 @@ export default function DocumentsPage() {
   const [newDocTitle, setNewDocTitle] = useState("");
   const [newDocTaskId, setNewDocTaskId] = useState<string>("none");
   const [newDocType, setNewDocType] = useState<"doc" | "spreadsheet">("doc");
+  const [newDocFolderId, setNewDocFolderId] = useState<string>("none");
   const [taskSearch, setTaskSearch] = useState("");
   const [activeFolderId, setActiveFolderId] = useState<string | null>(null);
   const [deleteDocId, setDeleteDocId] = useState<string | null>(null);
+  const [newFolderOpen, setNewFolderOpen] = useState(false);
+  const [newFolderName, setNewFolderName] = useState("");
 
   // Spreadsheet data handling
   const [localSpreadsheetData, setLocalSpreadsheetData] = useState<Record<string, string> | null>(null);
@@ -87,38 +91,52 @@ export default function DocumentsPage() {
     return allTasks.filter((t) => !docTaskIds.has(t.id));
   }, [allTasks, documents]);
 
-  // Group documents by board (via task.board_id)
-  const { folderData, unlinkedDocs } = useMemo(() => {
+  // Group documents: custom folders, board folders, unlinked
+  const { customFolderData, boardFolderData, unlinkedDocs } = useMemo(() => {
+    const customMap = new Map<string, any[]>();
     const boardMap = new Map<string, { board: any; docs: any[] }>();
     const unlinked: any[] = [];
 
+    // Init custom folders (even if empty)
+    for (const f of folders) customMap.set(f.id, []);
+
     for (const doc of documents) {
-      const boardId = (doc as any).tasks?.board_id;
-      if (boardId) {
-        if (!boardMap.has(boardId)) {
-          const board = boards.find((b: any) => b.id === boardId);
-          boardMap.set(boardId, { board: board || { id: boardId, name: "Board", icon: "📋" }, docs: [] });
-        }
-        boardMap.get(boardId)!.docs.push(doc);
+      if ((doc as any).folder_id && customMap.has((doc as any).folder_id)) {
+        customMap.get((doc as any).folder_id)!.push(doc);
       } else {
-        unlinked.push(doc);
+        const boardId = (doc as any).tasks?.board_id;
+        if (boardId) {
+          if (!boardMap.has(boardId)) {
+            const board = boards.find((b: any) => b.id === boardId);
+            boardMap.set(boardId, { board: board || { id: boardId, name: "Board", icon: "📋" }, docs: [] });
+          }
+          boardMap.get(boardId)!.docs.push(doc);
+        } else {
+          unlinked.push(doc);
+        }
       }
     }
 
-    return { folderData: Array.from(boardMap.values()), unlinkedDocs: unlinked };
-  }, [documents, boards]);
+    const customFolders = folders.map((f) => ({ folder: f, docs: customMap.get(f.id) || [] }));
+    return { customFolderData: customFolders, boardFolderData: Array.from(boardMap.values()), unlinkedDocs: unlinked };
+  }, [documents, boards, folders]);
 
   const activeFolderDocs = useMemo(() => {
     if (activeFolderId === "__unlinked") return unlinkedDocs;
     if (!activeFolderId) return [];
-    return folderData.find((f) => f.board.id === activeFolderId)?.docs || [];
-  }, [activeFolderId, folderData, unlinkedDocs]);
+    // Check custom folders first
+    const customMatch = customFolderData.find((f) => f.folder.id === activeFolderId);
+    if (customMatch) return customMatch.docs;
+    return boardFolderData.find((f) => f.board.id === activeFolderId)?.docs || [];
+  }, [activeFolderId, customFolderData, boardFolderData, unlinkedDocs]);
 
   const activeFolderName = useMemo(() => {
     if (activeFolderId === "__unlinked") return "Sem vínculo";
     if (!activeFolderId) return "";
-    return folderData.find((f) => f.board.id === activeFolderId)?.board?.name || "Board";
-  }, [activeFolderId, folderData]);
+    const customMatch = customFolderData.find((f) => f.folder.id === activeFolderId);
+    if (customMatch) return customMatch.folder.name;
+    return boardFolderData.find((f) => f.board.id === activeFolderId)?.board?.name || "Board";
+  }, [activeFolderId, customFolderData, boardFolderData]);
 
   const saveTimeoutRef = useRef<ReturnType<typeof setTimeout>>();
 
@@ -193,8 +211,10 @@ export default function DocumentsPage() {
     const icon = newDocType === "spreadsheet" ? "📊" : (taskId ? "📋" : "📄");
     const type = newDocType === "spreadsheet" ? "spreadsheet" as const : (taskId ? "spec" as const : "doc" as const);
 
+    const folderId = newDocFolderId !== "none" ? newDocFolderId : (activeFolderId && activeFolderId !== "__unlinked" && customFolderData.some(f => f.folder.id === activeFolderId) ? activeFolderId : undefined);
+
     createDocument.mutate(
-      { title, icon, type, task_id: taskId },
+      { title, icon, type, task_id: taskId, folder_id: folderId },
       {
         onSuccess: (data) => {
           if (taskId) {
@@ -208,6 +228,7 @@ export default function DocumentsPage() {
           setNewDocTitle("");
           setNewDocTaskId("none");
           setNewDocType("doc");
+          setNewDocFolderId("none");
           setTaskSearch("");
         },
       }
@@ -327,16 +348,27 @@ export default function DocumentsPage() {
             )
           ) : (
             <>
-              {folderData.length === 0 && unlinkedDocs.length === 0 && (
+              {customFolderData.length === 0 && boardFolderData.length === 0 && unlinkedDocs.length === 0 && (
                 <p className="text-xs text-muted-foreground text-center py-4">Nenhum documento</p>
               )}
-              {folderData.map(({ board, docs }) => (
+              {customFolderData.map(({ folder, docs }) => (
+                <button
+                  key={folder.id}
+                  onClick={() => setActiveFolderId(folder.id)}
+                  className="w-full text-left px-3 py-2.5 rounded-lg transition-colors text-sm text-muted-foreground hover:text-foreground hover:bg-surface-hover flex items-center gap-2.5"
+                >
+                  <Folder className="w-4 h-4 text-primary/70 shrink-0" />
+                  <span className="truncate flex-1">{folder.name}</span>
+                  <span className="text-[10px] text-muted-foreground/60 shrink-0">{docs.length}</span>
+                </button>
+              ))}
+              {boardFolderData.map(({ board, docs }) => (
                 <button
                   key={board.id}
                   onClick={() => setActiveFolderId(board.id)}
                   className="w-full text-left px-3 py-2.5 rounded-lg transition-colors text-sm text-muted-foreground hover:text-foreground hover:bg-surface-hover flex items-center gap-2.5"
                 >
-                  <Folder className="w-4 h-4 text-primary/70 shrink-0" />
+                  <Folder className="w-4 h-4 text-muted-foreground/50 shrink-0" />
                   <span className="truncate flex-1">{board.name}</span>
                   <span className="text-[10px] text-muted-foreground/60 shrink-0">{docs.length}</span>
                 </button>
@@ -351,6 +383,13 @@ export default function DocumentsPage() {
                   <span className="text-[10px] text-muted-foreground/60 shrink-0">{unlinkedDocs.length}</span>
                 </button>
               )}
+              <button
+                onClick={() => setNewFolderOpen(true)}
+                className="w-full text-left px-3 py-2 rounded-lg transition-colors text-xs text-muted-foreground/60 hover:text-muted-foreground hover:bg-surface-hover flex items-center gap-2"
+              >
+                <FolderPlus className="w-3.5 h-3.5 shrink-0" />
+                <span>Nova pasta</span>
+              </button>
             </>
           )}
         </div>
@@ -437,6 +476,21 @@ export default function DocumentsPage() {
               <Label>Título</Label>
               <Input placeholder={newDocType === "spreadsheet" ? "Nome da planilha" : "Nome do documento"} value={newDocTitle} onChange={(e) => setNewDocTitle(e.target.value)} />
             </div>
+            {folders.length > 0 && (
+              <div className="space-y-2">
+                <Label>Pasta (opcional)</Label>
+                <select
+                  value={newDocFolderId}
+                  onChange={(e) => setNewDocFolderId(e.target.value)}
+                  className="w-full h-9 rounded-md border border-border bg-background px-3 text-sm text-foreground"
+                >
+                  <option value="none">Nenhuma pasta</option>
+                  {folders.map((f) => (
+                    <option key={f.id} value={f.id}>{f.name}</option>
+                  ))}
+                </select>
+              </div>
+            )}
             <div className="space-y-2">
               <Label>Vincular a uma tarefa (opcional)</Label>
               <div className="relative">
@@ -509,6 +563,43 @@ export default function DocumentsPage() {
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
+
+      {/* New Folder Dialog */}
+      <Dialog open={newFolderOpen} onOpenChange={setNewFolderOpen}>
+        <DialogContent className="sm:max-w-[340px] overflow-hidden">
+          <DialogHeader>
+            <DialogTitle>Nova Pasta</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4 py-2">
+            <div className="space-y-2">
+              <Label>Nome da pasta</Label>
+              <Input
+                placeholder="Ex: Projetos, Relatórios..."
+                value={newFolderName}
+                onChange={(e) => setNewFolderName(e.target.value)}
+                onKeyDown={(e) => {
+                  if (e.key === "Enter" && newFolderName.trim()) {
+                    createFolder.mutate({ name: newFolderName.trim() }, {
+                      onSuccess: () => { setNewFolderOpen(false); setNewFolderName(""); toast.success("Pasta criada"); },
+                    });
+                  }
+                }}
+              />
+            </div>
+            <Button
+              className="w-full btn-gradient"
+              disabled={!newFolderName.trim()}
+              onClick={() => {
+                createFolder.mutate({ name: newFolderName.trim() }, {
+                  onSuccess: () => { setNewFolderOpen(false); setNewFolderName(""); toast.success("Pasta criada"); },
+                });
+              }}
+            >
+              Criar Pasta
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
