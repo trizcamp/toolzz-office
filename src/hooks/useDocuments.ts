@@ -1,5 +1,5 @@
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { useEffect } from "react";
+import { useEffect, useMemo } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "./useAuth";
 
@@ -143,7 +143,8 @@ export function useDocumentBlocks(documentId: string | null) {
     },
   });
 
-  return { blocks: query.data || [], isLoading: query.isLoading, saveBlocks };
+  const blocks = useMemo(() => query.data || [], [query.data]);
+  return { blocks, isLoading: query.isLoading, saveBlocks };
 }
 
 export function useDocumentComments(documentId: string | null) {
