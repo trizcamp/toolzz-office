@@ -7,7 +7,7 @@ export interface DbDocument {
   id: string;
   title: string;
   icon: string;
-  type: "doc" | "spec" | "note";
+  type: "doc" | "spec" | "note" | "spreadsheet";
   task_id: string | null;
   created_by: string | null;
   created_at: string;
@@ -62,7 +62,7 @@ export function useDocuments() {
   }, [user, queryClient]);
 
   const createDocument = useMutation({
-    mutationFn: async (doc: { title: string; icon?: string; type?: "doc" | "spec" | "note"; task_id?: string }) => {
+    mutationFn: async (doc: { title: string; icon?: string; type?: "doc" | "spec" | "note" | "spreadsheet"; task_id?: string }) => {
       const { data, error } = await supabase
         .from("documents")
         .insert({ ...doc, created_by: user!.id })
@@ -71,12 +71,22 @@ export function useDocuments() {
       if (error) throw error;
 
       // Create initial block
-      await supabase.from("document_blocks").insert({
-        document_id: data.id,
-        type: "heading2",
-        content: "",
-        position: 0,
-      });
+      if (doc.type === "spreadsheet") {
+        await supabase.from("document_blocks").insert({
+          document_id: data.id,
+          type: "paragraph",
+          content: "",
+          position: 0,
+          metadata: { cells: {} },
+        });
+      } else {
+        await supabase.from("document_blocks").insert({
+          document_id: data.id,
+          type: "heading2",
+          content: "",
+          position: 0,
+        });
+      }
 
       return data;
     },

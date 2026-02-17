@@ -31,7 +31,7 @@ export interface Document {
   icon: string;
   taskId?: string;
   taskTitle?: string;
-  type: "doc" | "spec" | "note";
+  type: "doc" | "spec" | "note" | "spreadsheet";
   updatedAt: string;
   blocks: Block[];
   comments: DocumentComment[];
@@ -121,4 +121,5 @@ export const typeLabelsDoc: Record<string, string> = {
   doc: "Documento",
   spec: "Especificação",
   note: "Nota",
+  spreadsheet: "Planilha",
 };

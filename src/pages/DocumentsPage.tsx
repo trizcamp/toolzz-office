@@ -1,5 +1,5 @@
 import { useState, useMemo, useCallback, useRef, useEffect } from "react";
-import { Plus, FileText, Link2, Maximize2, Minimize2, Folder, ChevronLeft, FileIcon, Search } from "lucide-react";
+import { Plus, FileText, Link2, Maximize2, Minimize2, Folder, ChevronLeft, FileIcon, Search, Table2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
@@ -7,11 +7,11 @@ import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, 
 import { ContextMenu, ContextMenuContent, ContextMenuItem, ContextMenuTrigger } from "@/components/ui/context-menu";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { cn } from "@/lib/utils";
 import { typeLabelsDoc } from "@/data/mockDocuments";
 import type { Block } from "@/data/mockDocuments";
 import BlockEditor from "@/components/documents/BlockEditor";
+import SpreadsheetEditor from "@/components/documents/SpreadsheetEditor";
 import { useDocuments, useDocumentBlocks } from "@/hooks/useDocuments";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useTasks } from "@/hooks/useTasks";
@@ -28,9 +28,14 @@ export default function DocumentsPage() {
   const [newDocOpen, setNewDocOpen] = useState(false);
   const [newDocTitle, setNewDocTitle] = useState("");
   const [newDocTaskId, setNewDocTaskId] = useState<string>("none");
+  const [newDocType, setNewDocType] = useState<"doc" | "spreadsheet">("doc");
   const [taskSearch, setTaskSearch] = useState("");
   const [activeFolderId, setActiveFolderId] = useState<string | null>(null);
   const [deleteDocId, setDeleteDocId] = useState<string | null>(null);
+
+  // Spreadsheet data handling
+  const [localSpreadsheetData, setLocalSpreadsheetData] = useState<Record<string, string> | null>(null);
+  const spreadsheetInitRef = useRef<string | null>(null);
 
   const deleteDocData = deleteDocId ? documents.find((d: any) => d.id === deleteDocId) : null;
 
@@ -137,13 +142,59 @@ export default function DocumentsPage() {
     }, 800);
   }, [selectedDocId, saveBlocks]);
 
+  // Spreadsheet data from blocks
+  const spreadsheetData: Record<string, string> = useMemo(() => {
+    if (localSpreadsheetData && spreadsheetInitRef.current === selectedDocId) return localSpreadsheetData;
+    if (selectedDoc?.type === "spreadsheet" && dbBlocks.length > 0) {
+      const block = dbBlocks[0];
+      return (block.metadata as any)?.cells || {};
+    }
+    return {};
+  }, [localSpreadsheetData, selectedDoc, dbBlocks, selectedDocId]);
+
+  useEffect(() => {
+    if (selectedDocId && selectedDoc?.type === "spreadsheet" && dbBlocks.length > 0 && spreadsheetInitRef.current !== selectedDocId) {
+      spreadsheetInitRef.current = selectedDocId;
+      const block = dbBlocks[0];
+      setLocalSpreadsheetData((block.metadata as any)?.cells || {});
+    }
+    if (!selectedDocId) {
+      spreadsheetInitRef.current = null;
+      setLocalSpreadsheetData(null);
+    }
+  }, [selectedDocId, selectedDoc, dbBlocks]);
+
+  const handleSpreadsheetChange = useCallback((cells: Record<string, string>) => {
+    if (!selectedDocId) return;
+    setLocalSpreadsheetData(cells);
+    if (saveTimeoutRef.current) clearTimeout(saveTimeoutRef.current);
+    saveTimeoutRef.current = setTimeout(() => {
+      const blockId = dbBlocks[0]?.id || crypto.randomUUID();
+      saveBlocks.mutate({
+        documentId: selectedDocId,
+        blocks: [{
+          id: blockId,
+          document_id: selectedDocId,
+          type: "paragraph",
+          content: "",
+          position: 0,
+          checked: false,
+          metadata: { cells },
+        }],
+      });
+    }, 800);
+  }, [selectedDocId, saveBlocks, dbBlocks]);
+
   const handleCreateDocument = () => {
     const taskId = newDocTaskId !== "none" ? newDocTaskId : undefined;
     const task = taskId ? allTasks.find((t) => t.id === taskId) : null;
-    const title = newDocTitle.trim() || (task ? task.title : "Sem título");
+    const title = newDocTitle.trim() || (task ? task.title : (newDocType === "spreadsheet" ? "Nova Planilha" : "Sem título"));
+
+    const icon = newDocType === "spreadsheet" ? "📊" : (taskId ? "📋" : "📄");
+    const type = newDocType === "spreadsheet" ? "spreadsheet" as const : (taskId ? "spec" as const : "doc" as const);
 
     createDocument.mutate(
-      { title, icon: taskId ? "📋" : "📄", type: taskId ? "spec" : "doc", task_id: taskId },
+      { title, icon, type, task_id: taskId },
       {
         onSuccess: (data) => {
           if (taskId) {
@@ -156,6 +207,7 @@ export default function DocumentsPage() {
           setNewDocOpen(false);
           setNewDocTitle("");
           setNewDocTaskId("none");
+          setNewDocType("doc");
           setTaskSearch("");
         },
       }
@@ -199,8 +251,14 @@ export default function DocumentsPage() {
             </Button>
           </div>
         </div>
-        <div className="flex-1 overflow-y-auto px-8 py-6 max-w-4xl mx-auto w-full">
-          <BlockEditor blocks={editorBlocks} onChange={handleBlocksChange} />
+        <div className="flex-1 overflow-auto">
+          {selectedDoc.type === "spreadsheet" ? (
+            <SpreadsheetEditor data={spreadsheetData} onChange={handleSpreadsheetChange} />
+          ) : (
+            <div className="px-8 py-6 max-w-4xl mx-auto w-full">
+              <BlockEditor blocks={editorBlocks} onChange={handleBlocksChange} />
+            </div>
+          )}
         </div>
       </div>
     );
@@ -318,8 +376,14 @@ export default function DocumentsPage() {
                 </Button>
               </div>
             </div>
-            <div className="flex-1 overflow-y-auto px-8 py-6">
-              <BlockEditor blocks={editorBlocks} onChange={handleBlocksChange} />
+            <div className="flex-1 overflow-auto">
+              {selectedDoc.type === "spreadsheet" ? (
+                <SpreadsheetEditor data={spreadsheetData} onChange={handleSpreadsheetChange} />
+              ) : (
+                <div className="px-8 py-6">
+                  <BlockEditor blocks={editorBlocks} onChange={handleBlocksChange} />
+                </div>
+              )}
             </div>
           </>
         ) : (
@@ -343,8 +407,35 @@ export default function DocumentsPage() {
           </DialogHeader>
           <div className="space-y-4 py-2 min-w-0 w-full">
             <div className="space-y-2">
+              <Label>Tipo</Label>
+              <div className="grid grid-cols-2 gap-2">
+                <button
+                  type="button"
+                  onClick={() => setNewDocType("doc")}
+                  className={cn(
+                    "flex items-center gap-2.5 px-3 py-2.5 rounded-lg border text-sm transition-colors",
+                    newDocType === "doc" ? "border-primary bg-primary/10 text-foreground" : "border-border text-muted-foreground hover:border-muted-foreground"
+                  )}
+                >
+                  <FileText className="w-4 h-4" />
+                  <span className="font-medium">Documento</span>
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setNewDocType("spreadsheet")}
+                  className={cn(
+                    "flex items-center gap-2.5 px-3 py-2.5 rounded-lg border text-sm transition-colors",
+                    newDocType === "spreadsheet" ? "border-primary bg-primary/10 text-foreground" : "border-border text-muted-foreground hover:border-muted-foreground"
+                  )}
+                >
+                  <Table2 className="w-4 h-4" />
+                  <span className="font-medium">Planilha</span>
+                </button>
+              </div>
+            </div>
+            <div className="space-y-2">
               <Label>Título</Label>
-              <Input placeholder="Nome do documento" value={newDocTitle} onChange={(e) => setNewDocTitle(e.target.value)} />
+              <Input placeholder={newDocType === "spreadsheet" ? "Nome da planilha" : "Nome do documento"} value={newDocTitle} onChange={(e) => setNewDocTitle(e.target.value)} />
             </div>
             <div className="space-y-2">
               <Label>Vincular a uma tarefa (opcional)</Label>
@@ -393,7 +484,7 @@ export default function DocumentsPage() {
               </div>
             </div>
             <Button className="w-full btn-gradient" onClick={handleCreateDocument}>
-              Criar Documento
+              {newDocType === "spreadsheet" ? "Criar Planilha" : "Criar Documento"}
             </Button>
           </div>
         </DialogContent>
