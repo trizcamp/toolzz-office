@@ -13,38 +13,42 @@ interface Props {
   onOpenChange: (open: boolean) => void;
 }
 
-const MOCK_SKILLS = [
-  { name: "Product Discovery", level: 92 },
-  { name: "Roadmap Strategy", level: 88 },
-  { name: "User Story Mapping", level: 95 },
-  { name: "Stakeholder Mgmt", level: 85 },
-  { name: "Data Analysis", level: 78 },
-  { name: "Scrum / Kanban", level: 90 },
-  { name: "UX Research", level: 72 },
-  { name: "OKRs & Métricas", level: 80 },
-];
-
-const MOCK_CONTRACT = {
-  role: "Product Owner",
-  department: "Produto",
-  type: "CLT",
-  workload: "40h semanais",
-  startDate: "01/03/2025",
-  manager: "CEO",
-  level: "Sênior",
-  location: "Remoto",
+const MEMBER_PROFILES: Record<string, { badge: string; skills: { name: string; level: number }[]; tools: string[]; contract: any; financial: any }> = {
+  // Beatriz - Analista de Dados
+  "d43a6c23-433c-4b41-924f-b828e8456289": {
+    badge: "Analista de Dados",
+    skills: [
+      { name: "SQL & Queries", level: 94 },
+      { name: "Python / Pandas", level: 88 },
+      { name: "Data Visualization", level: 91 },
+      { name: "Power BI / Looker", level: 85 },
+      { name: "ETL Pipelines", level: 78 },
+      { name: "Estatística", level: 82 },
+      { name: "Machine Learning", level: 65 },
+      { name: "Storytelling c/ Dados", level: 90 },
+    ],
+    tools: ["Power BI", "Python", "BigQuery", "Metabase", "Excel", "Jupyter"],
+    contract: { role: "Analista de Dados", department: "Dados & BI", type: "CLT", workload: "40h semanais", startDate: "15/01/2025", manager: "Head de Dados", level: "Pleno", location: "Híbrido" },
+    financial: { salary: "R$ 5.200,00", bonus: "R$ 800,00", benefits: [{ name: "Vale Refeição", value: "R$ 600,00" }, { name: "Plano de Saúde", value: "R$ 480,00" }, { name: "Home Office", value: "R$ 150,00" }, { name: "Educação", value: "R$ 300,00" }], totalComp: "R$ 7.530,00" },
+  },
 };
 
-const MOCK_FINANCIAL = {
-  salary: "R$ 6.800,00",
-  bonus: "R$ 1.200,00",
-  benefits: [
-    { name: "Vale Refeição", value: "R$ 650,00" },
-    { name: "Plano de Saúde", value: "R$ 480,00" },
-    { name: "Home Office", value: "R$ 150,00" },
-    { name: "Educação", value: "R$ 200,00" },
+// Default profile for unknown members (P.O.)
+const DEFAULT_PROFILE = {
+  badge: "P.O.",
+  skills: [
+    { name: "Product Discovery", level: 92 },
+    { name: "Roadmap Strategy", level: 88 },
+    { name: "User Story Mapping", level: 95 },
+    { name: "Stakeholder Mgmt", level: 85 },
+    { name: "Data Analysis", level: 78 },
+    { name: "Scrum / Kanban", level: 90 },
+    { name: "UX Research", level: 72 },
+    { name: "OKRs & Métricas", level: 80 },
   ],
-  totalComp: "R$ 9.480,00",
+  tools: ["Jira", "Figma", "Amplitude", "Hotjar", "Notion", "Miro"],
+  contract: { role: "Product Owner", department: "Produto", type: "CLT", workload: "40h semanais", startDate: "01/03/2025", manager: "CEO", level: "Sênior", location: "Remoto" },
+  financial: { salary: "R$ 6.800,00", bonus: "R$ 1.200,00", benefits: [{ name: "Vale Refeição", value: "R$ 650,00" }, { name: "Plano de Saúde", value: "R$ 480,00" }, { name: "Home Office", value: "R$ 150,00" }, { name: "Educação", value: "R$ 200,00" }], totalComp: "R$ 9.480,00" },
 };
 
 export default function MemberProfileDialog({ memberId, open, onOpenChange }: Props) {
@@ -70,6 +74,11 @@ export default function MemberProfileDialog({ memberId, open, onOpenChange }: Pr
 
   const member = members.find((m) => m.id === memberId);
   if (!member) return null;
+
+  const profile = MEMBER_PROFILES[member.id] || DEFAULT_PROFILE;
+  const MOCK_SKILLS = profile.skills;
+  const MOCK_CONTRACT = profile.contract;
+  const MOCK_FINANCIAL = profile.financial;
 
   const joinDate = new Date(member.created_at).toLocaleDateString("pt-BR", {
     day: "numeric", month: "long", year: "numeric",
@@ -100,7 +109,7 @@ export default function MemberProfileDialog({ memberId, open, onOpenChange }: Pr
                 {member.name} {member.surname}
               </h3>
               <Badge variant="outline" className="text-[9px] shrink-0 border-primary/30 text-primary">
-                P.O.
+                {profile.badge}
               </Badge>
             </div>
             <p className="text-xs text-muted-foreground truncate">{member.email}</p>
@@ -144,11 +153,11 @@ export default function MemberProfileDialog({ memberId, open, onOpenChange }: Pr
               </div>
               <div className="flex items-center gap-2.5 text-xs text-muted-foreground">
                 <Briefcase className="w-3.5 h-3.5 text-primary shrink-0" />
-                <span>Product Owner · Sênior</span>
+                <span>{MOCK_CONTRACT.role} · {MOCK_CONTRACT.level}</span>
               </div>
               <div className="flex items-center gap-2.5 text-xs text-muted-foreground">
                 <Target className="w-3.5 h-3.5 text-primary shrink-0" />
-                <span>Departamento de Produto</span>
+                <span>{MOCK_CONTRACT.department}</span>
               </div>
             </div>
           </TabsContent>
@@ -172,7 +181,7 @@ export default function MemberProfileDialog({ memberId, open, onOpenChange }: Pr
               ))}
             </div>
             <div className="flex flex-wrap gap-1.5 pt-1">
-              {["Jira", "Figma", "Amplitude", "Hotjar", "Notion", "Miro"].map((tool) => (
+              {profile.tools.map((tool) => (
                 <Badge key={tool} variant="secondary" className="text-[10px] px-2 py-0.5">
                   {tool}
                 </Badge>
