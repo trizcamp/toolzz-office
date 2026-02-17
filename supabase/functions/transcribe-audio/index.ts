@@ -30,7 +30,7 @@ serve(async (req) => {
             content: [
               {
                 type: "text",
-                text: "Transcreva exatamente o que é dito neste áudio em português brasileiro. Retorne APENAS o texto transcrito, sem nenhuma explicação, prefixo ou formatação adicional. Se não houver fala clara, retorne uma string vazia.",
+                text: "Listen to this audio. If there is CLEAR human speech directed at the microphone, transcribe ONLY those exact words in Brazilian Portuguese. If the audio contains: silence, background noise, music, TV/radio playing, distant conversations, or any audio that is NOT someone deliberately speaking into the microphone — respond with EXACTLY the single word: __SILENCE__\n\nDo NOT guess, infer, or hallucinate words. Do NOT transcribe background audio. Only transcribe deliberate, clear speech. If in doubt, respond __SILENCE__.",
               },
               {
                 type: "image_url",

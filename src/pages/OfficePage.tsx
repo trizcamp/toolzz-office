@@ -91,8 +91,8 @@ export default function OfficePage() {
       }
 
       const text = data?.transcript?.trim();
-      // Filter out noise: must have at least 3 chars, not just punctuation/filler
-      if (text && text.length >= 3 && !/^[.\s,…!?-]+$/.test(text)) {
+      // Filter out silence markers, noise, and very short text
+      if (text && text.length >= 3 && !/^[.\s,…!?-]+$/.test(text) && !text.includes("__SILENCE__") && text !== "..." && text.toLowerCase() !== "silêncio") {
         const now = new Date();
         const time = now.toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" });
         setTranscriptionEntries((prev) => [
