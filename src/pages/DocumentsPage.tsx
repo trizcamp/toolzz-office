@@ -37,6 +37,7 @@ export default function DocumentsPage() {
     if (!selectedDocId) {
       setLocalBlocks(null);
       initializedDocRef.current = null;
+      defaultBlock.current = [{ id: crypto.randomUUID(), type: "heading2" as const, content: "" }];
       return;
     }
     if (selectedDocId !== initializedDocRef.current && dbBlocks.length > 0) {
@@ -53,6 +54,8 @@ export default function DocumentsPage() {
     }
   }, [selectedDocId, dbBlocks]);
 
+  const defaultBlock = useRef<Block[]>([{ id: crypto.randomUUID(), type: "heading2" as const, content: "" }]);
+
   const editorBlocks: Block[] = useMemo(() => {
     if (localBlocks && localBlocks.length > 0) return localBlocks;
     if (dbBlocks.length > 0) {
@@ -64,7 +67,7 @@ export default function DocumentsPage() {
         metadata: b.metadata || undefined,
       }));
     }
-    return [{ id: crypto.randomUUID(), type: "heading2" as const, content: "" }];
+    return defaultBlock.current;
   }, [localBlocks, dbBlocks]);
 
   const tasksWithoutDoc = useMemo(() => {
