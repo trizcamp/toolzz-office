@@ -1,5 +1,5 @@
 import { useState, useCallback, useRef, useMemo, useEffect } from "react";
-import { X, Maximize2, Minimize2, Plus, Trash2 } from "lucide-react";
+import { X, Maximize2, Minimize2, Plus, Trash2, FileText } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
@@ -68,31 +68,33 @@ export default function TaskDetailPanel({
     creatingRef.current = false;
   }, [task.document_id]);
 
-  // Auto-create document if task doesn't have one (with duplicate prevention)
+  // Check if document already exists for this task (but don't auto-create)
   useEffect(() => {
-    if (localDocId || !task.id || creatingRef.current || createDocument.isPending) return;
-    creatingRef.current = true;
+    if (localDocId || !task.id) return;
 
     supabase.from("documents").select("id").eq("task_id", task.id).maybeSingle()
-      .then(({ data, error }) => {
-        if (error) { creatingRef.current = false; return; }
+      .then(({ data }) => {
         if (data) {
           setLocalDocId(data.id);
           supabase.from("tasks").update({ document_id: data.id }).eq("id", task.id);
-        } else {
-          createDocument.mutate(
-            { title: task.title, icon: "📋", type: "spec", task_id: task.id },
-            {
-              onSuccess: (doc) => {
-                setLocalDocId(doc.id);
-                supabase.from("tasks").update({ document_id: doc.id }).eq("id", task.id);
-              },
-              onError: () => { creatingRef.current = false; },
-            }
-          );
         }
       });
-  }, [task.id]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [task.id, localDocId]);
+
+  const handleCreateDocForTask = () => {
+    if (creatingRef.current || createDocument.isPending) return;
+    creatingRef.current = true;
+    createDocument.mutate(
+      { title: task.title, icon: "📋", type: "spec", task_id: task.id },
+      {
+        onSuccess: (doc) => {
+          setLocalDocId(doc.id);
+          supabase.from("tasks").update({ document_id: doc.id }).eq("id", task.id);
+        },
+        onError: () => { creatingRef.current = false; },
+      }
+    );
+  };
 
   const documentId = localDocId;
   const { blocks: dbBlocks, saveBlocks } = useDocumentBlocks(documentId);
@@ -318,19 +320,33 @@ export default function TaskDetailPanel({
         <div className="border-t border-border pt-4">
           <div className="flex items-center justify-between mb-3">
             <p className="text-xs font-semibold text-foreground">Documentação da Tarefa</p>
-            <div className="flex items-center gap-1">
-              {onToggleFullscreen && (
-                <Button size="icon" variant="ghost" className="h-6 w-6" onClick={onToggleFullscreen}>
-                  <Maximize2 className="w-3.5 h-3.5" />
+            {documentId && (
+              <div className="flex items-center gap-1">
+                {onToggleFullscreen && (
+                  <Button size="icon" variant="ghost" className="h-6 w-6" onClick={onToggleFullscreen}>
+                    <Maximize2 className="w-3.5 h-3.5" />
+                  </Button>
+                )}
+                <Button size="icon" variant="ghost" className="h-6 w-6" onClick={() => setDocExpanded(!docExpanded)}>
+                  {docExpanded ? <Minimize2 className="w-3.5 h-3.5" /> : <Maximize2 className="w-3.5 h-3.5" />}
+                </Button>
+              </div>
+            )}
+          </div>
+          {documentId ? (
+            docExpanded && (
+              <BlockEditor blocks={editorBlocks} onChange={handleBlocksChange} readOnly={readOnly} />
+            )
+          ) : (
+            <div className="flex flex-col items-center justify-center py-8 space-y-3">
+              <FileText className="w-10 h-10 text-muted-foreground/30" />
+              <p className="text-xs text-muted-foreground">Nenhum documento vinculado</p>
+              {!readOnly && (
+                <Button size="sm" className="btn-gradient" onClick={handleCreateDocForTask} disabled={createDocument.isPending}>
+                  <Plus className="w-3.5 h-3.5 mr-1.5" /> Criar Documento
                 </Button>
               )}
-              <Button size="icon" variant="ghost" className="h-6 w-6" onClick={() => setDocExpanded(!docExpanded)}>
-                {docExpanded ? <Minimize2 className="w-3.5 h-3.5" /> : <Maximize2 className="w-3.5 h-3.5" />}
-              </Button>
             </div>
-          </div>
-          {docExpanded && (
-            <BlockEditor blocks={editorBlocks} onChange={handleBlocksChange} readOnly={readOnly} />
           )}
         </div>
       </div>
