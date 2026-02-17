@@ -67,7 +67,11 @@ export default function PriorityPokerCard({ task, onDelete, onUpdate, onSelect, 
       ) : (
         <>
           <p className="text-sm font-medium text-foreground cursor-pointer hover:text-primary" onClick={onSelect}>{task.title}</p>
-          <p className="text-xs text-muted-foreground">{task.description}</p>
+          <p className="text-xs text-muted-foreground line-clamp-2">
+            {task.description && task.description.length > 150
+              ? task.description.slice(0, 150) + "…"
+              : task.description || `Tarefa: ${task.title}`}
+          </p>
         </>
       )}
 
