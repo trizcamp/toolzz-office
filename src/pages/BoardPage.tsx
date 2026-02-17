@@ -144,6 +144,7 @@ export default function BoardPage() {
       status: updated.status,
       priority: updated.priority,
       type: updated.type,
+      delivery_date: updated.deliveryDate || null,
     });
     setSelectedTask(updated);
   };
@@ -409,7 +410,8 @@ export default function BoardPage() {
                     <TableHead className="text-xs">Status</TableHead>
                     <TableHead className="text-xs">Prioridade</TableHead>
                     <TableHead className="text-xs">Tipo</TableHead>
-                    <TableHead className="text-xs">Data</TableHead>
+                    <TableHead className="text-xs">Criado</TableHead>
+                    <TableHead className="text-xs">Entrega</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
@@ -425,6 +427,7 @@ export default function BoardPage() {
                         </Badge>
                       </TableCell>
                       <TableCell className="text-xs text-muted-foreground">{task.createdAt}</TableCell>
+                      <TableCell className="text-xs text-muted-foreground">{task.deliveryDate || "—"}</TableCell>
                     </TableRow>
                   ))}
                 </TableBody>
