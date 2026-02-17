@@ -1,6 +1,6 @@
 import { useState, useRef, useCallback, useEffect } from "react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
-import { Mic, MicOff, Volume2, Square, CheckCircle2, Send, Keyboard } from "lucide-react";
+import { Mic, MicOff, Volume2, Square, CheckCircle2, Send, Keyboard, RotateCcw } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
@@ -235,6 +235,16 @@ export default function VoiceAgentDialog({ open, onOpenChange, boardId }: VoiceA
     sendToAI(text);
   }, [textInput, status, sendToAI]);
 
+  const resetChat = useCallback(() => {
+    stopRecording();
+    window.speechSynthesis?.cancel();
+    setMessages([]);
+    messagesRef.current = [];
+    setCreatedTasks([]);
+    setStatus("idle");
+    setTextInput("");
+  }, [stopRecording]);
+
   const statusLabel: Record<Status, string> = {
     idle: "Toque no microfone para falar",
     listening: "Ouvindo... toque para parar",
@@ -245,8 +255,18 @@ export default function VoiceAgentDialog({ open, onOpenChange, boardId }: VoiceA
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="sm:max-w-md max-h-[80vh] flex flex-col">
-        <DialogHeader>
-          <DialogTitle className="text-center">Agente de Voz IA</DialogTitle>
+        <DialogHeader className="flex flex-row items-center justify-between">
+          <DialogTitle className="text-center flex-1">Agente de Voz IA</DialogTitle>
+          {messages.length > 0 && (
+            <button
+              onClick={resetChat}
+              className="text-xs text-muted-foreground hover:text-foreground flex items-center gap-1 transition-colors mr-6"
+              title="Nova conversa"
+            >
+              <RotateCcw className="w-3.5 h-3.5" />
+              Nova conversa
+            </button>
+          )}
         </DialogHeader>
 
         {/* Messages */}
