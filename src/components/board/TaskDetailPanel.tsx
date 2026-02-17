@@ -321,8 +321,8 @@ export default function TaskDetailPanel({
               </div>
             ))}
           </div>
-          {!readOnly && (
-            <Select onValueChange={handleAddAssignee}>
+          {!readOnly && realAssignees.filter((a) => !taskAssignees.some((ta: any) => ta.id === a.id)).length > 0 && (
+            <Select key={taskAssignees.length} onValueChange={handleAddAssignee} value="">
               <SelectTrigger className="h-7 text-[10px] w-40">
                 <SelectValue placeholder="+ Adicionar responsável" />
               </SelectTrigger>
