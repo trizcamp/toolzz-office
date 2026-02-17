@@ -13,10 +13,11 @@ interface VoiceParticipantsProps {
   aiEnabled: boolean;
   aiSpeaking?: boolean;
   isListening?: boolean;
+  isSpeechDetected?: boolean;
   onToggleAI: () => void;
 }
 
-export default function VoiceParticipants({ room, aiEnabled, aiSpeaking, isListening, onToggleAI }: VoiceParticipantsProps) {
+export default function VoiceParticipants({ room, aiEnabled, aiSpeaking, isListening, isSpeechDetected, onToggleAI }: VoiceParticipantsProps) {
   const { connectedRoom, currentUser, isMuted, isDeafened, toggleMute, toggleDeafen, disconnect } = useVoiceConnection();
   const [inputDevice, setInputDevice] = useState("default");
   const [outputDevice, setOutputDevice] = useState("default");
@@ -104,12 +105,12 @@ export default function VoiceParticipants({ room, aiEnabled, aiSpeaking, isListe
         <div className="mt-6 flex items-center gap-2">
           <Button variant="ghost" size="icon" className={cn(
             "h-9 w-9 rounded-full",
-            isListening ? "bg-[hsl(var(--success))]/15 ring-2 ring-[hsl(var(--success))]/40" : "bg-muted"
+            isSpeechDetected ? "bg-[hsl(var(--success))]/15 ring-2 ring-[hsl(var(--success))]/40" : "bg-muted"
           )} onClick={toggleMute}>
             {isMuted ? (
               <MicOff className="w-4 h-4 text-destructive" />
             ) : (
-              <Mic className={cn("w-4 h-4", isListening && "text-[hsl(var(--success))]")} />
+              <Mic className={cn("w-4 h-4", isSpeechDetected && "text-[hsl(var(--success))]")} />
             )}
           </Button>
           <Button variant="ghost" size="icon" className="h-9 w-9 rounded-full bg-muted" onClick={toggleDeafen}>
