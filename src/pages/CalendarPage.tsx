@@ -64,20 +64,16 @@ export default function CalendarPage() {
   const [centerCollapsed, setCenterCollapsed] = useState(false);
   const [rightCollapsed, setRightCollapsed] = useState(false);
   const nowLineRef = useRef<HTMLDivElement>(null);
-  const [selectedBoard, setSelectedBoard] = useState<string | null>(null);
+  const [selectedBoard, setSelectedBoard] = useState<string | null>("__all__");
 
   const { user } = useAuth();
   const { boards } = useBoards();
 
-  // Fetch tasks for selected board
-  const { tasks: allTasks } = useTasks(selectedBoard);
+  // Fetch tasks for selected board (null = no filter, gets all)
+  const { tasks: boardTasks } = useTasks(selectedBoard === "__all__" ? null : selectedBoard);
 
-  // Auto-select first board
-  useEffect(() => {
-    if (!selectedBoard && boards.length > 0) {
-      setSelectedBoard(boards[0].id);
-    }
-  }, [boards, selectedBoard]);
+  // When "all" is selected, we pass null to useTasks which fetches all tasks
+  const allTasks = boardTasks;
 
   useEffect(() => {
     nowLineRef.current?.scrollIntoView({ block: "center", behavior: "smooth" });
@@ -140,11 +136,12 @@ export default function CalendarPage() {
             {/* Board selector */}
             <div className="space-y-1.5 mb-3">
               <p className="text-[10px] uppercase tracking-widest text-muted-foreground">Central</p>
-              <Select value={selectedBoard || ""} onValueChange={setSelectedBoard}>
+              <Select value={selectedBoard || "__all__"} onValueChange={setSelectedBoard}>
                 <SelectTrigger className="h-8 text-xs">
-                  <SelectValue placeholder="Selecione uma central" />
+                  <SelectValue placeholder="Todas as centrais" />
                 </SelectTrigger>
                 <SelectContent>
+                  <SelectItem value="__all__">Todas as centrais</SelectItem>
                   {boards.map((b) => (
                     <SelectItem key={b.id} value={b.id}>{b.name}</SelectItem>
                   ))}
