@@ -58,18 +58,6 @@ export default function ChatArea({ roomId, roomName, aiEnabled, boardId, isListe
     bottomRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [messages, aiMessages, transcriptionEntries]);
 
-  // Reset AI state when disabled
-  useEffect(() => {
-    if (!aiEnabled) {
-      setAiMessages([]);
-      setAiConversationHistory([]);
-      setCreatedTasks([]);
-      setAiProcessing(false);
-      window.speechSynthesis?.cancel();
-      onAiSpeakingChange?.(false);
-    }
-  }, [aiEnabled, onAiSpeakingChange]);
-
   const stripMarkdown = (text: string): string => {
     return text
       .replace(/#{1,6}\s?/g, "")
@@ -102,6 +90,35 @@ export default function ChatArea({ roomId, roomName, aiEnabled, boardId, isListe
     utterance.onerror = () => onAiSpeakingChange?.(false);
     window.speechSynthesis.speak(utterance);
   }, [onAiSpeakingChange]);
+
+  // Reset AI state when disabled, greet when enabled
+  const prevAiEnabledRef = useRef(false);
+  useEffect(() => {
+    if (!aiEnabled) {
+      setAiMessages([]);
+      setAiConversationHistory([]);
+      setCreatedTasks([]);
+      setAiProcessing(false);
+      window.speechSynthesis?.cancel();
+      onAiSpeakingChange?.(false);
+      prevAiEnabledRef.current = false;
+    } else if (!prevAiEnabledRef.current) {
+      prevAiEnabledRef.current = true;
+      const greeting = "Olá! 👋 Sou a Toolzz IA, sua assistente de tarefas. Vamos criar algumas tarefas? Me diga o título da primeira!";
+      const greetMsg: AiMessage = {
+        id: `ai-greet-${Date.now()}`,
+        role: "assistant",
+        content: greeting,
+        created_at: new Date().toISOString(),
+      };
+      setAiMessages([greetMsg]);
+      const assistantEntry = { role: "assistant" as const, content: greeting };
+      setAiConversationHistory([assistantEntry]);
+      aiHistoryRef.current = [assistantEntry];
+      setTimeout(() => speakText(greeting.replace(/👋/g, "")), 500);
+    }
+  }, [aiEnabled, onAiSpeakingChange, speakText]);
+
 
   const sendToAI = useCallback(async (userText: string) => {
     const userEntry = { role: "user" as const, content: userText };
