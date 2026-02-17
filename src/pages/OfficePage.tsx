@@ -197,7 +197,7 @@ export default function OfficePage() {
 
       // VAD: check audio level every 100ms
       const dataArray = new Uint8Array(analyser.frequencyBinCount);
-      const SPEECH_THRESHOLD = 60; // RMS level that indicates real speech (high to ignore ambient noise)
+      const SPEECH_THRESHOLD = 8; // RMS level — sensitive enough for speech but ignores silence
       vadIntervalRef.current = setInterval(() => {
         if (!analyserRef.current) return;
         analyserRef.current.getByteTimeDomainData(dataArray);
@@ -317,6 +317,7 @@ export default function OfficePage() {
             aiEnabled={aiEnabled}
             aiSpeaking={aiSpeaking}
             isListening={isListening}
+            isSpeechDetected={isSpeechDetected}
             onToggleAI={handleToggleAI}
           />
         )}
