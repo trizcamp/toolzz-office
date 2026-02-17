@@ -7,7 +7,7 @@ import toolzzLogo from "@/assets/toolzz-logo.png";
 
 const navItems = [
   { icon: Home, label: "Home", path: "/", comingSoon: false },
-  { icon: Kanban, label: "Gerenciamento", path: "/board", comingSoon: false },
+  { icon: Kanban, label: "Boards", path: "/board", comingSoon: false },
   { icon: FileText, label: "Documentos", path: "/docs", comingSoon: false },
   { icon: Calendar, label: "Calendário", path: "/calendar", comingSoon: false },
   { icon: Puzzle, label: "Integrações", path: "/integrations", comingSoon: false },
