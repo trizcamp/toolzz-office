@@ -1,6 +1,6 @@
 import { motion } from "framer-motion";
-import { CheckCircle2, MessageSquare, Activity, Mic, Plus, ArrowRight, UserPlus, Video, Calendar, Clock } from "lucide-react";
-import { useState } from "react";
+import { CheckCircle2, MessageSquare, Activity, Mic, Plus, ArrowRight, UserPlus, Video, Calendar, Clock, AlertTriangle, Lightbulb, TrendingUp, AlertCircle } from "lucide-react";
+import { useState, useMemo } from "react";
 import MemberProfileDialog from "@/components/MemberProfileDialog";
 import { useNavigate } from "react-router-dom";
 import { cn } from "@/lib/utils";
@@ -246,9 +246,172 @@ export default function HomePage() {
         </motion.div>
       )}
 
+      {/* Alerts & Insights */}
+      <AlertsAndInsights tasks={tasks} meetings={meetings} logs={logs} />
+
       <ToolzzChatDialog open={chatOpen} onOpenChange={setChatOpen} boardId={boardId} />
       <VoiceAgentDialog open={voiceOpen} onOpenChange={setVoiceOpen} boardId={boardId} />
       <MemberProfileDialog memberId={profileMemberId} open={!!profileMemberId} onOpenChange={(o) => !o && setProfileMemberId(null)} />
+    </div>
+  );
+}
+
+function AlertsAndInsights({ tasks, meetings, logs }: { tasks: any[]; meetings: any[]; logs: any[] }) {
+  const alerts = useMemo(() => {
+    const items: { icon: React.ReactNode; text: string; severity: "high" | "medium" | "low" }[] = [];
+
+    // Critical tasks in backlog
+    const criticalBacklog = tasks.filter((t) => t.priority === "critical" && t.status === "backlog");
+    if (criticalBacklog.length > 0) {
+      items.push({
+        icon: <AlertCircle className="w-4 h-4 text-destructive" />,
+        text: `${criticalBacklog.length} tarefa(s) crítica(s) parada(s) no backlog`,
+        severity: "high",
+      });
+    }
+
+    // Tasks in progress for too long (created > 3 days ago)
+    const stale = tasks.filter((t) => {
+      if (t.status !== "in_progress") return false;
+      const created = new Date(t.created_at).getTime();
+      return Date.now() - created > 3 * 24 * 60 * 60 * 1000;
+    });
+    if (stale.length > 0) {
+      items.push({
+        icon: <AlertTriangle className="w-4 h-4 text-[hsl(var(--warning))]" />,
+        text: `${stale.length} tarefa(s) em progresso há mais de 3 dias`,
+        severity: "medium",
+      });
+    }
+
+    // Overdue tasks
+    const overdue = tasks.filter((t) => {
+      if (t.status === "done" || !t.delivery_date) return false;
+      return new Date(t.delivery_date) < new Date();
+    });
+    if (overdue.length > 0) {
+      items.push({
+        icon: <AlertCircle className="w-4 h-4 text-destructive" />,
+        text: `${overdue.length} tarefa(s) com prazo vencido`,
+        severity: "high",
+      });
+    }
+
+    // Too many tasks in review
+    const inReview = tasks.filter((t) => t.status === "review");
+    if (inReview.length >= 5) {
+      items.push({
+        icon: <AlertTriangle className="w-4 h-4 text-[hsl(var(--warning))]" />,
+        text: `${inReview.length} tarefas aguardando revisão — possível gargalo`,
+        severity: "medium",
+      });
+    }
+
+    if (items.length === 0) {
+      items.push({
+        icon: <CheckCircle2 className="w-4 h-4 text-primary" />,
+        text: "Tudo tranquilo! Nenhum ponto de risco identificado.",
+        severity: "low",
+      });
+    }
+
+    return items;
+  }, [tasks]);
+
+  const insights = useMemo(() => {
+    const items: { icon: React.ReactNode; text: string }[] = [];
+
+    const done = tasks.filter((t) => t.status === "done").length;
+    const total = tasks.length;
+    if (total > 0) {
+      const rate = Math.round((done / total) * 100);
+      items.push({
+        icon: <TrendingUp className="w-4 h-4 text-primary" />,
+        text: `Taxa de conclusão geral: ${rate}% (${done}/${total} tarefas)`,
+      });
+    }
+
+    const todayLogs = logs.filter((l) => {
+      const d = new Date(l.created_at);
+      const now = new Date();
+      return d.toDateString() === now.toDateString();
+    });
+    items.push({
+      icon: <Activity className="w-4 h-4 text-primary" />,
+      text: `${todayLogs.length} atividade(s) registrada(s) hoje`,
+    });
+
+    const scheduledMeetings = meetings.filter((m) => m.status === "scheduled");
+    if (scheduledMeetings.length > 0) {
+      items.push({
+        icon: <Calendar className="w-4 h-4 text-primary" />,
+        text: `${scheduledMeetings.length} reunião(ões) agendada(s) próximas`,
+      });
+    }
+
+    const bugs = tasks.filter((t) => t.type === "bug" && t.status !== "done");
+    if (bugs.length > 0) {
+      items.push({
+        icon: <Lightbulb className="w-4 h-4 text-primary" />,
+        text: `${bugs.length} bug(s) aberto(s) — considere priorizá-los`,
+      });
+    }
+
+    return items;
+  }, [tasks, logs, meetings]);
+
+  const severityBorder: Record<string, string> = {
+    high: "border-l-destructive",
+    medium: "border-l-[hsl(var(--warning))]",
+    low: "border-l-primary",
+  };
+
+  return (
+    <div className="grid lg:grid-cols-2 gap-4">
+      {/* Alerts */}
+      <motion.div
+        initial={{ opacity: 0, y: 10 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ delay: 0.3 }}
+        className="bg-card border border-border rounded-xl p-4"
+      >
+        <div className="flex items-center gap-2 mb-3">
+          <AlertTriangle className="w-4 h-4 text-[hsl(var(--warning))]" />
+          <h2 className="text-sm font-semibold text-foreground">Pontos de Risco</h2>
+          {alerts.some((a) => a.severity === "high") && (
+            <span className="text-[10px] bg-destructive/15 text-destructive rounded-full px-2 py-0.5 ml-auto font-medium">Atenção</span>
+          )}
+        </div>
+        <div className="space-y-2">
+          {alerts.map((alert, i) => (
+            <div key={i} className={cn("flex items-center gap-2.5 py-2 px-3 rounded-lg border-l-2 bg-muted/30", severityBorder[alert.severity])}>
+              {alert.icon}
+              <p className="text-xs text-foreground">{alert.text}</p>
+            </div>
+          ))}
+        </div>
+      </motion.div>
+
+      {/* Insights */}
+      <motion.div
+        initial={{ opacity: 0, y: 10 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ delay: 0.35 }}
+        className="bg-card border border-border rounded-xl p-4"
+      >
+        <div className="flex items-center gap-2 mb-3">
+          <Lightbulb className="w-4 h-4 text-primary" />
+          <h2 className="text-sm font-semibold text-foreground">Insights</h2>
+        </div>
+        <div className="space-y-2">
+          {insights.map((insight, i) => (
+            <div key={i} className="flex items-center gap-2.5 py-2 px-3 rounded-lg bg-muted/30">
+              {insight.icon}
+              <p className="text-xs text-foreground">{insight.text}</p>
+            </div>
+          ))}
+        </div>
+      </motion.div>
     </div>
   );
 }
