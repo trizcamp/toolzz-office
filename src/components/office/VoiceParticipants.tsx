@@ -9,6 +9,8 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Label } from "@/components/ui/label";
 import { useVoiceConnection, type MockUser, type Room } from "@/contexts/VoiceConnectionContext";
 import { useToast } from "@/hooks/use-toast";
+import { useBoards } from "@/hooks/useBoards";
+import VoiceAgentDialog from "@/components/VoiceAgentDialog";
 
 interface VoiceParticipantsProps {
   room: Room;
@@ -17,24 +19,28 @@ interface VoiceParticipantsProps {
 export default function VoiceParticipants({ room }: VoiceParticipantsProps) {
   const { connectedRoom, currentUser, isMuted, isDeafened, toggleMute, toggleDeafen, disconnect } = useVoiceConnection();
   const { toast } = useToast();
+  const { boards } = useBoards();
   const [aiEnabled, setAiEnabled] = useState(false);
+  const [aiDialogOpen, setAiDialogOpen] = useState(false);
   const [inputDevice, setInputDevice] = useState("default");
   const [outputDevice, setOutputDevice] = useState("default");
   const isConnectedHere = connectedRoom?.id === room.id;
-
-  const members: MockUser[] = isConnectedHere
-    ? [...room.connectedUsers, { ...currentUser, isSpeaking: false }]
-    : room.connectedUsers;
+  const boardId = boards?.[0]?.id || null;
 
   const handleToggleAI = () => {
     if (aiEnabled) {
       setAiEnabled(false);
+      setAiDialogOpen(false);
       toast({ title: "IA desabilitada", description: "Reunião salva em 'Reuniões'" });
     } else {
       setAiEnabled(true);
-      toast({ title: "IA habilitada", description: "A IA está transcrevendo esta reunião em tempo real." });
+      setAiDialogOpen(true);
     }
   };
+
+  const members: MockUser[] = isConnectedHere
+    ? [...room.connectedUsers, { ...currentUser, isSpeaking: false }]
+    : room.connectedUsers;
 
   if (members.length === 0 && !isConnectedHere) return null;
 
@@ -128,6 +134,17 @@ export default function VoiceParticipants({ room }: VoiceParticipantsProps) {
           </Popover>
         </div>
       )}
+      <VoiceAgentDialog
+        open={aiDialogOpen}
+        onOpenChange={(open) => {
+          setAiDialogOpen(open);
+          if (!open) {
+            setAiEnabled(false);
+            toast({ title: "IA desabilitada", description: "Reunião salva em 'Reuniões'" });
+          }
+        }}
+        boardId={boardId}
+      />
     </div>
   );
 }
