@@ -220,19 +220,17 @@ export default function OfficePage() {
       const hasPtWord = /\b(que|não|com|uma|para|está|isso|mas|como|mais|tem|são|foi|ser|ter|fazer|aqui|muito|bem|sim|então|porque|quando|ainda|pode|também|ele|ela|esse|essa|você|vocês|nosso|nossa|nós|agora|vamos|quero|preciso|olha|gente|tudo|nada|cada|outro|outra)\b/i.test(text);
       if (!hasPtChar && !hasPtWord) return;
 
-      // ANTI-ECHO: reject transcriptions that match recent AI responses
+      // ANTI-ECHO: only reject if transcription is nearly identical to an AI response
       const normalize = (s: string) => s.toLowerCase().replace(/[^\w\sàáâãéêíóôõúç]/gi, "").replace(/\s+/g, " ").trim();
       const normalizedText = normalize(text);
       for (const aiResp of lastAiResponsesRef.current) {
         const normalizedAi = normalize(aiResp);
-        // Check if transcription is a substring of AI response or vice-versa
-        if (normalizedAi.includes(normalizedText) || normalizedText.includes(normalizedAi)) return;
-        // Check word overlap: if 60%+ of transcription words appear in AI response, it's echo
-        const textWords = normalizedText.split(" ").filter(w => w.length > 2);
-        const aiWords = new Set(normalizedAi.split(" ").filter(w => w.length > 2));
-        if (textWords.length > 0) {
-          const overlap = textWords.filter(w => aiWords.has(w)).length / textWords.length;
-          if (overlap >= 0.6) return;
+        // Only reject if transcription IS the AI response (exact or near-exact match)
+        if (normalizedText.length > 10 && normalizedAi.length > 10) {
+          if (normalizedAi === normalizedText) return;
+          // Reject if transcription is a large portion (80%+) of the AI response verbatim
+          if (normalizedText.length >= normalizedAi.length * 0.7 && normalizedAi.includes(normalizedText)) return;
+          if (normalizedAi.length >= normalizedText.length * 0.7 && normalizedText.includes(normalizedAi)) return;
         }
       }
 
