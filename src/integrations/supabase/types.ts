@@ -750,7 +750,7 @@ export type Database = {
         | "divider"
         | "toggle"
         | "image"
-      doc_type: "doc" | "spec" | "note"
+      doc_type: "doc" | "spec" | "note" | "spreadsheet"
       room_type: "voice" | "text" | "hybrid"
       task_priority: "critical" | "high" | "medium" | "low"
       task_status: "backlog" | "todo" | "in_progress" | "review" | "done"
@@ -897,7 +897,7 @@ export const Constants = {
         "toggle",
         "image",
       ],
-      doc_type: ["doc", "spec", "note"],
+      doc_type: ["doc", "spec", "note", "spreadsheet"],
       room_type: ["voice", "text", "hybrid"],
       task_priority: ["critical", "high", "medium", "low"],
       task_status: ["backlog", "todo", "in_progress", "review", "done"],
