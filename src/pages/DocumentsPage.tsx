@@ -341,7 +341,7 @@ export default function DocumentsPage() {
           <DialogHeader>
             <DialogTitle>Novo Documento</DialogTitle>
           </DialogHeader>
-          <div className="space-y-4 py-2">
+          <div className="space-y-4 py-2 min-w-0 w-full">
             <div className="space-y-2">
               <Label>Título</Label>
               <Input placeholder="Nome do documento" value={newDocTitle} onChange={(e) => setNewDocTitle(e.target.value)} />
@@ -357,7 +357,7 @@ export default function DocumentsPage() {
                   className="pl-9 text-sm"
                 />
               </div>
-              <div className="max-h-48 overflow-y-auto border border-border rounded-lg bg-popover">
+              <div className="max-h-48 overflow-y-auto overflow-x-hidden border border-border rounded-lg bg-popover w-full">
                 <button
                   type="button"
                   onClick={() => setNewDocTaskId("none")}
