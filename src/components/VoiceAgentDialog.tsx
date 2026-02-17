@@ -15,10 +15,10 @@ interface VoiceAgentDialogProps {
 type Message = { role: "user" | "assistant"; content: string };
 type Status = "idle" | "listening" | "processing" | "speaking";
 
-const SpeechRecognitionAPI =
-  typeof window !== "undefined"
-    ? (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition
-    : null;
+const getSpeechRecognitionAPI = () => {
+  if (typeof window === "undefined") return null;
+  return (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition || null;
+};
 
 export default function VoiceAgentDialog({ open, onOpenChange, boardId }: VoiceAgentDialogProps) {
   const [messages, setMessages] = useState<Message[]>([]);
@@ -28,6 +28,12 @@ export default function VoiceAgentDialog({ open, onOpenChange, boardId }: VoiceA
 
   const recognitionRef = useRef<any>(null);
   const scrollRef = useRef<HTMLDivElement>(null);
+  const messagesRef = useRef<Message[]>([]);
+  const boardIdRef = useRef(boardId);
+
+  // Keep refs in sync
+  useEffect(() => { messagesRef.current = messages; }, [messages]);
+  useEffect(() => { boardIdRef.current = boardId; }, [boardId]);
 
   useEffect(() => {
     if (scrollRef.current) scrollRef.current.scrollTop = scrollRef.current.scrollHeight;
@@ -36,127 +42,142 @@ export default function VoiceAgentDialog({ open, onOpenChange, boardId }: VoiceA
   // Cleanup on close
   useEffect(() => {
     if (!open) {
-      stopListening();
+      if (recognitionRef.current) {
+        try { recognitionRef.current.abort(); } catch (e) {}
+        recognitionRef.current = null;
+      }
       window.speechSynthesis?.cancel();
       setStatus("idle");
       setInterimText("");
     }
   }, [open]);
 
-  const stopListening = useCallback(() => {
-    if (recognitionRef.current) {
-      recognitionRef.current.abort();
-      recognitionRef.current = null;
-    }
-  }, []);
-
   const speakText = useCallback((text: string) => {
     if (!window.speechSynthesis) return;
     window.speechSynthesis.cancel();
     const utterance = new SpeechSynthesisUtterance(text);
     utterance.lang = "pt-BR";
-
-    // Try to pick a pt-BR voice
     const voices = window.speechSynthesis.getVoices();
     const ptVoice = voices.find((v) => v.lang.startsWith("pt"));
     if (ptVoice) utterance.voice = ptVoice;
-
     utterance.onstart = () => setStatus("speaking");
     utterance.onend = () => setStatus("idle");
     utterance.onerror = () => setStatus("idle");
     window.speechSynthesis.speak(utterance);
   }, []);
 
-  const sendToAI = useCallback(
-    async (userText: string) => {
-      const userMsg: Message = { role: "user", content: userText };
-      const newMessages = [...messages, userMsg];
-      setMessages(newMessages);
-      setStatus("processing");
+  const sendToAI = useCallback(async (userText: string) => {
+    const userMsg: Message = { role: "user", content: userText };
+    const newMessages = [...messagesRef.current, userMsg];
+    setMessages(newMessages);
+    messagesRef.current = newMessages;
+    setStatus("processing");
 
-      try {
-        const { data, error } = await supabase.functions.invoke("ai-chat", {
-          body: { messages: newMessages, boardId },
-        });
+    try {
+      const { data, error } = await supabase.functions.invoke("ai-chat", {
+        body: { messages: newMessages, boardId: boardIdRef.current },
+      });
 
-        if (error) throw error;
+      if (error) throw error;
 
-        const aiContent = data?.message || "Desculpe, não consegui processar.";
-        const aiMsg: Message = { role: "assistant", content: aiContent };
-        setMessages((prev) => [...prev, aiMsg]);
+      const aiContent = data?.message || "Desculpe, não consegui processar.";
+      const aiMsg: Message = { role: "assistant", content: aiContent };
+      setMessages((prev) => {
+        const updated = [...prev, aiMsg];
+        messagesRef.current = updated;
+        return updated;
+      });
 
-        if (data?.createdTasks?.length) {
-          setCreatedTasks((prev) => [
-            ...prev,
-            ...data.createdTasks.map((t: any) => ({ title: t.title, display_id: t.display_id })),
-          ]);
-        }
-
-        speakText(aiContent);
-      } catch (e: any) {
-        console.error("AI error:", e);
-        toast.error("Erro ao comunicar com a IA");
-        setStatus("idle");
+      if (data?.createdTasks?.length) {
+        setCreatedTasks((prev) => [
+          ...prev,
+          ...data.createdTasks.map((t: any) => ({ title: t.title, display_id: t.display_id })),
+        ]);
       }
-    },
-    [messages, boardId, speakText]
-  );
+
+      speakText(aiContent);
+    } catch (e: any) {
+      console.error("AI error:", e);
+      toast.error("Erro ao comunicar com a IA");
+      setStatus("idle");
+    }
+  }, [speakText]);
 
   const startListening = useCallback(() => {
+    const SpeechRecognitionAPI = getSpeechRecognitionAPI();
     if (!SpeechRecognitionAPI) {
       toast.error("Seu navegador não suporta reconhecimento de voz. Use Chrome ou Edge.");
       return;
     }
 
     window.speechSynthesis?.cancel();
-    stopListening();
+    if (recognitionRef.current) {
+      try { recognitionRef.current.abort(); } catch (e) {}
+      recognitionRef.current = null;
+    }
 
     const recognition = new SpeechRecognitionAPI();
     recognition.lang = "pt-BR";
     recognition.continuous = false;
     recognition.interimResults = true;
 
-    recognition.onstart = () => setStatus("listening");
+    recognition.onstart = () => {
+      console.log("Speech recognition started");
+      setStatus("listening");
+    };
 
     recognition.onresult = (event: any) => {
       let interim = "";
-      let final = "";
+      let finalText = "";
       for (let i = 0; i < event.results.length; i++) {
         const transcript = event.results[i][0].transcript;
         if (event.results[i].isFinal) {
-          final += transcript;
+          finalText += transcript;
         } else {
           interim += transcript;
         }
       }
       setInterimText(interim);
-      if (final) {
+      if (finalText.trim()) {
         setInterimText("");
-        sendToAI(final.trim());
+        sendToAI(finalText.trim());
       }
     };
 
     recognition.onerror = (event: any) => {
-      if (event.error !== "aborted") {
-        console.error("Speech recognition error:", event.error);
-        toast.error("Erro no reconhecimento de voz");
+      console.error("Speech recognition error:", event.error);
+      if (event.error !== "aborted" && event.error !== "no-speech") {
+        toast.error(`Erro no reconhecimento de voz: ${event.error}`);
       }
       setStatus("idle");
       setInterimText("");
     };
 
     recognition.onend = () => {
-      if (status === "listening") setStatus("idle");
+      console.log("Speech recognition ended");
       setInterimText("");
+      // Don't reset status if we're processing
+      setStatus((prev) => prev === "processing" || prev === "speaking" ? prev : "idle");
     };
 
     recognitionRef.current = recognition;
-    recognition.start();
-  }, [stopListening, sendToAI, status]);
+    try {
+      recognition.start();
+    } catch (e) {
+      console.error("Failed to start recognition:", e);
+      toast.error("Não foi possível iniciar o microfone");
+    }
+  }, [sendToAI]);
 
   const stopSpeaking = useCallback(() => {
     window.speechSynthesis?.cancel();
     setStatus("idle");
+  }, []);
+
+  const stopListening = useCallback(() => {
+    if (recognitionRef.current) {
+      try { recognitionRef.current.stop(); } catch (e) {}
+    }
   }, []);
 
   const statusLabel: Record<Status, string> = {
