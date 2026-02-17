@@ -1,10 +1,11 @@
 import { useState, useRef, useCallback, useEffect } from "react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
-import { Mic, MicOff, Volume2, Square, CheckCircle2 } from "lucide-react";
+import { Mic, MicOff, Volume2, Square, CheckCircle2, Send } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
 import ReactMarkdown from "react-markdown";
+import { Input } from "@/components/ui/input";
 
 interface VoiceAgentDialogProps {
   open: boolean;
@@ -15,23 +16,19 @@ interface VoiceAgentDialogProps {
 type Message = { role: "user" | "assistant"; content: string };
 type Status = "idle" | "listening" | "processing" | "speaking";
 
-const getSpeechRecognitionAPI = () => {
-  if (typeof window === "undefined") return null;
-  return (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition || null;
-};
-
 export default function VoiceAgentDialog({ open, onOpenChange, boardId }: VoiceAgentDialogProps) {
   const [messages, setMessages] = useState<Message[]>([]);
   const [status, setStatus] = useState<Status>("idle");
   const [interimText, setInterimText] = useState("");
+  const [textInput, setTextInput] = useState("");
   const [createdTasks, setCreatedTasks] = useState<{ title: string; display_id: string }[]>([]);
+  const [micAvailable, setMicAvailable] = useState<boolean | null>(null);
 
   const recognitionRef = useRef<any>(null);
   const scrollRef = useRef<HTMLDivElement>(null);
   const messagesRef = useRef<Message[]>([]);
   const boardIdRef = useRef(boardId);
 
-  // Keep refs in sync
   useEffect(() => { messagesRef.current = messages; }, [messages]);
   useEffect(() => { boardIdRef.current = boardId; }, [boardId]);
 
@@ -39,7 +36,7 @@ export default function VoiceAgentDialog({ open, onOpenChange, boardId }: VoiceA
     if (scrollRef.current) scrollRef.current.scrollTop = scrollRef.current.scrollHeight;
   }, [messages, interimText]);
 
-  // Cleanup on close
+  // Check mic availability when dialog opens
   useEffect(() => {
     if (!open) {
       if (recognitionRef.current) {
@@ -49,7 +46,28 @@ export default function VoiceAgentDialog({ open, onOpenChange, boardId }: VoiceA
       window.speechSynthesis?.cancel();
       setStatus("idle");
       setInterimText("");
+      return;
     }
+
+    // Check if SpeechRecognition is available and mic can be accessed
+    const SpeechRecognitionAPI = typeof window !== "undefined"
+      ? (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition
+      : null;
+
+    if (!SpeechRecognitionAPI) {
+      setMicAvailable(false);
+      return;
+    }
+
+    // Test microphone access
+    navigator.mediaDevices?.getUserMedia({ audio: true })
+      .then((stream) => {
+        stream.getTracks().forEach(t => t.stop());
+        setMicAvailable(true);
+      })
+      .catch(() => {
+        setMicAvailable(false);
+      });
   }, [open]);
 
   const speakText = useCallback((text: string) => {
@@ -95,28 +113,22 @@ export default function VoiceAgentDialog({ open, onOpenChange, boardId }: VoiceA
         ]);
       }
 
-      speakText(aiContent);
+      // Only speak if mic is available
+      if (micAvailable) {
+        speakText(aiContent);
+      } else {
+        setStatus("idle");
+      }
     } catch (e: any) {
       console.error("AI error:", e);
       toast.error("Erro ao comunicar com a IA");
       setStatus("idle");
     }
-  }, [speakText]);
+  }, [speakText, micAvailable]);
 
   const startListening = useCallback(async () => {
-    const SpeechRecognitionAPI = getSpeechRecognitionAPI();
-    if (!SpeechRecognitionAPI) {
-      toast.error("Seu navegador não suporta reconhecimento de voz. Use Chrome ou Edge.");
-      return;
-    }
-
-    // Request microphone permission first
-    try {
-      await navigator.mediaDevices.getUserMedia({ audio: true });
-    } catch (e) {
-      toast.error("Permissão de microfone necessária para usar o agente de voz.");
-      return;
-    }
+    const SpeechRecognitionAPI = (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
+    if (!SpeechRecognitionAPI) return;
 
     window.speechSynthesis?.cancel();
     if (recognitionRef.current) {
@@ -129,10 +141,7 @@ export default function VoiceAgentDialog({ open, onOpenChange, boardId }: VoiceA
     recognition.continuous = false;
     recognition.interimResults = true;
 
-    recognition.onstart = () => {
-      console.log("Speech recognition started");
-      setStatus("listening");
-    };
+    recognition.onstart = () => setStatus("listening");
 
     recognition.onresult = (event: any) => {
       let interim = "";
@@ -154,7 +163,10 @@ export default function VoiceAgentDialog({ open, onOpenChange, boardId }: VoiceA
 
     recognition.onerror = (event: any) => {
       console.error("Speech recognition error:", event.error);
-      if (event.error !== "aborted" && event.error !== "no-speech") {
+      if (event.error === "not-allowed") {
+        setMicAvailable(false);
+        toast.error("Microfone não disponível. Use o campo de texto.");
+      } else if (event.error !== "aborted" && event.error !== "no-speech") {
         toast.error(`Erro no reconhecimento de voz: ${event.error}`);
       }
       setStatus("idle");
@@ -162,9 +174,7 @@ export default function VoiceAgentDialog({ open, onOpenChange, boardId }: VoiceA
     };
 
     recognition.onend = () => {
-      console.log("Speech recognition ended");
       setInterimText("");
-      // Don't reset status if we're processing
       setStatus((prev) => prev === "processing" || prev === "speaking" ? prev : "idle");
     };
 
@@ -173,7 +183,7 @@ export default function VoiceAgentDialog({ open, onOpenChange, boardId }: VoiceA
       recognition.start();
     } catch (e) {
       console.error("Failed to start recognition:", e);
-      toast.error("Não foi possível iniciar o microfone");
+      setMicAvailable(false);
     }
   }, [sendToAI]);
 
@@ -188,8 +198,16 @@ export default function VoiceAgentDialog({ open, onOpenChange, boardId }: VoiceA
     }
   }, []);
 
+  const handleTextSubmit = useCallback((e?: React.FormEvent) => {
+    e?.preventDefault();
+    const text = textInput.trim();
+    if (!text || status === "processing") return;
+    setTextInput("");
+    sendToAI(text);
+  }, [textInput, status, sendToAI]);
+
   const statusLabel: Record<Status, string> = {
-    idle: "Toque no microfone para falar",
+    idle: micAvailable ? "Toque no microfone para falar" : "Digite sua mensagem abaixo",
     listening: "Ouvindo...",
     processing: "Processando...",
     speaking: "Falando...",
@@ -206,7 +224,9 @@ export default function VoiceAgentDialog({ open, onOpenChange, boardId }: VoiceA
         <div ref={scrollRef} className="flex-1 overflow-y-auto space-y-3 min-h-[200px] max-h-[40vh] px-1">
           {messages.length === 0 && !interimText && (
             <p className="text-xs text-muted-foreground text-center py-8">
-              Diga algo como: "Cria uma tarefa para corrigir o bug de login"
+              {micAvailable
+                ? 'Diga algo como: "Cria uma tarefa para corrigir o bug de login"'
+                : 'Digite algo como: "Cria uma tarefa para corrigir o bug de login"'}
             </p>
           )}
           {messages.map((msg, i) => (
@@ -260,42 +280,75 @@ export default function VoiceAgentDialog({ open, onOpenChange, boardId }: VoiceA
         </p>
 
         {/* Controls */}
-        <div className="flex items-center justify-center gap-3 pb-1">
-          {status === "speaking" ? (
-            <button
-              onClick={stopSpeaking}
-              className="w-14 h-14 rounded-full bg-destructive/10 border-2 border-destructive/30 flex items-center justify-center hover:bg-destructive/20 transition-all"
-            >
-              <Square className="w-6 h-6 text-destructive" />
-            </button>
-          ) : status === "listening" ? (
-            <button
-              onClick={stopListening}
-              className="w-14 h-14 rounded-full bg-destructive/10 border-2 border-destructive/30 flex items-center justify-center hover:bg-destructive/20 transition-all animate-pulse"
-            >
-              <MicOff className="w-6 h-6 text-destructive" />
-            </button>
-          ) : (
-            <button
-              onClick={startListening}
+        <div className="flex flex-col items-center gap-3 pb-1">
+          {/* Text input */}
+          <form onSubmit={handleTextSubmit} className="flex w-full gap-2">
+            <Input
+              value={textInput}
+              onChange={(e) => setTextInput(e.target.value)}
+              placeholder="Digite sua mensagem..."
               disabled={status === "processing"}
+              className="flex-1 text-sm"
+            />
+            <button
+              type="submit"
+              disabled={!textInput.trim() || status === "processing"}
               className={cn(
-                "w-14 h-14 rounded-full border-2 flex items-center justify-center transition-all",
-                status === "processing"
-                  ? "bg-muted border-border cursor-wait"
-                  : "bg-primary/10 border-primary/30 hover:bg-primary/20 hover:border-primary/50"
+                "w-10 h-10 rounded-lg border flex items-center justify-center transition-all shrink-0",
+                textInput.trim() && status !== "processing"
+                  ? "bg-primary text-primary-foreground hover:bg-primary/90"
+                  : "bg-muted text-muted-foreground border-border"
               )}
             >
-              {status === "processing" ? (
-                <div className="w-5 h-5 border-2 border-primary border-t-transparent rounded-full animate-spin" />
-              ) : (
-                <Mic className="w-6 h-6 text-primary" />
-              )}
+              <Send className="w-4 h-4" />
             </button>
+          </form>
+
+          {/* Mic button - only show if mic is available */}
+          {micAvailable && (
+            <div className="flex items-center gap-3">
+              {status === "speaking" ? (
+                <button
+                  onClick={stopSpeaking}
+                  className="w-12 h-12 rounded-full bg-destructive/10 border-2 border-destructive/30 flex items-center justify-center hover:bg-destructive/20 transition-all"
+                >
+                  <Square className="w-5 h-5 text-destructive" />
+                </button>
+              ) : status === "listening" ? (
+                <button
+                  onClick={stopListening}
+                  className="w-12 h-12 rounded-full bg-destructive/10 border-2 border-destructive/30 flex items-center justify-center hover:bg-destructive/20 transition-all animate-pulse"
+                >
+                  <MicOff className="w-5 h-5 text-destructive" />
+                </button>
+              ) : (
+                <button
+                  onClick={startListening}
+                  disabled={status === "processing"}
+                  className={cn(
+                    "w-12 h-12 rounded-full border-2 flex items-center justify-center transition-all",
+                    status === "processing"
+                      ? "bg-muted border-border cursor-wait"
+                      : "bg-primary/10 border-primary/30 hover:bg-primary/20 hover:border-primary/50"
+                  )}
+                >
+                  {status === "processing" ? (
+                    <div className="w-4 h-4 border-2 border-primary border-t-transparent rounded-full animate-spin" />
+                  ) : (
+                    <Mic className="w-5 h-5 text-primary" />
+                  )}
+                </button>
+              )}
+
+              {status === "speaking" && (
+                <Volume2 className="w-4 h-4 text-primary animate-pulse" />
+              )}
+            </div>
           )}
 
-          {status === "speaking" && (
-            <Volume2 className="w-5 h-5 text-primary animate-pulse" />
+          {/* Processing spinner when mic not available */}
+          {!micAvailable && status === "processing" && (
+            <div className="w-5 h-5 border-2 border-primary border-t-transparent rounded-full animate-spin" />
           )}
         </div>
       </DialogContent>
