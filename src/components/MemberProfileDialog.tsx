@@ -36,15 +36,15 @@ const MOCK_CONTRACT = {
 };
 
 const MOCK_FINANCIAL = {
-  salary: "R$ 14.500,00",
-  bonus: "R$ 2.900,00",
+  salary: "R$ 6.800,00",
+  bonus: "R$ 1.200,00",
   benefits: [
-    { name: "Vale Refeição", value: "R$ 1.100,00" },
-    { name: "Plano de Saúde", value: "R$ 890,00" },
-    { name: "Home Office", value: "R$ 250,00" },
-    { name: "Educação", value: "R$ 500,00" },
+    { name: "Vale Refeição", value: "R$ 650,00" },
+    { name: "Plano de Saúde", value: "R$ 480,00" },
+    { name: "Home Office", value: "R$ 150,00" },
+    { name: "Educação", value: "R$ 200,00" },
   ],
-  totalComp: "R$ 20.140,00",
+  totalComp: "R$ 9.480,00",
 };
 
 export default function MemberProfileDialog({ memberId, open, onOpenChange }: Props) {
