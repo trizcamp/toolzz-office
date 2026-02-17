@@ -35,7 +35,7 @@ export function useMeetings() {
   });
 
   const createMeeting = useMutation({
-    mutationFn: async (meeting: { title: string; room_id?: string; date: string; start_time?: string; end_time?: string }) => {
+    mutationFn: async (meeting: { title: string; room_id?: string; date: string; start_time?: string; end_time?: string; description?: string }) => {
       const { data, error } = await supabase
         .from("meetings")
         .insert({ ...meeting, created_by: user!.id } as any)

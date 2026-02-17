@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { Video, Plus, Link2, Calendar, Clock, Users, Copy, ArrowRight, Sparkles } from "lucide-react";
+import { Video, Plus, Link2, Calendar, Clock, Users, Copy, ArrowRight, Sparkles, ExternalLink, UserPlus, X, Check } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -12,6 +12,11 @@ import { toast } from "sonner";
 import { format } from "date-fns";
 import { ptBR } from "date-fns/locale";
 import { motion } from "framer-motion";
+import { cn } from "@/lib/utils";
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
+import { Badge } from "@/components/ui/badge";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import { ScrollArea } from "@/components/ui/scroll-area";
 
 export default function MeetingsPage() {
   const navigate = useNavigate();
@@ -20,6 +25,18 @@ export default function MeetingsPage() {
   const [joinCode, setJoinCode] = useState("");
   const [scheduleOpen, setScheduleOpen] = useState(false);
   const [scheduleData, setScheduleData] = useState({ title: "", date: "", time: "", description: "" });
+  const [selectedMembers, setSelectedMembers] = useState<string[]>([]);
+  const [memberSearchOpen, setMemberSearchOpen] = useState(false);
+  const [memberSearch, setMemberSearch] = useState("");
+  const [createdLink, setCreatedLink] = useState<string | null>(null);
+
+  const toggleMember = (id: string) => {
+    setSelectedMembers(prev => prev.includes(id) ? prev.filter(m => m !== id) : [...prev, id]);
+  };
+
+  const filteredMembers = members.filter(m =>
+    `${m.name} ${m.surname}`.toLowerCase().includes(memberSearch.toLowerCase())
+  );
 
   const handleInstantMeeting = async () => {
     try {
@@ -53,15 +70,16 @@ export default function MeetingsPage() {
         title: scheduleData.title,
         date: scheduleData.date || new Date().toISOString().slice(0, 10),
         start_time: scheduleData.time || undefined,
+        description: scheduleData.description || undefined,
       });
-      setScheduleOpen(false);
-      setScheduleData({ title: "", date: "", time: "", description: "" });
+      const link = `${window.location.origin}/meetings/${result?.meeting_code}`;
+      setCreatedLink(link);
       toast.success("Reunião agendada!", {
         description: `Código: ${result?.meeting_code}`,
         action: {
           label: "Copiar link",
           onClick: () => {
-            navigator.clipboard.writeText(`${window.location.origin}/meetings/${result?.meeting_code}`);
+            navigator.clipboard.writeText(link);
             toast.success("Link copiado!");
           },
         },
@@ -69,6 +87,13 @@ export default function MeetingsPage() {
     } catch {
       toast.error("Erro ao agendar reunião");
     }
+  };
+
+  const resetScheduleDialog = () => {
+    setScheduleData({ title: "", date: "", time: "", description: "" });
+    setSelectedMembers([]);
+    setCreatedLink(null);
+    setMemberSearch("");
   };
 
   const upcomingMeetings = meetings
@@ -116,7 +141,7 @@ export default function MeetingsPage() {
             </motion.button>
 
             {/* Schedule */}
-            <Dialog open={scheduleOpen} onOpenChange={setScheduleOpen}>
+            <Dialog open={scheduleOpen} onOpenChange={(open) => { setScheduleOpen(open); if (!open) resetScheduleDialog(); }}>
               <DialogTrigger asChild>
                 <motion.button
                   whileHover={{ scale: 1.02 }}
@@ -127,50 +152,177 @@ export default function MeetingsPage() {
                   <span className="text-sm font-medium">Agendar</span>
                 </motion.button>
               </DialogTrigger>
-              <DialogContent>
+              <DialogContent className="max-w-lg">
                 <DialogHeader>
                   <DialogTitle>Agendar reunião</DialogTitle>
                 </DialogHeader>
-                <div className="space-y-4 pt-2">
-                  <div className="space-y-2">
-                    <Label>Título</Label>
-                    <Input
-                      placeholder="Ex: Daily standup"
-                      value={scheduleData.title}
-                      onChange={(e) => setScheduleData(prev => ({ ...prev, title: e.target.value }))}
-                    />
-                  </div>
-                  <div className="grid grid-cols-2 gap-3">
+
+                {!createdLink ? (
+                  <div className="space-y-4 pt-2">
                     <div className="space-y-2">
-                      <Label>Data</Label>
+                      <Label>Título</Label>
                       <Input
-                        type="date"
-                        value={scheduleData.date}
-                        onChange={(e) => setScheduleData(prev => ({ ...prev, date: e.target.value }))}
+                        placeholder="Ex: Daily standup"
+                        value={scheduleData.title}
+                        onChange={(e) => setScheduleData(prev => ({ ...prev, title: e.target.value }))}
                       />
                     </div>
+                    <div className="grid grid-cols-2 gap-3">
+                      <div className="space-y-2">
+                        <Label>Data</Label>
+                        <Input
+                          type="date"
+                          value={scheduleData.date}
+                          onChange={(e) => setScheduleData(prev => ({ ...prev, date: e.target.value }))}
+                        />
+                      </div>
+                      <div className="space-y-2">
+                        <Label>Horário</Label>
+                        <Input
+                          type="time"
+                          value={scheduleData.time}
+                          onChange={(e) => setScheduleData(prev => ({ ...prev, time: e.target.value }))}
+                        />
+                      </div>
+                    </div>
                     <div className="space-y-2">
-                      <Label>Horário</Label>
-                      <Input
-                        type="time"
-                        value={scheduleData.time}
-                        onChange={(e) => setScheduleData(prev => ({ ...prev, time: e.target.value }))}
+                      <Label>Descrição (opcional)</Label>
+                      <Textarea
+                        placeholder="Pauta da reunião..."
+                        value={scheduleData.description}
+                        onChange={(e) => setScheduleData(prev => ({ ...prev, description: e.target.value }))}
+                        rows={3}
                       />
                     </div>
+
+                    {/* Invite collaborators */}
+                    <div className="space-y-2">
+                      <Label className="flex items-center gap-1.5">
+                        <UserPlus className="w-3.5 h-3.5" /> Convidar colaboradores
+                      </Label>
+                      {selectedMembers.length > 0 && (
+                        <div className="flex flex-wrap gap-1.5 mb-2">
+                          {selectedMembers.map(id => {
+                            const m = members.find(mb => mb.id === id);
+                            if (!m) return null;
+                            return (
+                              <Badge key={id} variant="secondary" className="gap-1 pr-1">
+                                <span className="text-xs">{m.name} {m.surname?.charAt(0)}.</span>
+                                <button onClick={() => toggleMember(id)} className="hover:text-destructive">
+                                  <X className="w-3 h-3" />
+                                </button>
+                              </Badge>
+                            );
+                          })}
+                        </div>
+                      )}
+                      <Popover open={memberSearchOpen} onOpenChange={setMemberSearchOpen}>
+                        <PopoverTrigger asChild>
+                          <Button variant="outline" size="sm" className="w-full justify-start text-xs text-muted-foreground h-9 gap-2">
+                            <Users className="w-3.5 h-3.5" />
+                            {selectedMembers.length > 0 ? `${selectedMembers.length} selecionado(s)` : "Selecionar membros..."}
+                          </Button>
+                        </PopoverTrigger>
+                        <PopoverContent className="w-72 p-2" align="start">
+                          <Input
+                            placeholder="Buscar membro..."
+                            value={memberSearch}
+                            onChange={(e) => setMemberSearch(e.target.value)}
+                            className="h-8 text-xs mb-2"
+                          />
+                          <ScrollArea className="max-h-48">
+                            <div className="space-y-0.5">
+                              {filteredMembers.map(m => {
+                                const isSelected = selectedMembers.includes(m.id);
+                                return (
+                                  <button
+                                    key={m.id}
+                                    onClick={() => toggleMember(m.id)}
+                                    className={cn(
+                                      "w-full flex items-center gap-2 px-2 py-1.5 rounded-md text-left text-xs transition-colors",
+                                      isSelected ? "bg-primary/10 text-primary" : "hover:bg-muted text-foreground"
+                                    )}
+                                  >
+                                    <Avatar className="w-6 h-6">
+                                      <AvatarImage src={m.avatar_url || ""} />
+                                      <AvatarFallback className="text-[10px]">{m.name?.charAt(0)}</AvatarFallback>
+                                    </Avatar>
+                                    <span className="flex-1 truncate">{m.name} {m.surname}</span>
+                                    {isSelected && <Check className="w-3.5 h-3.5 text-primary shrink-0" />}
+                                  </button>
+                                );
+                              })}
+                              {filteredMembers.length === 0 && (
+                                <p className="text-xs text-muted-foreground text-center py-3">Nenhum membro encontrado</p>
+                              )}
+                            </div>
+                          </ScrollArea>
+                        </PopoverContent>
+                      </Popover>
+                    </div>
+
+                    <Button onClick={handleSchedule} disabled={createMeeting.isPending} className="w-full">
+                      Agendar reunião
+                    </Button>
                   </div>
-                  <div className="space-y-2">
-                    <Label>Descrição (opcional)</Label>
-                    <Textarea
-                      placeholder="Pauta da reunião..."
-                      value={scheduleData.description}
-                      onChange={(e) => setScheduleData(prev => ({ ...prev, description: e.target.value }))}
-                      rows={3}
-                    />
+                ) : (
+                  /* Post-creation: show link + share options */
+                  <div className="space-y-5 pt-2">
+                    <div className="flex items-center gap-2 p-3 rounded-lg bg-muted border border-border">
+                      <div className="w-8 h-8 rounded-lg bg-primary/15 flex items-center justify-center shrink-0">
+                        <Video className="w-4 h-4 text-primary" />
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <p className="text-sm font-medium text-foreground truncate">{scheduleData.title}</p>
+                        <p className="text-[10px] text-muted-foreground">
+                          {scheduleData.date && format(new Date(scheduleData.date + "T12:00"), "dd/MM/yyyy")}
+                          {scheduleData.time && ` às ${scheduleData.time}`}
+                        </p>
+                      </div>
+                    </div>
+
+                    <div className="space-y-2">
+                      <Label className="flex items-center gap-1.5">
+                        <ExternalLink className="w-3.5 h-3.5" /> Link da reunião
+                      </Label>
+                      <p className="text-[10px] text-muted-foreground">Compartilhe este link com colaboradores internos ou clientes externos</p>
+                      <div className="flex gap-2">
+                        <Input readOnly value={createdLink} className="text-xs h-9 bg-muted" />
+                        <Button
+                          size="sm"
+                          variant="secondary"
+                          className="h-9 shrink-0 gap-1.5"
+                          onClick={() => {
+                            navigator.clipboard.writeText(createdLink!);
+                            toast.success("Link copiado!");
+                          }}
+                        >
+                          <Copy className="w-3.5 h-3.5" /> Copiar
+                        </Button>
+                      </div>
+                    </div>
+
+                    <div className="flex gap-2">
+                      <Button
+                        variant="outline"
+                        className="flex-1 gap-1.5 text-xs"
+                        onClick={() => {
+                          const code = createdLink!.split("/meetings/")[1];
+                          navigate(`/meetings/${code}`);
+                        }}
+                      >
+                        <ArrowRight className="w-3.5 h-3.5" /> Entrar agora
+                      </Button>
+                      <Button
+                        variant="default"
+                        className="flex-1 gap-1.5 text-xs"
+                        onClick={() => { setScheduleOpen(false); resetScheduleDialog(); }}
+                      >
+                        Concluir
+                      </Button>
+                    </div>
                   </div>
-                  <Button onClick={handleSchedule} disabled={createMeeting.isPending} className="w-full">
-                    Agendar reunião
-                  </Button>
-                </div>
+                )}
               </DialogContent>
             </Dialog>
 
