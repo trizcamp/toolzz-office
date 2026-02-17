@@ -90,11 +90,14 @@ export default function MeetingRoomPage() {
       if (localVideoRef.current) {
         localVideoRef.current.srcObject = stream;
       }
+      const audioTracks = stream.getAudioTracks();
+      console.log("[Meeting] Audio tracks:", audioTracks.length, audioTracks.map(t => ({ label: t.label, enabled: t.enabled, muted: t.muted, readyState: t.readyState })));
       // Also use this stream for transcription
       streamRef.current = stream;
       startTranscription(stream);
-    } catch {
-      toast.error("Não foi possível acessar câmera/microfone");
+    } catch (err) {
+      console.error("[Meeting] getUserMedia error:", err);
+      toast.error("Não foi possível acessar câmera/microfone. Verifique as permissões do navegador.");
     }
   };
 
@@ -189,6 +192,12 @@ export default function MeetingRoomPage() {
   const startTranscription = useCallback((stream: MediaStream) => {
     const audioContext = new AudioContext();
     audioContextRef.current = audioContext;
+    
+    // Resume AudioContext if suspended (browser autoplay policy)
+    if (audioContext.state === "suspended") {
+      audioContext.resume().then(() => console.log("[Meeting] AudioContext resumed"));
+    }
+    
     const source = audioContext.createMediaStreamSource(stream);
     const analyser = audioContext.createAnalyser();
     analyser.fftSize = 512;
@@ -197,6 +206,7 @@ export default function MeetingRoomPage() {
     analyserRef.current = analyser;
 
     const dataArray = new Uint8Array(analyser.frequencyBinCount);
+    let logCounter = 0;
     vadIntervalRef.current = setInterval(() => {
       if (!analyserRef.current) return;
       analyserRef.current.getByteTimeDomainData(dataArray);
@@ -209,6 +219,11 @@ export default function MeetingRoomPage() {
       const detected = rms > 2;
       setIsSpeechDetected(detected);
       if (detected) speechDetectedInChunkRef.current = true;
+      // Log every 30 ticks (~3s) for debugging
+      logCounter++;
+      if (logCounter % 30 === 0) {
+        console.log("[Meeting] VAD rms:", rms.toFixed(2), "detected:", detected, "audioCtx state:", audioContext.state);
+      }
     }, 100);
 
     const mimeType = MediaRecorder.isTypeSupported("audio/webm;codecs=opus")
