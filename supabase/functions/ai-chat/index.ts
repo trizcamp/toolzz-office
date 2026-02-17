@@ -94,12 +94,26 @@ Responda sempre em português brasileiro. Seja conciso, natural e conversacional
 
     // Handle tool calls
     if (choice?.message?.tool_calls) {
+      // Resolve board ID - use provided or fetch first available
+      let targetBoardId = boardId;
+      if (!targetBoardId && userId) {
+        const { data: firstBoard } = await supabase
+          .from("boards")
+          .select("id")
+          .limit(1)
+          .single();
+        targetBoardId = firstBoard?.id || null;
+      }
+      if (!targetBoardId) {
+        return new Response(JSON.stringify({
+          message: "Nenhum board encontrado. Crie um board primeiro para poder adicionar tarefas.",
+          createdTasks: [],
+        }), { headers: { ...corsHeaders, "Content-Type": "application/json" } });
+      }
+
       for (const toolCall of choice.message.tool_calls) {
         if (toolCall.function.name === "create_task") {
           const args = JSON.parse(toolCall.function.arguments);
-          
-          const targetBoardId = boardId;
-          if (!targetBoardId) continue;
 
           const taskType = args.type || "task";
           const { data: task, error: taskError } = await supabase
