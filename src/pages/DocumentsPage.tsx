@@ -1,5 +1,5 @@
 import { useState, useMemo, useCallback, useRef, useEffect } from "react";
-import { Plus, FileText, Link2, Maximize2, Minimize2 } from "lucide-react";
+import { Plus, FileText, Link2, Maximize2, Minimize2, Folder, ChevronLeft, FileIcon } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
@@ -24,15 +24,14 @@ export default function DocumentsPage() {
   const [newDocOpen, setNewDocOpen] = useState(false);
   const [newDocTitle, setNewDocTitle] = useState("");
   const [newDocTaskId, setNewDocTaskId] = useState<string>("none");
+  const [activeFolderId, setActiveFolderId] = useState<string | null>(null);
 
   const selectedDoc = documents.find((d: any) => d.id === selectedDocId) || null;
   const { blocks: dbBlocks, saveBlocks } = useDocumentBlocks(selectedDocId);
 
-  // Local block state — initialized from DB, not overwritten on refetch
   const [localBlocks, setLocalBlocks] = useState<Block[] | null>(null);
   const initializedDocRef = useRef<string | null>(null);
 
-  // Initialize local blocks when selecting a new document or when DB blocks first load
   useEffect(() => {
     if (!selectedDocId) {
       setLocalBlocks(null);
@@ -75,13 +74,44 @@ export default function DocumentsPage() {
     return allTasks.filter((t) => !docTaskIds.has(t.id));
   }, [allTasks, documents]);
 
+  // Group documents by board (via task.board_id)
+  const { folderData, unlinkedDocs } = useMemo(() => {
+    const boardMap = new Map<string, { board: any; docs: any[] }>();
+    const unlinked: any[] = [];
+
+    for (const doc of documents) {
+      const boardId = (doc as any).tasks?.board_id;
+      if (boardId) {
+        if (!boardMap.has(boardId)) {
+          const board = boards.find((b: any) => b.id === boardId);
+          boardMap.set(boardId, { board: board || { id: boardId, name: "Board", icon: "📋" }, docs: [] });
+        }
+        boardMap.get(boardId)!.docs.push(doc);
+      } else {
+        unlinked.push(doc);
+      }
+    }
+
+    return { folderData: Array.from(boardMap.values()), unlinkedDocs: unlinked };
+  }, [documents, boards]);
+
+  const activeFolderDocs = useMemo(() => {
+    if (activeFolderId === "__unlinked") return unlinkedDocs;
+    if (!activeFolderId) return [];
+    return folderData.find((f) => f.board.id === activeFolderId)?.docs || [];
+  }, [activeFolderId, folderData, unlinkedDocs]);
+
+  const activeFolderName = useMemo(() => {
+    if (activeFolderId === "__unlinked") return "Sem vínculo";
+    if (!activeFolderId) return "";
+    return folderData.find((f) => f.board.id === activeFolderId)?.board?.name || "Board";
+  }, [activeFolderId, folderData]);
+
   const saveTimeoutRef = useRef<ReturnType<typeof setTimeout>>();
 
   const handleBlocksChange = useCallback((blocks: Block[]) => {
     if (!selectedDocId) return;
-    // Update local state immediately
     setLocalBlocks(blocks);
-    // Debounced save to DB
     if (saveTimeoutRef.current) clearTimeout(saveTimeoutRef.current);
     saveTimeoutRef.current = setTimeout(() => {
       saveBlocks.mutate({
@@ -155,45 +185,86 @@ export default function DocumentsPage() {
     );
   }
 
+  const renderDocItem = (doc: any) => (
+    <button
+      key={doc.id}
+      onClick={() => { setSelectedDocId(doc.id); setFullscreen(false); }}
+      className={cn(
+        "w-full text-left px-3 py-2 rounded-lg transition-colors text-sm",
+        selectedDocId === doc.id ? "bg-surface-hover text-foreground" : "text-muted-foreground hover:text-foreground hover:bg-surface-hover"
+      )}
+    >
+      <div className="flex items-center gap-2">
+        <span className="text-sm">{doc.icon}</span>
+        <span className="truncate flex-1">{doc.title}</span>
+      </div>
+      <div className="flex items-center gap-2 mt-0.5 ml-6">
+        <Badge variant="secondary" className="text-[9px] px-1 py-0">{typeLabelsDoc[doc.type]}</Badge>
+        {doc.tasks && (
+          <span className="text-[9px] text-muted-foreground flex items-center gap-0.5">
+            <Link2 className="w-2.5 h-2.5" />{doc.tasks?.display_id}
+          </span>
+        )}
+      </div>
+    </button>
+  );
+
   return (
     <div className="h-full flex">
-      {/* Sidebar - doc list */}
+      {/* Sidebar */}
       <div className="w-64 border-r border-border flex flex-col shrink-0">
         <div className="px-4 py-3 border-b border-border flex items-center justify-between">
-          <h2 className="text-sm font-semibold text-foreground">Documentos</h2>
+          {activeFolderId ? (
+            <button
+              onClick={() => { setActiveFolderId(null); setSelectedDocId(null); }}
+              className="flex items-center gap-1.5 text-sm font-semibold text-foreground hover:text-muted-foreground transition-colors"
+            >
+              <ChevronLeft className="w-4 h-4" />
+              <span className="truncate">{activeFolderName}</span>
+            </button>
+          ) : (
+            <h2 className="text-sm font-semibold text-foreground">Documentos</h2>
+          )}
           <Button size="icon" variant="ghost" className="h-7 w-7" onClick={() => setNewDocOpen(true)}>
             <Plus className="w-4 h-4" />
           </Button>
         </div>
         <div className="flex-1 overflow-y-auto p-2 space-y-0.5">
           {isLoading ? (
-            <div className="space-y-2 p-2">{[1,2,3].map((i) => <Skeleton key={i} className="h-10 rounded" />)}</div>
-          ) : documents.length === 0 ? (
-            <p className="text-xs text-muted-foreground text-center py-4">Nenhum documento</p>
+            <div className="space-y-2 p-2">{[1, 2, 3].map((i) => <Skeleton key={i} className="h-10 rounded" />)}</div>
+          ) : activeFolderId ? (
+            activeFolderDocs.length === 0 ? (
+              <p className="text-xs text-muted-foreground text-center py-4">Nenhum documento nesta pasta</p>
+            ) : (
+              activeFolderDocs.map(renderDocItem)
+            )
           ) : (
-            documents.map((doc: any) => (
-              <button
-                key={doc.id}
-                onClick={() => { setSelectedDocId(doc.id); setFullscreen(false); }}
-                className={cn(
-                  "w-full text-left px-3 py-2 rounded-lg transition-colors text-sm",
-                  selectedDocId === doc.id ? "bg-surface-hover text-foreground" : "text-muted-foreground hover:text-foreground hover:bg-surface-hover"
-                )}
-              >
-                <div className="flex items-center gap-2">
-                  <span className="text-sm">{doc.icon}</span>
-                  <span className="truncate flex-1">{doc.title}</span>
-                </div>
-                <div className="flex items-center gap-2 mt-0.5 ml-6">
-                  <Badge variant="secondary" className="text-[9px] px-1 py-0">{typeLabelsDoc[doc.type]}</Badge>
-                  {doc.tasks && (
-                    <span className="text-[9px] text-muted-foreground flex items-center gap-0.5">
-                      <Link2 className="w-2.5 h-2.5" />{doc.tasks?.display_id}
-                    </span>
-                  )}
-                </div>
-              </button>
-            ))
+            <>
+              {folderData.length === 0 && unlinkedDocs.length === 0 && (
+                <p className="text-xs text-muted-foreground text-center py-4">Nenhum documento</p>
+              )}
+              {folderData.map(({ board, docs }) => (
+                <button
+                  key={board.id}
+                  onClick={() => setActiveFolderId(board.id)}
+                  className="w-full text-left px-3 py-2.5 rounded-lg transition-colors text-sm text-muted-foreground hover:text-foreground hover:bg-surface-hover flex items-center gap-2.5"
+                >
+                  <Folder className="w-4 h-4 text-primary/70 shrink-0" />
+                  <span className="truncate flex-1">{board.name}</span>
+                  <span className="text-[10px] text-muted-foreground/60 shrink-0">{docs.length}</span>
+                </button>
+              ))}
+              {unlinkedDocs.length > 0 && (
+                <button
+                  onClick={() => setActiveFolderId("__unlinked")}
+                  className="w-full text-left px-3 py-2.5 rounded-lg transition-colors text-sm text-muted-foreground hover:text-foreground hover:bg-surface-hover flex items-center gap-2.5"
+                >
+                  <FileIcon className="w-4 h-4 text-muted-foreground/50 shrink-0" />
+                  <span className="truncate flex-1">Sem vínculo</span>
+                  <span className="text-[10px] text-muted-foreground/60 shrink-0">{unlinkedDocs.length}</span>
+                </button>
+              )}
+            </>
           )}
         </div>
       </div>
