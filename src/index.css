@@ -113,3 +113,14 @@
     color: hsl(0 0% 100%);
   }
 }
+
+/* Colorize native date/time input icons */
+input[type="date"]::-webkit-calendar-picker-indicator,
+input[type="time"]::-webkit-calendar-picker-indicator {
+  filter: invert(0.6) sepia(1) saturate(3) hue-rotate(190deg);
+  cursor: pointer;
+}
+input[type="date"]::-webkit-calendar-picker-indicator:hover,
+input[type="time"]::-webkit-calendar-picker-indicator:hover {
+  filter: invert(0.8) sepia(1) saturate(3) hue-rotate(190deg);
+}
