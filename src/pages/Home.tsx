@@ -95,7 +95,7 @@ export default function HomePage() {
     <div className="h-full overflow-y-auto p-6 space-y-6">
       {/* Header */}
       <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }}>
-        <h1 className="text-2xl font-semibold text-foreground">{getGreeting()}, {userName}</h1>
+        <h1 className="text-2xl font-semibold text-foreground">Bem-vindo, {userName}</h1>
         <p className="text-sm text-muted-foreground capitalize">{today}</p>
       </motion.div>
 
